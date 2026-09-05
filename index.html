@@ -598,6 +598,20 @@ table.datatable tr.grp td{
 .track .vlab.b{ top:calc(50% + 9px); color:var(--slot-b); }
 .track .vlab small{ color:var(--dim); font-size:9.5px; margin-left:4px; }
 .track .vlab.none{ color:var(--faint); }
+/* E1 — the four states. 3 = hollow dots; 1 = a shaded band around A's value; 4 = one line. */
+.track .pt.hollow{ background:var(--bg); }
+.track .pt.a.hollow{ box-shadow:inset 0 0 0 2.5px var(--slot-a); }
+.track .pt.b.hollow{ box-shadow:inset 0 0 0 2.5px var(--slot-b); }
+.track .tone-band{ position:absolute; top:calc(50% - 8px); height:16px; border-radius:3px; background:var(--slot-a); opacity:.13; }
+.track .tone-range{ position:absolute; top:calc(50% - 2px); height:4px; border-radius:2px; opacity:.4; }
+.track .tone-range.a{ background:var(--slot-a); } .track .tone-range.b{ background:var(--slot-b); }
+.track .vlab[data-pop]{ cursor:help; }
+.track .vlab[data-pop]:hover{ text-decoration:underline dotted; }
+.tonerow.tone-s4 .tone-missing{ grid-column:2 / -1; font-size:11.5px; color:var(--dim); font-style:italic; line-height:1.4; }
+.tonerow.tone-s4 .tone-missing .ta{ color:var(--slot-a); font-style:normal; } .tonerow.tone-s4 .tone-missing .tb{ color:var(--slot-b); font-style:normal; }
+.tone-needs{ margin:6px 0 0 16px; padding:0; font-size:12px; line-height:1.55; color:var(--mut); }
+.tone-needs li.miss{ color:var(--warn); } .tone-needs li.met{ color:var(--mut); }
+.tone-needs li.met::marker{ content:"✓ "; } .tone-needs li.miss::marker{ content:"○ "; }
 .prose{
   font-size:13.5px; line-height:1.75; color:var(--mut); max-width:74ch;
   margin-top:16px; padding-top:14px; border-top:1px solid var(--hair);
@@ -7015,36 +7029,115 @@ function toneRecords(){
   }
   return {records:out, compat, typesDiffer};
 }
+// The one place a structured `missing` item becomes words. Each phrase is also the
+// instruction for next time — what to play so the row fills in.
+function missingPhrase(x, def){
+  const both=bothLoaded();
+  const n=v=>(v==null?"none":(Math.round(v*10)/10)+"");
+  switch(x.what){
+    case "notes": return "needs "+x.need+" pitched notes — "+n(x.have)+" here";
+    case "span": return "needs notes spanning "+x.need+" semitones — "+n(x.have)+" here";
+    case "snr": return "needs a quieter background — "+n(x.have)+" dB above the floor, "+x.need+" wanted";
+    case "tap": return "needs a tap on the bridge — three knocks, strings muted";
+    case "openE": return "needs the open E with "+x.need+" clean partials — "+(x.have?x.have+" here":"not found");
+    case "openA": return "needs the open A with "+x.need+" clean partials — "+(x.have?x.have+" here":"not found");
+    case "ring": return "needs "+x.need+" notes ringing "+RING_MIN_SEC+" s or more — "+n(x.have)+" here";
+    case "stage": return "needs "+x.need+" notes with a two-stage decay — "+n(x.have)+" here";
+    case "decays": return "needs "+x.need+(def&&def.term==="f0-decay"&&both?" notes both takes share":" notes with a measured decay")+" — "+n(x.have)+" here"+
+      (def&&def.term==="neck-sustain"?" · play frets 0, 3, 5, 7, 9 and 12 on every string":"");
+    case "attacks": return "needs "+x.need+" clean note attacks — "+n(x.have)+" here";
+    case "band": return "the gap is inside the audit's own spread ("+_fmtBand(x.log?{oct:x.need}:{abs:x.need},def||{})+") — a second take of either guitar would settle it";
+    case "analysis": return "re-analyse the take — it was measured before this row existed";
+    case "value": return x.reason||"not measurable on this take";
+    default: return "needs "+x.what;
+  }
+}
+function missingLine(list, def){ return (list||[]).map(x=>missingPhrase(x,def)).join(" · "); }
+const TONE_STATE_WORD={1:"measured, with a band", 2:"measured", 3:"partial — thin evidence", 4:"not measurable"};
+// Four visual states (SPEC 2026-09-05, E phase): 1 solid dots + a shaded band + a
+// verdict; 2 solid dots, nothing else; 3 hollow dots; 4 the title and one line. The
+// surface carries no sentence about reliability — the shape is the reliability. Rung-3
+// detail lives in the readout popover (click a value).
 function toneRowHtml(rec){
   const d=rec.def, both=bothLoaded();
-  const pos=v=>{ const p=d.log?Math.log(v/d.lo)/Math.log(d.hi/d.lo):(v-d.lo)/(d.hi-d.lo); return Math.max(0,Math.min(1,p))*100; };
   const name='<div class="tonename">'+termHtml(d.term,d.name)+'<small>'+esc(d.unit)+'</small></div>';
+  const attrs=' data-key="'+d.term+'" data-group="'+d.g+'" data-state="'+rec.state+'"';
+  if(rec.state===4&&!d.text){
+    // Collapsed: title plus one line naming what was missing (per side when the sides differ).
+    const sides=[0,1].filter(i=>state.slots[i]&&rec.evidence[i]).map(i=>({i, line:missingLine(rec.evidence[i].missing,d)}));
+    const uniq=[...new Set(sides.map(x=>x.line))];
+    const line=uniq.length===1?uniq[0]:sides.map(x=>'<span class="'+(x.i?"tb":"ta")+'">'+esc(slotLabel(x.i))+'</span> '+esc(x.line)).join(' &nbsp;·&nbsp; ');
+    return '<div class="tonerow tone-s4"'+attrs+'>'+name+'<div class="tone-missing">'+(uniq.length===1?esc(line):line)+'</div></div>';
+  }
+  const pos=v=>{ const p=d.log?Math.log(v/d.lo)/Math.log(d.hi/d.lo):(v-d.lo)/(d.hi-d.lo); return Math.max(0,Math.min(1,p))*100; };
   let rel="";
   if(both&&!d.text){
     const v=rec.verdict, b=rec.band;
     if(!v) rel="";
-    else if(v.kind==="diff") rel='<b>'+esc(v.text)+'</b>'+(b?'<br><span class="nd">band '+_fmtBand(b,d)+(b.provisional?" · provisional":"")+'</span>':"");
-    else if(v.kind==="same") rel='<b>not distinguishable</b><br><span class="nd">inside '+_fmtBand(b,d)+(b.provisional?" · provisional":"")+'</span>';
+    else if(v.kind==="diff") rel='<b>'+esc(v.text)+'</b>'+(b?'<br><span class="nd">band '+_fmtBand(b,d)+'</span>':"");
+    else if(v.kind==="same") rel='<b>'+esc(v.text)+'</b><br><span class="nd">inside '+_fmtBand(b,d)+'</span>';
     else if(v.kind==="repeat") rel='<b>'+esc(v.text)+'</b><br><span class="nd">same guitar — Save keeps it as the band</span>';
     else rel='<span class="blocked">'+esc(v.text)+'</span>';
   }
   if(d.text){
     const line=(i,t)=>state.slots[i]?'<span class="'+(i?"tb":"ta")+'">'+(t||'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span>':"";
-    return '<div class="tonerow text" data-key="'+d.term+'" data-group="'+d.g+'">'+name+'<div class="axend lo"></div><div class="track">'+line(0,rec.aText)+line(1,rec.bText)+'</div><div class="axend hi"></div><div class="rel">'+rel+'</div></div>';
+    return '<div class="tonerow text"'+attrs+'>'+name+'<div class="axend lo"></div><div class="track">'+line(0,rec.aText)+line(1,rec.bText)+'</div><div class="axend hi"></div><div class="rel">'+rel+'</div></div>';
   }
   const vals=[rec.a,rec.b];
-  const pts=[0,1].map(i=>vals[i]!=null?'<span class="pt '+(i?"b":"a")+'" style="left:'+pos(vals[i]).toFixed(1)+'%"></span>':"").join("");
+  // State 1: the measured band, shaded around A's value, so the eye sees whether B falls inside it.
+  let band="";
+  if(rec.state===1&&rec.band&&vals[0]!=null){
+    const w=rec.band.oct!=null?rec.band.oct:rec.band.abs;
+    const lo=rec.band.oct!=null?vals[0]/Math.pow(2,w):vals[0]-w, hi=rec.band.oct!=null?vals[0]*Math.pow(2,w):vals[0]+w;
+    const x0=pos(lo), x1=pos(hi);
+    band='<span class="tone-band" style="left:'+x0.toFixed(1)+'%;width:'+Math.max(0.5,x1-x0).toFixed(1)+'%"></span>';
+  }
+  const ranges=[0,1].map(i=>{ if(vals[i]==null||!d.range||!state.slots[i]) return ""; let r=null; try{ r=d.range(state.slots[i]); }catch(_e){}
+    if(!r) return ""; const x0=pos(r[0]), x1=pos(r[1]); return '<span class="tone-range '+(i?"b":"a")+'" style="left:'+x0.toFixed(1)+'%;width:'+Math.max(0.5,x1-x0).toFixed(1)+'%"></span>'; }).join("");
+  const pts=[0,1].map(i=>{ if(vals[i]==null) return ""; const hollow=rec.evidence[i]&&rec.evidence[i].state>=3;
+    return '<span class="pt '+(i?"b":"a")+(hollow?" hollow":"")+'" style="left:'+pos(vals[i]).toFixed(1)+'%"></span>'; }).join("");
   const labs=[0,1].map(i=>{
-    if(!state.slots[i]) return "";
+    if(!state.slots[i]||!rec.evidence[i]) return "";
     const cls="vlab "+(i?"b":"a");
-    if(vals[i]==null) return '<span class="'+cls+' none reason" style="left:50%">'+esc(rec.reason[i]||"—")+'</span>';
+    if(vals[i]==null) return '<span class="'+cls+' none reason" style="left:50%">'+esc(missingLine(rec.evidence[i].missing,d)||rec.reason[i]||"—")+'</span>';
     const lp=Math.max(6,Math.min(94,pos(vals[i])));
-    return '<span class="'+cls+'" style="left:'+lp.toFixed(1)+'%">'+(i?rec.bText:rec.aText)+'</span>';
+    return '<span class="'+cls+'" data-pop="'+d.term+':'+i+'" title="What is behind this number" style="left:'+lp.toFixed(1)+'%">'+(i?rec.bText:rec.aText)+'</span>';
   }).join("");
   const zero=d.zero!=null?'<span class="zero" style="left:'+pos(d.zero).toFixed(1)+'%"></span>':"";
   const blockedCls=rec.verdict&&(rec.verdict.kind==="blocked"||rec.verdict.kind==="types")?" blocked":"";
-  return '<div class="tonerow'+blockedCls+'" data-key="'+d.term+'" data-group="'+d.g+'">'+name+'<div class="axend lo">'+d.ticks[0]+
-         '</div><div class="track">'+zero+pts+labs+'</div><div class="axend hi">'+d.ticks[1]+'</div><div class="rel">'+rel+'</div></div>';
+  return '<div class="tonerow tone-s'+rec.state+blockedCls+'"'+attrs+'>'+name+'<div class="axend lo">'+d.ticks[0]+
+         '</div><div class="track">'+band+ranges+zero+pts+labs+'</div><div class="axend hi">'+d.ticks[1]+'</div><div class="rel">'+rel+'</div></div>';
+}
+// The readout popover: the number, its rung-3 detail, what the row needed and what the
+// take supplied, the band, the verdict — and a door to the full method. Same popover
+// element and the same gesture as every term.
+function openTonePop(key,i,anchor){
+  const {records}=toneRecords(); const rec=records.find(r=>r.key===key); const s=state.slots[i];
+  if(!rec||!s||!rec.evidence[i]) return;
+  const d=rec.def, ev=rec.evidence[i], val=i?rec.b:rec.a, txt=i?rec.bText:rec.aText;
+  const sec=(label,inner)=>'<div class="pop-sec"><div class="pop-label">'+label+'</div>'+inner+'</div>';
+  const p=t=>'<p>'+t+'</p>';
+  const dotCls=i?"var(--slot-b)":"var(--slot-a)";
+  let html='<div class="pop-term">'+esc(d.name)+'</div><div class="pop-cat">'+esc(slotLabel(i))+' · '+esc(TONE_STATE_WORD[rec.state]||"")+'</div>';
+  html+=sec("This number",'<div class="pop-vals"><div class="pop-val"><span class="dot" style="background:'+dotCls+'"></span><span class="l">'+esc(slotDesc(i,20))+'</span><span class="v">'+
+    (val!=null?txt:'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span></div></div>'+(rec.detail[i]?p(rec.detail[i]):""));
+  const needs=[]; for(const what in ev.need){ const miss=ev.missing.find(x=>x.what===what); needs.push(miss?'<li class="miss">'+esc(missingPhrase(miss,d))+'</li>':'<li class="met">'+esc(_needPhrase(what,ev.need[what],ev.have[what]))+'</li>'); }
+  const rowMiss=(rec.missing||[]).map(x=>'<li class="miss">'+esc(missingPhrase(x,d))+'</li>');
+  html+=sec("What it rests on",(needs.length||rowMiss.length)?'<ul class="tone-needs">'+needs.join("")+rowMiss.join("")+'</ul>':p("A fact about the take — nothing to earn."));
+  if(rec.band) html+=sec("The band",p(rec.band.measured?"Measured on your own takes: ±"+esc(_fmtBand(rec.band,d))+" — a gap inside it is not distinguishable, a gap outside it is a verdict."
+    :"No band measured yet. The audit's provisional spread is "+esc(_fmtBand(rec.band,d))+"; it only decides whether a gap counts as thin, never a verdict. Two takes of one guitar measure yours."));
+  if(rec.verdict) html+=sec("Verdict",p(esc(rec.verdict.text)));
+  html+=sec("Method",p(termHtml(d.term,"The full measurement")+" — musician’s ear, the physics, and how it is computed."));
+  stopPlayback();
+  popover.innerHTML=html;
+  popover.classList.add("open");
+  placePopover(anchor);
+}
+function _needPhrase(what,need,have){
+  const h=(have==null?"":" — "+(Math.round(have*10)/10)+" here");
+  return ({notes:need+" pitched notes", span:"notes spanning "+need+" semitones", snr:"at least "+need+" dB above the floor", tap:"a tap on the bridge",
+    openE:"the open E with "+need+" clean partials", openA:"the open A with "+need+" clean partials", ring:need+" notes ringing "+RING_MIN_SEC+" s or more",
+    stage:need+" notes with a two-stage decay", decays:need+" notes with a measured decay", attacks:need+" clean note attacks"}[what]||what)+h;
 }
 function renderToneRows(){
   if(!anyLoaded()) return;
@@ -10193,6 +10286,8 @@ function boot(){
     if(e._gsTermHandled) return;
     const t=e.target.closest?e.target.closest(".term"):null;
     if(t){ e._gsTermHandled=true; openPopover(t.dataset.term,t.getBoundingClientRect()); return; }
+    const vl=e.target.closest?e.target.closest(".vlab[data-pop]"):null;
+    if(vl){ e._gsTermHandled=true; const [k,i]=vl.dataset.pop.split(":"); openTonePop(k,+i,vl.getBoundingClientRect()); return; }
     if(popover.classList.contains("open")&&!popover.contains(e.target)) closePopover();
   });
   document.addEventListener("keydown",e=>{
