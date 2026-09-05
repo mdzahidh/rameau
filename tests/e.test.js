@@ -259,5 +259,29 @@ section("E2.4–E2.6 — the card: name headline, take list, readiness, one Play
   ok(/s\.tvis\.onsets/.test(dw) && /a>=0\.999/.test(dw) && /const clipCol="#d94a3d";/.test(dw), "the waveform draws the onset ticks and clipping in the meter's red");
 }
 
+section("E3 — the guided take: unlocks from TONE_EVIDENCE, the analysis onset detector, protocol on the take");
+{
+  const b4 = blocks[4];
+  const lit = b4.slice(b4.indexOf("const REC_PROTOCOL=["), b4.indexOf("];", b4.indexOf("const REC_PROTOCOL=[")) + 2);
+  const proto = new Function(lit + " return REC_PROTOCOL;")();
+  ok(proto.length === 6 && proto.map(s => s.id).join(",") === "silence,open,walk,anchors,tap,mic", "six steps in the briefed order", proto.map(s => s.id).join(","));
+  const bad = proto.flatMap(s => s.unlocks).filter(k => !D.TONE_EVIDENCE[k]);
+  ok(bad.length === 0 && proto.flatMap(s => s.unlocks).length >= 10, "every unlocks key is a TONE_EVIDENCE key — the manifest is the source", bad.join(","));
+  ok(/for\(const st of REC_PROTOCOL\) for\(const k of st\.unlocks\) if\(!TONE_EVIDENCE\[k\]\) throw/.test(b4), "…and the page refuses to load a step that unlocks an unknown row");
+  ok(proto.find(s => s.id === "tap").when === "hollow" && proto.find(s => s.id === "mic").when === "mic" && proto.find(s => s.id === "silence").advance === "seconds:3", "tap is hollow-only, mic placement is mic-only, silence counts three seconds");
+  const gt = body("guidedTick");
+  ok(/const sb=stftBands\(x,rate,\[\[60,200\],\[200,1200\],\[2000,6000\]\]\);/.test(gt) && /g\.count=detectOnsets\(sb\.flux,sb\.frameRate\)\.length;/.test(gt),
+    "the step advance counts onsets with the analysis's own detector on the analysis's own bands — one detector");
+  ok(/if\(cap\.guide\) guidedTick\(cap,cards\[i\]\);/.test(b4), "…driven from the capture's existing tick, no new node and no new pass");
+  const ga = body("_guideAdvance");
+  ok(/snr<REC_GUIDE_SNR_MIN/.test(ga) && /stopCapture\(false\);/.test(ga) && /const REC_GUIDE_SNR_MIN=40;/.test(b4), "a first played step under 40 dB above the measured floor stops the take with one sentence");
+  ok(/landRecording\(i,buf,cap\.proc,guideProtocol\(cap\)\);/.test(b4) && /protocol:protocol\|\|null \},seq,append\)/.test(b4) && /protocol:meta\.protocol\|\|null \}/.test(b4),
+    "the landed take carries protocol {version, stepsDone, skipped} in its facts — and so in the snapshot");
+  ok(/recGuided:!!state\.recGuided,/.test(body("_settingsPayload")) && /if\(typeof j\.recGuided==="boolean"\) state\.recGuided=j\.recGuided;/.test(b4), "the Guided switch is remembered additively; absent → on");
+  ok(/data-recguided/.test(body("renderCard")) && /data-act="recskip"/.test(body("guideHtml")), "the arming panel has the switch and a running step can be skipped");
+  ok(/skippedFor\(r\.def\.term\)/.test(body("openReadinessPop")), "the readiness tap names the skipped step beside the row it would have fed");
+  ok(/<h4>The guided take<\/h4>/.test(html) && /<h4>What to play — three parts, in this order<\/h4>/.test(html), "the recording guide gained one paragraph and lost nothing");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -390,6 +390,10 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .typelbl{ font-size:11px; color:var(--dim); display:inline-flex; align-items:center; gap:4px; }
 .typelbl .slottype{ margin-right:0; }
 /* E2.5: readiness — one dot and one phrase; the tap is the numbers */
+.recstep{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--mut); margin:6px 0; padding:8px 10px; border:1px solid var(--hair); border-radius:6px; background:var(--panel2); }
+.recstep .k{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); flex:none; }
+.recstep b{ color:var(--ink); font-weight:500; flex:1 1 200px; }
+.recstep .recprog{ font-variant-numeric:tabular-nums; color:var(--dim); flex:none; }
 .readiness{ font:inherit; font-size:11px; color:var(--mut); background:transparent; border:0; padding:0; cursor:help; display:inline-flex; align-items:center; gap:6px; margin-left:auto; flex:none; }
 .readiness:hover{ color:var(--ink); }
 .readiness .rdot{ width:9px; height:9px; border-radius:50%; background:#3aa55d; flex:none; }
@@ -1464,6 +1468,14 @@ kbd{
       <li>Different pickup outputs are fine — the Level-match switch in the top bar removes
         broadband level differences in the analysis; distortion cannot be removed.</li>
     </ul>
+
+    <h4>The guided take</h4>
+    <p>Pressing ● Record with <b>Guided</b> on walks you through the material below one step
+      at a time — three seconds of silence, the six open strings, a neck walk (frets 0, 3, 5,
+      7, 9 and 12 on every string), anchors at the 5th fret, and a tap test for hollow or
+      acoustic guitars — advancing as it hears you play, each step labelled by the rows it
+      unlocks. Skip any step; the rows it feeds simply stay at whatever the rest supports. A
+      second guided take of the same guitar turns its rows from measured into banded.</p>
 
     <h4>What to play — three parts, in this order</h4>
     <ul>
@@ -5472,7 +5484,7 @@ async function finishSlotFromBuffer(i,audioBuf,meta,seq,append){
     info:{ container:meta.container,
            sampleRate:meta.sampleRate!=null?meta.sampleRate:audioBuf.sampleRate,
            channels:meta.channels!=null?meta.channels:audioBuf.numberOfChannels,
-           bitDepth:meta.bitDepth, processing:meta.processing||null },
+           bitDepth:meta.bitDepth, processing:meta.processing||null, protocol:meta.protocol||null },
     duration:audioBuf.duration, samples:null, audioBuf,
     channelMode:meta.channelMode||"mid", metrics:{}
   };
@@ -7795,6 +7807,8 @@ function renderCard(i){
         '<div class="recnote rectip">Play as loud as you mean to record, then set the gain on '+
           'your interface or amp so the meter peaks around <b>−12 dB</b> — the mark on the bar — '+
           'with peaks safely under 0. Leave it there for the other guitar.</div>'+
+        '<div class="recrow"><label class="switch" title="Step-by-step prompts: silence, open strings, a neck walk, anchors'+(slotType(i)!=="solid"?", a tap test":"")+' — each step labelled by the rows it unlocks. Off records a free take."><input type="checkbox" data-recguided'+(state.recGuided?" checked":"")+'><span class="tk"></span><span class="lbl">Guided</span></label>'+
+          '<span class="recnote" style="margin:0">'+(state.recGuided?"prompts advance as you play; skip any step":"a free take — the rows it supports fill in afterwards")+'</span></div>'+
         '<div class="recrow"><button class="btn" data-act="recstart">● Start recording</button></div>';
     }
     card.innerHTML=head+'<div class="recpanel">'+body+'</div>';
@@ -7810,6 +7824,7 @@ function renderCard(i){
       '</span><span class="filename">Recording guitar '+letter+'…</span></div>'+
       '<div class="recpanel"><div class="recrow"><span class="recdot">●</span>'+
       '<span class="rectimer">'+fmtElapsed(Date.now()-(ui.t0||Date.now()))+'</span></div>'+
+      (recCap&&recCap.i===i?guideHtml(recCap):"")+
       '<div class="recrow"><div class="levelmeter"><div class="levelbar"><i></i><b></b></div>'+
       '<span class="levelpeak" title="Peak level of the channel being recorded, dB re full scale">—</span></div></div>'+
       '<div class="recnote">'+(ui.starting?"Opening the input…":bits.join(" · "))+'</div>'+
@@ -7899,10 +7914,12 @@ function openReadinessPop(i,k,anchor){
   const nums=[]; if(m.levelRms!=null) nums.push("RMS "+m.levelRms.toFixed(1)+" dBFS"); if(m.levelPeak!=null) nums.push("peak "+m.levelPeak.toFixed(1)+" dBFS");
   if(m.noiseFloor!=null) nums.push("floor "+m.noiseFloor.toFixed(0)+" dBFS"); if(m.snr!=null) nums.push("SNR "+m.snr.toFixed(0)+" dB");
   if(m.clipped) nums.push("clipped — "+m.clipCount+" samples"); if(m.onsetCount!=null) nums.push(m.onsetCount+" onsets"); if(m.pitched!=null) nums.push(m.pitched+" pitched notes");
-  const missing=rd.rows.filter(r=>r.e.state>2).map(r=>'<li class="miss"><b>'+esc(r.def.name)+'</b> — '+esc(missingLine(r.e.missing,r.def)||"not measurable")+'</li>');
+  const pr=t.info&&t.info.protocol;
+  const skippedFor=key=>pr&&Array.isArray(pr.skipped)?REC_PROTOCOL.filter(st=>pr.skipped.includes(st.id)&&st.unlocks.includes(key)).map(st=>st.name):[];
+  const missing=rd.rows.filter(r=>r.e.state>2).map(r=>{ const sk=skippedFor(r.def.term); return '<li class="miss"><b>'+esc(r.def.name)+'</b> — '+(sk.length?esc(sk.join(", ")+" skipped · "):"")+esc(missingLine(r.e.missing,r.def)||"not measurable")+'</li>'; });
   const met=rd.rows.filter(r=>r.e.state<=2).map(r=>esc(r.def.name));
   let html='<div class="pop-term">'+esc(rd.head)+'</div><div class="pop-cat">'+esc(slotLabel(i))+' · '+esc(t.name)+'</div>';
-  html+=sec("The take",'<p>'+esc(nums.join(" · "))+'</p>');
+  html+=sec("The take",'<p>'+esc(nums.join(" · "))+'</p>'+(pr?'<p>Guided take v'+esc(String(pr.version))+' — done: '+esc((pr.stepsDone||[]).map(id=>(REC_PROTOCOL.find(st=>st.id===id)||{name:id}).name).join(", ")||"nothing")+(pr.skipped&&pr.skipped.length?' · skipped: '+esc(pr.skipped.map(id=>(REC_PROTOCOL.find(st=>st.id===id)||{name:id}).name).join(", ")):"")+'</p>':""));
   html+=sec("Supports "+rd.supported+" of "+rd.total+" rows",'<p>'+(met.length?met.join(", "):"—")+'</p>');
   if(missing.length) html+=sec("Not yet",'<ul class="tone-needs">'+missing.join("")+'</ul>');
   stopPlayback(); popover.innerHTML=html; popover.classList.add("open"); placePopover(anchor);
@@ -7931,6 +7948,96 @@ function drawWave(i){
   for(const t of (s.tvis.onsets||[])){ const x=Math.round(t/dur*w); ctx.fillRect(x,0,1,4); ctx.fillRect(x,h-4,1,4); }
   const pos=Math.min(dur,cardSeek[i]?cardPos[i]:cardPosNow(i));
   if(dur>0){ const x=Math.round(pos/dur*w); ctx.fillStyle=cssColor("slot-c"); ctx.fillRect(x,0,2,h); }
+}
+// ---------- E3: the guided take ----------
+// An ordered step table over M5's capture. Each step's `unlocks` names the tone rows its
+// material feeds, and every key is checked against TONE_EVIDENCE at load — the manifest
+// is the source, this table only points at it. `advance` is read by guidedTick():
+// seconds:n counts the clock, onsets:n / taps:n count onsets from the SAME detector the
+// analysis uses (stftBands → detectOnsets) over the step's own samples. `when` gates a
+// step on the slot's type ("hollow") or the recording path ("mic" — E6 supplies the
+// detector; until then a mic step is never active).
+const REC_PROTOCOL_VERSION=1;
+const REC_PROTOCOL=[
+  {id:"silence", name:"silence", prompt:"Don't play for three seconds — this sets the noise floor.", unlocks:[], when:"always", advance:"seconds:3"},
+  {id:"open", name:"open strings", prompt:"Pluck the six open strings one at a time, low to high, and let each ring to silence.", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6"},
+  {id:"walk", name:"neck walk", prompt:"Neck walk: frets 0, 3, 5, 7, 9 and 12 on every string, about a second and a half each.", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36"},
+  {id:"anchors", name:"anchors", prompt:"Anchors: the 5th fret on each string, three plucks each — medium pick, over the neck pickup.", unlocks:["attack-spectrum","bloom"], when:"always", advance:"onsets:18"},
+  {id:"tap", name:"tap test", prompt:"Mute the strings with your palm and knock the bridge three times.", unlocks:["body-resonance"], when:"hollow", advance:"taps:3"},
+  {id:"mic", name:"mic placement", prompt:"Mark where the microphone stands — it must not move for the other guitar.", unlocks:[], when:"mic", advance:"seconds:3"},
+];
+for(const st of REC_PROTOCOL) for(const k of st.unlocks) if(!TONE_EVIDENCE[k]) throw new Error("REC_PROTOCOL step "+st.id+" unlocks an unknown row: "+k);
+const REC_GUIDE_SNR_MIN=40;   // dB above the measured floor the open strings must reach, or the take is stopped
+state.recGuided=true;         // the Guided switch; remembered in gsSettings (additive key)
+function guidedStepsFor(i){
+  const t=slotType(i);
+  return REC_PROTOCOL.filter(st=>st.when==="always"||(st.when==="hollow"&&t!=="solid"));
+}
+function _guideProgressText(g){
+  const st=g.steps[g.idx]; if(!st) return "All steps done — stop when you're ready, or keep playing.";
+  const [kind,n]=st.advance.split(":");
+  if(kind==="seconds") return Math.min(+n,Math.floor(g.elapsed))+" / "+n+" s";
+  return g.count+" / "+n+(kind==="taps"?" knocks":" notes");
+}
+function guideHtml(cap){
+  const g=cap.guide; if(!g) return "";
+  const st=g.steps[g.idx];
+  return '<div class="recstep">'+(st?'<span class="k">Step '+(g.idx+1)+' of '+g.steps.length+' · '+esc(st.name)+'</span><b>'+esc(st.prompt)+'</b>':'<b>'+esc(_guideProgressText(g))+'</b>')+
+    '<span class="recprog">'+(st?esc(_guideProgressText(g)):"")+'</span>'+
+    (st?'<button class="iconbtn" data-act="recskip" title="Skip this step — the rows it feeds stay at whatever the rest supports">Skip</button>':"")+'</div>';
+}
+// Called from the capture's own 100 ms tick. Cheap ticks count the clock; every fifth one
+// re-runs the onset detector over the step's samples so far.
+function guidedTick(cap,card){
+  const g=cap.guide; if(!g||cap.stopping) return;
+  const st=g.steps[g.idx]; const rate=cap.ctx.sampleRate;
+  g.elapsed=(cap.total-g.stepStart)/rate;
+  if(st){
+    const [kind,n]=st.advance.split(":");
+    if(kind==="seconds"){ if(g.elapsed>=+n) _guideAdvance(cap,false); }
+    else if((++g.ticks)%5===0){
+      const x=_guideStepSamples(cap);
+      if(x&&x.length>4096){
+        const sb=stftBands(x,rate,[[60,200],[200,1200],[2000,6000]]);
+        g.count=detectOnsets(sb.flux,sb.frameRate).length;
+        if(g.count>=+n) _guideAdvance(cap,false);
+      }
+    }
+  }
+  const el=card&&card.querySelector(".recstep");
+  if(el){ const nh=guideHtml(cap); if(el.outerHTML!==nh) el.outerHTML=nh; }
+}
+function _guideStepSamples(cap){
+  const g=cap.guide; let n=0; for(const c of g.acc) n+=c.length;
+  const x=new Float32Array(n); let o=0; for(const c of g.acc){ x.set(c,o); o+=c.length; }
+  return x;
+}
+function _guideAdvance(cap,skipped){
+  const g=cap.guide; const st=g.steps[g.idx]; if(!st) return;
+  const rate=cap.ctx.sampleRate;
+  if(st.id==="silence"&&!skipped){
+    const x=_guideStepSamples(cap); let ss=0; for(let k=0;k<x.length;k++) ss+=x[k]*x[k];
+    g.floorDb=x.length?10*Math.log10(Math.max(ss/x.length,1e-20)):null;
+  }
+  if(!skipped&&st.advance.indexOf("onsets:")===0&&g.floorDb!=null&&g.snrChecked!==true){
+    // The first played step judges the take against the floor the silence measured.
+    g.snrChecked=true;
+    const x=_guideStepSamples(cap); const rms=shortTermRms(x,rate); let pk=-Infinity; for(let k=0;k<rms.length;k++) if(rms[k]>pk) pk=rms[k];
+    const snr=pk-g.floorDb;
+    if(isFinite(snr)&&snr<REC_GUIDE_SNR_MIN){
+      stopCapture(false);
+      toast("Stopped — the guitar sat only "+snr.toFixed(0)+" dB above the background; bring the noise down or the guitar up and record again.",true);
+      return;
+    }
+  }
+  (skipped?g.skipped:g.done).push(st.id);
+  g.idx++; g.stepStart=cap.total; g.acc.length=0; g.count=0; g.ticks=0; g.elapsed=0;
+}
+function guidedSkip(){ const cap=recCap; if(cap&&cap.guide) _guideAdvance(cap,true); }
+function guideProtocol(cap){
+  const g=cap&&cap.guide; if(!g) return null;
+  const st=g.steps[g.idx]; if(st&&!g.done.includes(st.id)&&!g.skipped.includes(st.id)) g.skipped.push(st.id);   // stopped mid-step
+  return {version:REC_PROTOCOL_VERSION, stepsDone:g.done.slice(), skipped:g.skipped.slice(), floorDb:g.floorDb};
 }
 // ---------- M5: record a take straight into a slot ----------
 // Two decisions carry this whole section.
@@ -8337,7 +8444,8 @@ async function _startCapture(i,deviceId,sel,prev){
   const cap={ i:i, prev:prev, sel:use, nch:nch, keep:(use>0?1:(nch<=2?nch:1)),
               stream:stream, ctx:ctx, src:src, sp:sp, sink:sink,
               chunks:[], total:0, t0:Date.now(), timer:null, stopping:false, heard:false,
-              mPk:0, mSq:0, mN:0, pkHold:-100, pkHoldT:0, proc:inf.proc };
+              mPk:0, mSq:0, mN:0, pkHold:-100, pkHoldT:0, proc:inf.proc,
+              guide:state.recGuided?{steps:guidedStepsFor(i), idx:0, stepStart:0, acc:[], count:0, ticks:0, elapsed:0, done:[], skipped:[], floorDb:null}:null };
   // Reduce online, so a long take stays bounded: 10 ch x 48 kHz x 4 B is 1.9 MB/s.
   // With <=2 channels and no channel picked we keep both, so the Mid/L/R segment
   // behaves exactly as it does for a dropped stereo file.
@@ -8368,6 +8476,7 @@ async function _startCapture(i,deviceId,sel,prev){
       cap.mN+=N;
     }
     if(cap.mPk>0) cap.heard=true;
+    if(cap.guide) cap.guide.acc.push(out.length>1?(()=>{ const m=new Float32Array(N); for(const d of out) for(let k=0;k<N;k++) m[k]+=d[k]/out.length; return m; })():out[0]);
     cap.chunks.push(out); cap.total+=N;
     const o=e.outputBuffer.getChannelData(0); for(let k=0;k<N;k++) o[k]=0;
   };
@@ -8384,7 +8493,7 @@ async function _startCapture(i,deviceId,sel,prev){
   // 100 ms, not 250: this tick now moves a bar as well as a clock, and a level meter
   // that lags a pick attack is not telling you about the pick attack. The clock rounds
   // to whole seconds, so writing it four times as often changes nothing it prints.
-  cap.timer=setInterval(()=>{ paintLevel(cap,cards[i]); },100);
+  cap.timer=setInterval(()=>{ paintLevel(cap,cards[i]); if(cap.guide) guidedTick(cap,cards[i]); },100);
 }
 function _takeBuffer(cap){
   const n=cap.total; if(!n) return null;
@@ -8418,9 +8527,9 @@ function stopCapture(save){
       : "Nothing was captured — the input stayed silent.",true);
     return;
   }
-  landRecording(i,buf,cap.proc);
+  landRecording(i,buf,cap.proc,guideProtocol(cap));
 }
-async function landRecording(i,buf,proc){
+async function landRecording(i,buf,proc,protocol){
   const seq=++loadSeq[i];
   const name=recTakeName();
   if(!(buf.sampleRate>=8000&&buf.sampleRate<=384000)){
@@ -8436,7 +8545,7 @@ async function landRecording(i,buf,proc){
   try{
     await finishSlotFromBuffer(i,buf,{ name:name, kind:"recording", container:"Live input",
       sampleRate:buf.sampleRate, channels:buf.numberOfChannels,
-      bitDepth:"32-bit float", channelMode:"mid", processing:proc||null },seq,append);
+      bitDepth:"32-bit float", channelMode:"mid", processing:proc||null, protocol:protocol||null },seq,append);
   }catch(err){
     if(seq!==loadSeq[i]) return;
     if(append&&state.slots[i]){ cardUI[i]={mode:"loaded"}; renderCard(i); toast("The take could not be measured.",true); return; }
@@ -9773,7 +9882,7 @@ function _settingsPayload(){
     a4:state.a4, smooth:state.smooth, eqDevice:state.eqDevice, eqDir:state.eqDir,
     vocab:state.vocab, strings:state.strings, stringHarmonics:state.stringHarmonics.map(a=>a.slice()),
     stringColors:(state.stringColors||STRING_COLORS).slice(),
-    recDevice:state.recDevice, recChannel:state.recChannel,
+    recDevice:state.recDevice, recChannel:state.recChannel, recGuided:!!state.recGuided,
     toneBands:state.toneBands||{}, toneBandsAt:state.toneBandsAt||null};
 }
 function saveSettings(){
@@ -9810,6 +9919,7 @@ function loadSettings(){
         // in a v4 payload written before M5, and absent means "the default input".
         if(typeof j.recDevice==="string"&&j.recDevice) state.recDevice=j.recDevice;
         if(isFinite(j.recChannel)&&j.recChannel>=0&&j.recChannel<=REC_MAX_CH) state.recChannel=j.recChannel|0;
+        if(typeof j.recGuided==="boolean") state.recGuided=j.recGuided;   // E3, additive: absent → on
         if(j.toneBands&&typeof j.toneBands==="object"){
           state.toneBands={};
           for(const k in j.toneBands){ const b=j.toneBands[k]; if(b&&TONE_BANDS_DEFAULT[k]&&isFinite(b.v)&&b.v>=0) state.toneBands[k]={v:+b.v}; }
@@ -10594,6 +10704,7 @@ function boot(){
         else if(a==="recstart") startCapture(i);
         else if(a==="recstop") stopCapture(true);
         else if(a==="recdiscard") stopCapture(false);
+        else if(a==="recskip") guidedSkip();
         else if(a==="reccancel") cancelArming(i);
         else clearSlot(i);
         return;
@@ -10629,6 +10740,8 @@ function boot(){
       if(dv){ state.recDevice=dv.value||null; state.recChannel=0; saveSettings(); renderCard(i); ensureRecChannels(i); return; }
       const cn=e.target.closest("[data-recchan]");
       if(cn){ state.recChannel=+cn.value||0; saveSettings(); syncMonitor(i); return; }
+      const gd=e.target.closest("[data-recguided]");
+      if(gd){ state.recGuided=!!gd.checked; saveSettings(); renderCard(i); return; }
     });
     fileInputs[i].addEventListener("change",()=>{
       const f=fileInputs[i].files[0], pf=pendingFile[i]; pendingFile[i]=null;
