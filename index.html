@@ -340,7 +340,7 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 }
 .slotchip:hover{ box-shadow:0 0 0 2px var(--hair2); }
 .colorpop{
-  position:absolute; z-index:60; display:none; width:224px;
+  position:absolute; z-index:60; display:none; width:264px;
   background:var(--panel); border:1px solid var(--hair2); border-radius:10px;
   padding:12px; box-shadow:0 12px 32px rgba(0,0,0,.25);
 }
@@ -350,11 +350,24 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
   color:var(--mut); margin-bottom:8px;
 }
 .colorpop .cp-row{ display:flex; align-items:center; gap:8px; }
+.colorpop .cp-row .btn{ white-space:nowrap; flex:none; }
 .colorpop input[type=color]{
   width:46px; height:30px; padding:2px; border:1px solid var(--hair);
   border-radius:6px; background:var(--raise); cursor:pointer;
 }
 .colorpop .cp-note{ font-size:10.5px; color:var(--faint); margin-top:8px; line-height:1.45; }
+.colorpop input[type=text]{
+  font:inherit; font-size:12.5px; color:var(--ink); background:var(--raise);
+  border:1px solid var(--hair); border-radius:6px; padding:5px 8px;
+  min-width:0; flex:1;
+}
+.colorpop .cp-note+.cp-row{ margin-top:10px; }
+/* a named guitar prints its name first; the file it came from stays, subdued */
+.slotname{
+  font-size:13.5px; font-weight:700; color:var(--ink); flex:none; max-width:44%;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.filehead .slotname+.filename{ font-weight:500; color:var(--mut); }
 .filehead{ display:flex; align-items:center; gap:10px; min-width:0; }
 .filename{
   font-size:13.5px; font-weight:600; color:var(--ink);
@@ -1252,7 +1265,15 @@ kbd{
 
 <!-- slot color picker (opens from a file card's letter chip) -->
 <div class="colorpop" id="colorPop" role="dialog" aria-modal="false">
-  <div class="cp-title" id="colorPopTitle">Guitar A color</div>
+  <div class="cp-title" id="colorPopTitle">Guitar A</div>
+  <div class="cp-row">
+    <input type="text" id="namePopInput" maxlength="28" placeholder="Guitar A"
+           aria-label="Name this guitar" autocomplete="off">
+    <button class="btn" id="namePopReset">Use the letter</button>
+  </div>
+  <div class="cp-note">A name replaces the letter everywhere this guitar appears, and is
+    saved into the snapshot .json. It belongs to the take in this slot — clearing the slot,
+    or loading another file into it, clears the name.</div>
   <div class="cp-row">
     <input type="color" id="colorPopInput" aria-label="Pick this guitar’s color">
     <button class="btn" id="colorPopReset">Theme default</button>
@@ -4771,6 +4792,25 @@ function shortName(n,max){
 function rateK(hz){ return (hz/1000).toFixed(3).replace(/0+$/,"").replace(/\.$/,"")+" kHz"; }
 
 const SLOT_LETTER=["A","B"];
+// One door onto what a guitar is called. The user may rename a slot (the letter chip's
+// popover); a blank name falls back to the letter, so every surface below is unchanged
+// until someone types one. slotLabel() replaces the bare letter, slotDesc() replaces the
+// file name where a card/legend printed the file as the guitar's identity, and
+// slotFull() covers the sites that printed both (a user name says it once).
+function _clip(s,max){ s=String(s).trim(); return s.length>max ? s.slice(0,max-1)+"\u2026" : s; }
+function slotName(i){ const n=state.slotNames&&state.slotNames[i]; return n?String(n).trim():""; }
+function slotLabel(i){ return slotName(i)||SLOT_LETTER[i]; }
+function slotDesc(i,max){
+  const n=slotName(i); if(n) return _clip(n,max);
+  const s=state.slots[i]; return s?shortName(s.name,max):"";
+}
+const SLOT_NAME_MAX=28;
+function slotBtn(i){ return _clip(slotLabel(i),12); }
+function slotFull(i,max){
+  const n=slotName(i); if(n) return _clip(n,max);
+  const s=state.slots[i];
+  return SLOT_LETTER[i]+(s?" \u00b7 "+shortName(s.name,max):"");
+}
 let COLORS=["#f0a13e","#44c2d4"];
 const GRID=makeLogGrid(700,60,20000);
 
@@ -4798,7 +4838,14 @@ const state={ slots:[null,null], tuning:"estd", customOffset:0,
               sgCmap:"parula", sgTrack:"white", sgDash:"dash", sgHue:false, sgTriad:null,
               // M5 recording: persisted in gsSettings v4 — new keys default when absent,
               // so no version bump (tests/dsp.test.js pins SETTINGS_VER=4).
-              recDevice:null, recChannel:0 };
+              recDevice:null, recChannel:0,
+              // User-chosen names for guitar A and B. Identity, not viewer preference,
+              // so unlike gsColors they are NOT per theme; blank means "use the letter".
+              // A name belongs to the take in the slot, not to the browser: it rides in
+              // the snapshot (both settings and the file entry) and is cleared whenever
+              // the slot is cleared or takes a new source — never persisted in gsSettings,
+              // where it would re-attach itself to whatever gets dropped next session.
+              slotNames:["",""] };
 // M2.7: gate hook — ?refine=0 disables the zoom refine (never persisted, no UI)
 const _refineEnabled = !/[?&]refine=0(?:&|$)/i.test(location.search);
 // A pan or a wheel writes ZOOMS and redraws on every event, so the refine waits
@@ -4912,6 +4959,7 @@ function slotLoadError(i,name,err,fallback,hintFallback){
 
 async function loadFileIntoSlot(i,file){
   recAbort(i);
+  state.slotNames[i]=""; // a different guitar in the slot — the old name is not its name
   if(/\.json$/i.test(file.name)||file.type==="application/json"){
     try{ await loadSnapshotFile(file); }
     catch(err){ toast("Snapshot: "+(err.message||"could not be read."),true); }
@@ -5064,6 +5112,7 @@ async function computeTimeMetrics(slot){
 
 function clearSlot(i){
   loadSeq[i]++;
+  state.slotNames[i]="";
   state.slots[i]=null;
   cardUI[i]={mode:"empty"};
   renderCard(i);
@@ -5271,7 +5320,7 @@ function buildSpecModel(forExport){
     const db=forExport?dispTarget[i]:dispDb[i];
     if(!s||!db) continue;
     curves.push({db,color:COLORS[i],
-      label:SLOT_LETTER[i]+" · "+shortName(s.name,26),
+      label:slotFull(i,26),
       annotations:annotationsFor(s)});
   }
   const r=forExport?anim.toRange:yRange;
@@ -5429,7 +5478,7 @@ function sgramModelFor(i,scale){
   return { sg:sgToUse, image:imageToUse,
     view:{T0:zw.T0,T1:zw.T1,d0:view.d0}, fWin:{F0:zw.F0,F1:zw.F1},
     zoomNote:zoomNoteFor(zKey),
-    name:SLOT_LETTER[i]+" · "+s.name, color:COLORS[i], onsets:tv.onsets,
+    name:slotFull(i,80), color:COLORS[i], onsets:tv.onsets,
     dbMax:scale.dbMax, dbMin:scale.dbMin, comb, clusters,
     a4:state.a4, scrim:state.sgScrim, focus:state.sgFocus, dim:state.sgDim,
     cmap:cm, track:state.sgTrack, dash:(SG_DASHES[state.sgDash]||SG_DASHES.dash).pat,
@@ -5447,7 +5496,7 @@ function buildEnvModel(){
   for(let i=0;i<2;i++){
     const s=state.slots[i], tv=s&&s.tvis;
     if(!tv) continue;
-    curves.push({label:SLOT_LETTER[i]+" · "+shortName(s.name,26), color:COLORS[i],
+    curves.push({label:slotFull(i,26), color:COLORS[i],
       env:tv.env, rate:tv.envRate, t0:tv.firstOnset, onsets:tv.onsets});
     tMin=Math.min(tMin,-tv.firstOnset);
     tMax=Math.max(tMax,s.duration-tv.firstOnset);
@@ -5510,8 +5559,8 @@ function buildEqModels(){
       fv:zoomXf("eqresp"),
       yLo:z&&z.y0!=null?z.y0:null, yHi:z&&z.y0!=null?z.y1:null,
       colorFit:COLORS[fit.src],
-      legendTarget:"reshape "+SLOT_LETTER[fit.src]+": "+SLOT_LETTER[fit.dst]+" − "+SLOT_LETTER[fit.src]+" (1/6 oct)",
-      legendFit:fit.device.name+" response on "+SLOT_LETTER[fit.src],
+      legendTarget:"reshape "+slotBtn(fit.src)+": "+slotBtn(fit.dst)+" − "+slotBtn(fit.src)+" (1/6 oct)",
+      legendFit:fit.device.name+" response on "+slotBtn(fit.src),
       statusText:"residual "+fit.settings.residualRms.toFixed(2)+" dB RMS"
         +(zn?" · "+zn:"")},
   };
@@ -5537,7 +5586,7 @@ function buildDiffModel(){
     statusText:st,
     markers:dmarkers, coincidences: findCoincidences(dmarkers, state.tolCents),
     colorA:COLORS[0],colorB:COLORS[1],
-    nameA:shortName(state.slots[0].name,18),nameB:shortName(state.slots[1].name,18)};
+    nameA:slotDesc(0,18),nameB:slotDesc(1,18)};
 }
 function drawAll(){
   if(!collState.spec){
@@ -5592,7 +5641,7 @@ function drawAll(){
 // state changes (keyboard shortcuts, window resize).
 function sgMagTitle(i){
   const s=state.slots[i];
-  return "Spectrogram — "+SLOT_LETTER[i]+(s?" · "+shortName(s.name,40):"");
+  return "Spectrogram — "+(s?slotFull(i,40):SLOT_LETTER[i]);
 }
 const MAG_VIEWS={
   spec:{ title:()=>"Spectrum — long-term average",
@@ -5682,7 +5731,7 @@ function attachCrosshair(wrap,canvas,xline,readout,isDiff){
         const v=dispTarget[0][gi]-dispTarget[1][gi];
         const wi=v>=0?0:1;
         html+='<div class="row"><span class="dot" style="background:'+COLORS[wi]+'"></span>'+
-              '<span class="nm">'+esc(shortName(state.slots[wi].name,14))+' louder</span>'+
+              '<span class="nm">'+esc(slotDesc(wi,14))+' louder</span>'+
               '<span class="db">'+fmtDb(Math.abs(v),1)+'</span></div>';
       }
     }else{
@@ -5690,7 +5739,7 @@ function attachCrosshair(wrap,canvas,xline,readout,isDiff){
         const s=state.slots[i];
         if(!s||!dispTarget[i]) continue;
         html+='<div class="row"><span class="dot" style="background:'+COLORS[i]+'"></span>'+
-              '<span class="nm">'+esc(shortName(s.name,16))+'</span>'+
+              '<span class="nm">'+esc(slotDesc(i,16))+'</span>'+
               '<span class="db">'+dispTarget[i][gi].toFixed(1)+' dB</span></div>';
       }
     }
@@ -6150,7 +6199,7 @@ function renderBandsTable(){
   const bandOnFloor=(f0,f1)=>!!nfb&&nfb.onFloor(f0,f1);
   let nFloor=0;
   let html='<thead><tr><th>Band</th><th>Range</th>'+
-    slots.map(i=>'<th>'+esc(shortName(state.slots[i].name,16))+'</th>').join('')+
+    slots.map(i=>'<th>'+esc(slotDesc(i,16))+'</th>').join('')+
     (both?'<th>Δ (A − B)</th>':'')+'</tr></thead><tbody>';
   const row=(termsHtml,f0,f1)=>{
     const p=[0,1].map(i=>state.slots[i]
@@ -6283,7 +6332,7 @@ function renderToneRows(){
 
 // Guitar name in slot color — same identity the plot legend uses.
 function slotNameHtml(i){
-  return '<b style="color:var(--slot-'+(i?"b":"a")+')">'+esc(shortName(state.slots[i].name,20))+"</b>";
+  return '<b style="color:var(--slot-'+(i?"b":"a")+')">'+esc(slotDesc(i,20))+"</b>";
 }
 
 // Ranked tone-contrast sentences, shared by the verdict strip and the tone panel's
@@ -6479,7 +6528,7 @@ function renderToneNote(){
     if(!s) continue;
     if(s.kind==="snapshot") snap=true;
     const m=s.metrics||{};
-    let b=SLOT_LETTER[i]+": "+(m.onsetCount!=null?m.onsetCount+" onsets":"no onset data");
+    let b=slotLabel(i)+": "+(m.onsetCount!=null?m.onsetCount+" onsets":"no onset data");
     if(m.f0!=null&&isFinite(m.f0)){
       b+=", sustained note "+fmtHz(m.f0)+" ("+noteStr(m.f0,state.a4)+
          (m.f0Conf!=null?", "+(m.f0Conf*100).toFixed(0)+" % confidence":"")+")";
@@ -6496,7 +6545,7 @@ function renderFooter(){
   const parts=[termHtml("ltas","Welch LTAS")+": 8192-pt Hann, 50 % overlap"];
   for(let i=0;i<2;i++){
     const s=state.slots[i];
-    if(s&&s.welch) parts.push(SLOT_LETTER[i]+": "+s.welch.frames+" frame"+(s.welch.frames===1?"":"s")+
+    if(s&&s.welch) parts.push(slotLabel(i)+": "+s.welch.frames+" frame"+(s.welch.frames===1?"":"s")+
       " · Δf "+s.welch.df.toFixed(2)+" Hz @ "+rateK(s.info.sampleRate));
   }
   parts.push(termHtml("dbfs","dB re full-scale sine"));
@@ -6512,7 +6561,7 @@ function renderFooter(){
 }
 function updateDiffSub(){
   diffSub.textContent=bothLoaded()
-    ? shortName(state.slots[0].name,18)+" − "+shortName(state.slots[1].name,18)+", dB"+
+    ? slotDesc(0,18)+" − "+slotDesc(1,18)+", dB"+
       (state.lm?" · after level-match":"")
     : "A − B, dB";
 }
@@ -6532,8 +6581,8 @@ function updateEqSub(){
   }
   const src=state.eqDir?1:0, dst=1-src;
   eqSub.textContent=EQ_DEVICE_BY_ID[state.eqDevice].name+
-    " · reshape "+SLOT_LETTER[src]+" ("+shortName(state.slots[src].name,18)+")"+
-    " toward "+SLOT_LETTER[dst]+" ("+shortName(state.slots[dst].name,18)+")"+
+    " · reshape "+slotLabel(src)+" ("+slotDesc(src,18)+")"+
+    " toward "+slotLabel(dst)+" ("+slotDesc(dst,18)+")"+
     " · least-squares on the 1/6-octave curves";
 }
 function renderEqNote(){
@@ -6562,8 +6611,8 @@ function eqSettingsText(){
   const typeName=t=>t==="lowshelf"?"low shelf":t==="highshelf"?"high shelf":"peak";
   const lines=[];
   lines.push(APP_NAME+" EQ match — "+d.name);
-  lines.push("Reshape "+SLOT_LETTER[fit.src]+" ("+shortName(state.slots[fit.src].name,40)+
-    ") toward "+SLOT_LETTER[fit.dst]+" ("+shortName(state.slots[fit.dst].name,40)+")");
+  lines.push("Reshape "+slotLabel(fit.src)+" ("+slotDesc(fit.src,40)+
+    ") toward "+slotLabel(fit.dst)+" ("+slotDesc(fit.dst,40)+")");
   lines.push("");
   if(s.kind==="graphic"){
     for(const b of s.bands)
@@ -6657,7 +6706,7 @@ function syncAbKeys(){
     for(let i=0;i<2;i++){
       const s=state.slots[i]; if(!s) continue;
       html+='<span class="abchip"><i style="background:'+COLORS[i]+'"></i><b>'+
-        SLOT_LETTER[i]+'</b> '+esc(shortName(s.name,26))+'</span>';
+        esc(slotLabel(i))+'</b> '+esc(shortName(s.name,26))+'</span>';
     }
     k.innerHTML=html;
     k.style.display=html?"":"none";
@@ -6707,7 +6756,7 @@ function updateVisibility(){
   sgramNote.style.display=missT.length?"":"none";
   envNote.style.display=missT.length?"":"none";
   if(missT.length){
-    const who=missT.map(i=>SLOT_LETTER[i]).join(" and ")+
+    const who=missT.map(i=>slotLabel(i)).join(" and ")+
       (missT.length>1?" are snapshots":" is a snapshot");
     sgramNote.textContent=who+" — the original audio was not stored, so a spectrogram cannot be recomputed.";
     envNote.textContent=who+" — the original audio was not stored, so an envelope cannot be redrawn.";
@@ -6766,7 +6815,7 @@ function renderCard(i){
     return;
   }
   if(ui.mode==="loading"){
-    card.innerHTML='<div class="filehead"><span class="slotchip" title="Guitar '+letter+' color — click to change">'+letter+'</span>'+
+    card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
       '<span class="filename" title="'+esc(ui.name)+'">'+esc(ui.name)+'</span></div>'+
       '<div class="progresswrap"><div class="progressbar"><i style="width:'+
       Math.round((ui.frac||0)*100)+'%"></i></div>'+
@@ -6774,7 +6823,7 @@ function renderCard(i){
     return;
   }
   if(ui.mode==="error"){
-    card.innerHTML='<div class="filehead"><span class="slotchip" title="Guitar '+letter+' color — click to change">'+letter+'</span>'+
+    card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
       '<span class="filename" title="'+esc(ui.name||"")+'">'+esc(ui.name||"")+'</span>'+
       '<span class="fileacts"><button class="iconbtn" data-act="replace" title="Choose another file">⟳ Replace</button>'+
       '<button class="iconbtn" data-act="clear" title="Dismiss">✕ Clear</button></span></div>'+
@@ -6783,7 +6832,7 @@ function renderCard(i){
     return;
   }
   if(ui.mode==="arming"){
-    const head='<div class="filehead"><span class="slotchip" title="Guitar '+letter+' color — click to change">'+letter+
+    const head='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+
       '</span><span class="filename">Record into guitar '+letter+'</span>'+
       '<span class="fileacts"><button class="iconbtn" data-act="reccancel" title="Back">✕ Cancel</button></span></div>';
     let body;
@@ -6845,7 +6894,7 @@ function renderCard(i){
     if(ui.nch) bits.push(ui.ch>0?("channel "+ui.ch+" of "+ui.nch)
       :(ui.nch>2?("mix of "+ui.nch+" channels"):(ui.nch===2?"stereo":"mono")));
     if(ui.rate) bits.push(rateK(ui.rate));
-    card.innerHTML='<div class="filehead"><span class="slotchip" title="Guitar '+letter+' color — click to change">'+letter+
+    card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+
       '</span><span class="filename">Recording guitar '+letter+'…</span></div>'+
       '<div class="recpanel"><div class="recrow"><span class="recdot">●</span>'+
       '<span class="rectimer">'+fmtElapsed(Date.now()-(ui.t0||Date.now()))+'</span></div>'+
@@ -6880,7 +6929,8 @@ function renderCard(i){
     const b=(mo,lb)=>'<button data-ch="'+mo+'" class="'+(s.channelMode===mo?"on":"")+'">'+lb+'</button>';
     chseg='<div class="seg" title="Channel used for analysis">'+b("mid","Mid")+b("left","L")+b("right","R")+'</div>';
   }
-  card.innerHTML='<div class="filehead"><span class="slotchip" title="Guitar '+letter+' color — click to change">'+letter+'</span>'+
+  card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
+    (slotName(i)?'<span class="slotname">'+esc(slotName(i))+'</span>':'')+
     '<span class="filename" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+
     '<span class="fileacts">'+
     '<button class="iconbtn" data-act="replace" title="Replace with another file">⟳ Replace</button>'+
@@ -7025,7 +7075,7 @@ function initRecDevices(){
 }
 function armRecording(i){
   if(!recSupported()){ toast("This browser can't record audio.",true); return; }
-  if(recState.active!=null){ toast("Guitar "+SLOT_LETTER[recState.active]+" is recording — stop it first.",true); return; }
+  if(recState.active!=null){ toast(slotLabel(recState.active)+" is recording — stop it first.",true); return; }
   // First arm builds the device list. Deliberately not at boot: enumerateDevices()
   // wakes the browser's audio service, and a page that never records should never
   // pay for that — nor race the demo decode for the CPU while it happens.
@@ -7469,8 +7519,8 @@ function auditionBlock(f0,f1){
   let btns="";
   for(const i of [0,1]) if(canPlay(i))
     btns+='<button class="btn popplay" data-slot="'+i+'" data-f0="'+f0+'" data-f1="'+f1+
-      '" style="color:var(--slot-'+(i?"b":"a")+')" title="Hear '+SLOT_LETTER[i]+
-      '’s analyzed mono mix through this band">▶ '+SLOT_LETTER[i]+'</button>';
+      '" style="color:var(--slot-'+(i?"b":"a")+')" title="Hear '+esc(slotLabel(i))+
+      '’s analyzed mono mix through this band">▶ '+esc(slotBtn(i))+'</button>';
   const lm=(state.lm&&state.lmOffset!=null&&canPlay(1))
     ? " · level-match "+fmtDb(state.lmOffset,1)+" on B":"";
   return '<div class="pop-sec"><div class="pop-label">Audition</div>'+
@@ -7484,9 +7534,9 @@ function auditionHtml(key){
 }
 function setPopPlayUI(btn){
   popover.querySelectorAll(".popplay.playing").forEach(x=>{
-    x.classList.remove("playing"); x.textContent="▶ "+SLOT_LETTER[+x.dataset.slot];
+    x.classList.remove("playing"); x.textContent="▶ "+slotBtn(+x.dataset.slot);
   });
-  if(btn){ btn.classList.add("playing"); btn.textContent="■ "+SLOT_LETTER[+btn.dataset.slot]; }
+  if(btn){ btn.classList.add("playing"); btn.textContent="■ "+slotBtn(+btn.dataset.slot); }
 }
 // Card transport: play/stop, pause and a seek slider, all on the same engine as
 // the region audition — level-match gain lands on B exactly as in the plots, and
@@ -8333,7 +8383,7 @@ function plainParams(){
   const parts=["Welch LTAS: 8192-pt Hann, 50 % overlap"];
   for(let i=0;i<2;i++){
     const s=state.slots[i];
-    if(s&&s.welch) parts.push(SLOT_LETTER[i]+": "+s.welch.frames+" frames · Δf "+
+    if(s&&s.welch) parts.push(slotLabel(i)+": "+s.welch.frames+" frames · Δf "+
       s.welch.df.toFixed(2)+" Hz @ "+rateK(s.info.sampleRate));
   }
   parts.push("dB re full-scale sine");
@@ -8429,7 +8479,7 @@ function exportPNG(){
     ctx.fillStyle=COLORS[i];
     ctx.beginPath(); ctx.arc(46,y-4,4,0,2*Math.PI); ctx.fill();
     ctx.fillStyle=cssColor("ink");
-    ctx.fillText(SLOT_LETTER[i]+" — "+s.name+"   ·   "+rateK(s.info.sampleRate)+
+    ctx.fillText(slotLabel(i)+" — "+s.name+"   ·   "+rateK(s.info.sampleRate)+
       " · "+s.welch.frames+" frames",58,y);
     y+=18;
   }
@@ -8504,7 +8554,7 @@ function exportCSV(){
            "# created: "+new Date().toISOString()];
   for(let i=0;i<2;i++){
     const s=state.slots[i];
-    if(s) L.push("# "+SLOT_LETTER[i]+": "+s.name+" · "+s.info.sampleRate+" Hz · "+
+    if(s) L.push("# "+slotLabel(i)+": "+s.name+" · "+s.info.sampleRate+" Hz · "+
       s.welch.frames+" frames · df "+s.welch.df.toFixed(4)+" Hz");
   }
   L.push("# analysis: Welch LTAS, 8192-point Hann, 50% overlap, dB re full-scale sine");
@@ -8590,7 +8640,7 @@ function _exportCardJson(name, payload){
   const wantRegions = !name.toLowerCase().includes("tone") && !name.toLowerCase().includes("spectrogram") && !name.toLowerCase().includes("envelope") && !name.toLowerCase().includes("eq");
   const base={ app:APP_NAME, type:"export", card:name, created:new Date().toISOString(),
     state:st,
-    guitars:state.slots.map((s,i)=> s?{slot:SLOT_LETTER[i], name:s.name, sampleRate:s.info.sampleRate, container:s.info.container}:null).filter(Boolean),
+    guitars:state.slots.map((s,i)=> s?{slot:SLOT_LETTER[i], label:slotLabel(i), name:s.name, sampleRate:s.info.sampleRate, container:s.info.container}:null).filter(Boolean),
     ...(wantRegions?{regions:(VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.mix).regions.map(r=>({key:r.key,label:r.label,f0:regionF(r.f0),f1:regionF(r.f1)}))}:{}),
     ...payload };
   download(new Blob([JSON.stringify(base,null,2)],{type:"application/json"}),
@@ -8637,7 +8687,7 @@ function exportJSON(){
     if(!s) continue;
     const p=s.welch.power, db=new Array(p.length);
     for(let k=0;k<p.length;k++) db[k]=Math.round(powerToDb(p[k])*100)/100;
-    files.push({ slot:i, name:s.name, kind:s.kind, info:s.info, duration:s.duration,
+    files.push({ slot:i, name:s.name, label:slotName(i), kind:s.kind, info:s.info, duration:s.duration,
       channelMode:s.channelMode,
       welch:{df:s.welch.df, frames:s.welch.frames, powerDb:db},
       metrics:sanitizeMetrics(s.metrics) });
@@ -8646,7 +8696,8 @@ function exportJSON(){
     created:new Date().toISOString(),
     settings:{ tuning:state.tuning, customOffset:state.customOffset,
                a4:state.a4, smooth:state.smooth, lm:state.lm,
-               eqDir:state.eqDir, eqDevice:state.eqDevice, vocab:state.vocab },
+               eqDir:state.eqDir, eqDevice:state.eqDevice, vocab:state.vocab,
+               slotNames:state.slotNames.slice() },
     files };
   download(new Blob([JSON.stringify(snap)],{type:"application/json"}),
     "rameau_"+exportBaseName()+".json");
@@ -8814,6 +8865,10 @@ function applySnapshot(snap){
   comparePrimed=true; // snapshot settings are authoritative — don't auto-flip toggles
   loadSeq[0]++; loadSeq[1]++;
   state.slots=[null,null];
+  // The name rides in settings (written by this version) and on the file entry (so a
+  // hand-edited or partial snapshot still names its guitars) — settings first.
+  state.slotNames=["",""];
+  if(Array.isArray(st.slotNames)) for(let i=0;i<2;i++) state.slotNames[i]=_clip(String(st.slotNames[i]||""),SLOT_NAME_MAX);
   for(const f of snap.files.slice(0,2)){
     const i=f.slot===1?1:0;
     if(!f.welch||!Array.isArray(f.welch.powerDb)||!isFinite(f.welch.df)||f.welch.df<=0) continue;
@@ -8830,6 +8885,7 @@ function applySnapshot(snap){
       welch:{power, df:f.welch.df, frames:f.welch.frames|0},
       metrics:(f.metrics&&typeof f.metrics==="object")?f.metrics:{} };
     computeSpectralExtras(slot);
+    if(f.label) state.slotNames[i]=_clip(String(f.label),SLOT_NAME_MAX);
     state.slots[i]=slot;
     cardUI[i]={mode:"loaded"};
     renderCard(i);
@@ -9020,14 +9076,40 @@ function setSlotColor(i,hex,live){
 }
 function openColorPop(i,anchor){
   colorPopSlot=i;
-  colorPopTitle.textContent="Guitar "+SLOT_LETTER[i]+" color";
+  colorPopTitle.textContent=slotLabel(i);
+  // never reassign while the user is typing into it — that would drop the caret to the end
+  if(namePopInput.value!==slotName(i)) namePopInput.value=slotName(i);
+  namePopInput.placeholder="Guitar "+SLOT_LETTER[i];
   colorPopInput.value=userColors[theme][i]||slotThemeDefault(i);
   colorPop.classList.add("open");
+  anchorColorPop(anchor);
+}
+function anchorColorPop(anchor){
   const r=anchor.getBoundingClientRect();
   const left=Math.max(8,Math.min(window.scrollX+r.left,
     window.scrollX+document.documentElement.clientWidth-colorPop.offsetWidth-8));
   colorPop.style.left=left+"px";
   colorPop.style.top=(window.scrollY+r.bottom+8)+"px";
+}
+// One door onto a rename. The name is not analysis state — nothing is re-measured —
+// but it is printed by the cards, the per-card A/B key, the HTML tables and every
+// canvas legend, so all four are refreshed from here.
+function setSlotName(i,v){
+  const n=_clip(String(v||""),SLOT_NAME_MAX);
+  if(slotName(i)===n) return;
+  state.slotNames[i]=n;
+  // renderCard replaces the letter chip this popover is anchored to, and its head closes
+  // the popover for exactly that reason — so re-open it on the new chip, silently.
+  const keep=colorPopSlot===i&&colorPop.classList.contains("open");
+  renderCard(i);
+  if(keep){
+    const chip=cards[i].querySelector(".slotchip");
+    if(chip){ colorPopSlot=i; colorPop.classList.add("open"); anchorColorPop(chip); }
+    colorPopTitle.textContent=slotLabel(i);
+  }
+  syncAbKeys();
+  if(anyLoaded()) renderAnalysis();
+  requestDraw();
 }
 function closeColorPop(){ colorPop.classList.remove("open"); colorPopSlot=-1; }
 function escCascade(){
@@ -9049,6 +9131,15 @@ function escCascade(){
 function boot(){
   applyUserColors(); // installs stored per-theme accents + diverging endpoints, sets COLORS
 
+  namePopInput.addEventListener("input",()=>{
+    if(colorPopSlot>=0){ setSlotName(colorPopSlot,namePopInput.value); colorPopTitle.textContent=slotLabel(colorPopSlot); }
+  });
+  namePopReset.addEventListener("click",()=>{
+    if(colorPopSlot<0) return;
+    namePopInput.value="";
+    setSlotName(colorPopSlot,"");
+    colorPopTitle.textContent=slotLabel(colorPopSlot);
+  });
   colorPopInput.addEventListener("input",()=>{
     if(colorPopSlot>=0) setSlotColor(colorPopSlot,colorPopInput.value,true);
   });

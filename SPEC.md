@@ -2488,3 +2488,43 @@ names — instrument copy, not another caveat.
 
 *Verification, in proportion:* `node --check` on all five blocks and a read-through of every
 `stopMonitor()` door. No new suite, no new `verify.sh` step, no new Chrome launch.
+
+## 2026-09-05 — name guitar A and guitar B (user request)
+
+*"Implement a feature that allows the user to rename guitar A and guitar B, immediately
+reflected everywhere and also in the file save."* Built without a new suite, per the
+request's "without much testing".
+
+**One door onto what a guitar is called.** Four helpers in block 4 sit above every printed
+identity: `slotName(i)` (the raw, trimmed name), `slotLabel(i)` (name, else the letter),
+`slotDesc(i,max)` (name, else the short file name — for the sites that printed the file *as*
+the guitar), `slotFull(i,max)` (name, else `A · file` — for the sites that printed both), and
+`slotBtn(i)` (a 12-char clip for the region-audition and card-play buttons). Every call site
+that used to reach for `SLOT_LETTER[i]` or `shortName(s.name)` as an identity now goes through
+one of them, so no two surfaces can disagree about a guitar's name: card head, per-card A/B
+key, verdict strip, band table headers, tone prose, all four line-plot legends, the envelope
+and spectrogram titles, the crosshair readouts, the EQ-match legend and its "Copy settings"
+text, the status/footer parameter lines, the PNG header and the CSV comment block.
+
+**A name is not a viewer preference, so it is not in `gsSettings`.** `gsColors` is per theme
+because an accent is how *this reader* wants to see the guitar; a name is what the guitar *is*.
+It rides in the snapshot instead — `settings.slotNames` plus a `label` on each file entry, so a
+partial or hand-edited snapshot still names its guitars — and `applySnapshot` reads settings
+first, the file entry second. Persisting it in `localStorage` would re-attach last session's
+name to whatever file gets dropped next, which is the one thing a name must never do. For the
+same reason `clearSlot()` and `loadFileIntoSlot()` drop it: a different guitar in the slot is
+not that guitar. A **recorded** take keeps the name — you name the instrument, then record it.
+
+**The rename lives in the letter chip's popover**, which was already the slot's identity
+control (its color). Title, name field, "Use the letter", then the color row. `setSlotName()`
+is the only writer: it re-renders the card, the A/B key, the HTML tables and the canvases.
+That card re-render replaces the chip the popover is anchored to — and `renderCard`'s head
+closes the popover for exactly that reason — so `setSlotName` re-opens it on the new chip
+through the extracted `anchorColorPop()`, and `openColorPop` no longer reassigns the input's
+value when it already matches (that would drop the caret to the end on every keystroke).
+
+*Verification, in proportion:* `node --check` on all five blocks; the five node suites (only
+the documented pre-existing `dsp` red); a real-Chrome screenshot of `?demo&open=all` with both
+guitars named, showing the name in every card, table, legend and title; the popover
+screenshotted in both themes; and a snapshot round-trip driven in the page (export → clear the
+names → restore) confirming `settings.slotNames`, the per-file `label` and the restored state.

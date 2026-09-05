@@ -754,6 +754,25 @@ build educational copy from it, never re-derive from scratch.
   that read `state.sgHarm` without the flag), no new suite, no new `verify.sh` step, and the
   existing `?sgchord=E` shape re-run once through real Chrome (`data-sgcomb` 36 → **18**, chip
   reads `E · harmonics 1, 3, 5 (odd only)`, no ×2/×4 label anywhere).
+- **Guitar names BUILT (session 32, reviewer; user request, "without much testing").** The
+  letter chip's popover — already the slot's identity control — gains a name field. Five helpers
+  in block 4 are the **one door** onto what a guitar is called: `slotName` (raw), `slotLabel`
+  (name else letter), `slotDesc(i,max)` (name else short file name — the sites that printed the
+  file *as* the identity), `slotFull(i,max)` (name else `A · file`) and `slotBtn` (a 12-char clip
+  for the audition/play buttons). Every former `SLOT_LETTER[i]`/`shortName(s.name)` identity site
+  routes through one: cards, per-card A/B key, verdict, band headers, tone prose, all four line-plot
+  legends, sgram/envelope titles, crosshair readouts, EQ legend + "Copy settings", status/footer
+  lines, the PNG header and the CSV comment block. **A name is identity, not viewer preference, so
+  it is NOT in `gsSettings`** (unlike `gsColors`, which is per theme): it rides in the snapshot as
+  `settings.slotNames` **and** a `label` per file entry, restored settings-first; persisting it
+  would re-attach last session's name to the next dropped file, so `clearSlot()` and
+  `loadFileIntoSlot()` drop it — a recorded take keeps it. `setSlotName()` is the only writer
+  (card + A/B key + tables + canvases); because `renderCard` replaces the chip the popover anchors
+  to *and* closes the popover for that reason, it re-opens on the new chip via the extracted
+  `anchorColorPop()`, and `openColorPop` no longer reassigns the input's value when it matches
+  (caret would jump to the end each keystroke). *Verification, in proportion:* `node --check` ×5,
+  the five node suites (only the documented `dsp` red), `?demo&open=all` in real Chrome with both
+  guitars named, the popover in both themes, and an in-page snapshot round-trip.
 - **NEXT — the user’s visual test.** R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
