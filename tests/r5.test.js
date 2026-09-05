@@ -1284,8 +1284,9 @@ section("Q3 — the same floor in the Band Energy table and the At-a-glance stri
     "bands, so it can never win the headline by being the loudest silence");
 
   const vd = bodyOf(s4q, "function renderVerdict(");
-  ok(/widest audible spectral gap/.test(vd),
-    "the headline says 'widest audible spectral gap' — the word the user's report was " +
+  // E5.1 (2026-09-05): 'spectral' and the numbers moved down a tap; 'audible' stays.
+  ok(/widest audible gap/.test(vd),
+    "the headline says 'widest audible gap' — the word the user's report was " +
     "missing when String zing was named at ~0 % energy");
   ok(/bdFloor\s*&&/.test(vd) && /difference of silences/.test(vd),
     "…and a larger floored Δ gets its own sentence rather than being dropped: disclose, " +

@@ -585,6 +585,10 @@ table.datatable tr.grp td{
 .tonerow.text .track::before{ display:none; }
 .tonerow.text .track .ta{ color:var(--slot-a); } .tonerow.text .track .tb{ color:var(--slot-b); }
 .tonerow.text .track .err{ color:var(--err); }
+/* E5.2: the Take rows' traffic light — the readiness dot's own palette (data colors) */
+.tonerow.text .track .light{ display:inline-block; width:9px; height:9px; border-radius:50%; background:#3aa55d; margin-right:7px; vertical-align:middle; position:relative; top:-1px; }
+.tonerow.text .track .light.warn{ background:#e0a52a; } .tonerow.text .track .light.bad{ background:#d94a3d; }
+.tonerow.text .track [data-pop]{ cursor:pointer; } .tonerow.text .track [data-pop]:hover{ text-decoration:underline dotted; }
 .tonerow .rel{ font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums; line-height:1.35; }
 .tonerow .rel b{ font-weight:500; color:var(--ink); }
 .tonerow .rel .nd{ color:var(--faint); }
@@ -1016,7 +1020,7 @@ kbd{
             <button class="collbtn" data-coll="spec" aria-expanded="true" title="Collapse panel" aria-label="Collapse Spectrum panel"></button>
             <div>
               <div class="cardtitle">Spectrum</div>
-              <div class="cardsub" id="specSub">long-term average · dB re full-scale sine</div>
+              <div class="cardsub" id="specSub">the average spectrum of each take · smoothing and level-match are printed on the plot</div>
             </div>
           </div>
           <div class="controls">
@@ -1066,7 +1070,7 @@ kbd{
             <button class="collbtn" data-coll="diff" aria-expanded="true" title="Collapse panel" aria-label="Collapse Difference panel"></button>
             <div>
               <div class="cardtitle">Difference</div>
-              <div class="cardsub" id="diffSub">A − B, dB</div>
+              <div class="cardsub" id="diffSub">A against B</div>
             </div>
           </div>
           <div class="controls">
@@ -6996,7 +7000,7 @@ function toneRowDefs(){
      reason:()=>"no peak found 70–130 Hz"},
     {g:"inst", term:"inharmonicity", name:"String stiffness", plain:true,
      unit:"how far the overtones drift sharp on the two low strings — the strings and the scale, not the pick",
-     lo:1e-5, hi:1e-3, log:true, ticks:["0.1","10 ×10⁻⁴"], more:"stiffer / shorter scale",
+     lo:1e-5, hi:1e-3, log:true, ticks:["more supple","stiffer"], more:"stiffer / shorter scale",
      val:s=>slotStiffnessEA(s.metrics),
      fmt:(v,s)=>(v*1e4).toFixed(2)+" ×10⁻⁴",
      detail:(v,s)=>openStringNotes(s.metrics).filter(n=>(n.si===0||n.si===1)&&n.nB>=6).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+(n.B*1e4).toFixed(2)+" ×10⁻⁴ over "+n.nB+" partials"+(n.rmsCents!=null?" · ±"+n.rmsCents.toFixed(1)+" ¢":"")).join(" · "),
@@ -7012,7 +7016,7 @@ function toneRowDefs(){
      unit:"a fast first fall, then a slow tail — what players hear as natural compression",
      lo:0.1, hi:4, log:true, ticks:["0.1 s","4 s"], noband:true,
      val:s=>{ const b=slotBloom(s.metrics); return b?b.knee:null; },
-     fmt:(v,s)=>"knee "+fmtMs(v),
+     fmt:(v,s)=>"turns at "+fmtMs(v),
      detail:(v,s)=>{ const b=slotBloom(s.metrics); return b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · median over "+b.n+(b.n===1?" note":" notes")+" that fit two stages"; },
      reason:s=>s.metrics.notes?"one slope fits — no knee":"analysed before this row existed"},
     {g:"inst", term:"neck-sustain", name:"Sustain across the neck",
@@ -7057,15 +7061,23 @@ function toneRowDefs(){
      detail:(v,s)=>"centroid of the first 10 ms over the centroid 300–500 ms later, median over the longest notes"+(s.metrics.attack!=null?" · rise time (10 → 90 %) "+fmtMs(s.metrics.attack)+", median over onsets":""),
      reason:s=>_pitchReason(s)},
     // ---- Take / recording ----
+    // E5.2: text rows print a traffic light and one plain phrase; `detail` holds the
+    // numbers and is what the tap shows. Thresholds are takeReadiness()'s own.
     {g:"take", term:"pitch-check", name:"Pitch check", text:true,
-     unit:"notes the harmonic rows are built on, and the check that caught wrong octaves",
-     val:s=>{ const m=s.metrics; if(m.notes==null) return m.f0?"one note "+fmtHz(m.f0)+", conf "+(m.f0Conf||0).toFixed(2)+" (older analysis, no comb check)":"no stable pitch found";
+     unit:"whether the notes were clear enough to build the harmonic rows on",
+     light:s=>{ const m=s.metrics; if(m.notes==null) return m.f0?"warn":"bad"; if(!m.pitched) return "bad"; return m.pitched>=4&&m.pitched>=0.7*m.onsetCount?"good":"warn"; },
+     val:s=>{ const m=s.metrics; if(m.notes==null) return m.f0?"One long note (older analysis)":"No clear pitch found";
+       if(!m.pitched) return "No note passed the pitch check"; return m.pitched>=0.7*m.onsetCount?"Pitch clear on most notes":"Pitch clear on some notes"; },
+     detail:(v,s)=>{ const m=s.metrics; if(m.notes==null) return m.f0?"one note "+fmtHz(m.f0)+", conf "+(m.f0Conf||0).toFixed(2)+" (older analysis, no comb check)":"";
        return m.pitched+" of "+m.onsetCount+" onsets pitched"+(m.unpitched?" · "+m.unpitched+" failed the comb check":"")+(m.combRaised?" · comb raised "+m.combRaised+" (×2/×3)":"")+(m.f0Conf!=null?" · conf "+m.f0Conf.toFixed(2):""); }},
     {g:"take", term:"noise-floor", name:"Level and floor", text:true,
-     unit:"how hot the take is, how quiet it gets, and whether it hit the ceiling",
-     val:s=>{ const m=s.metrics, b=[]; if(m.levelRms!=null) b.push("RMS "+m.levelRms.toFixed(1)+" dBFS"); if(m.levelPeak!=null) b.push("peak "+m.levelPeak.toFixed(1)+" dBFS");
+     unit:"how hot the take is and how quiet it gets between the notes",
+     light:s=>{ const m=s.metrics; if(m.clipped||(m.snr!=null&&m.snr<25)) return "bad"; if((m.snr!=null&&m.snr<35)||(m.levelPeak!=null&&m.levelPeak<-24)) return "warn"; return "good"; },
+     val:s=>{ const m=s.metrics, b=[]; b.push(m.clipped?"clipped":(m.levelPeak!=null&&m.levelPeak<-24?"quiet take":"good level"));
+       if(m.snr!=null) b.push(m.snr<25?"very noisy background":m.snr<35?"noisy background":"quiet background"); const t=b.join(", "); return t.charAt(0).toUpperCase()+t.slice(1); },
+     detail:(v,s)=>{ const m=s.metrics, b=[]; if(m.levelRms!=null) b.push("RMS "+m.levelRms.toFixed(1)+" dBFS"); if(m.levelPeak!=null) b.push("peak "+m.levelPeak.toFixed(1)+" dBFS");
        if(m.noiseFloor!=null) b.push("floor "+m.noiseFloor.toFixed(0)+" dBFS"); if(m.snr!=null) b.push("SNR "+m.snr.toFixed(0)+" dB");
-       if(m.clipped) b.push('<span class="err">clipped — '+m.clipCount+' samples</span>'); return b.join(" · "); }},
+       if(m.clipped) b.push("clipped — "+m.clipCount+" samples"); return b.join(" · "); }},
     {g:"take", term:"dynamic-range", name:"Dynamic range",
      unit:"loud-to-quiet spread of the performance — a fact about the take, and one the floor eats into",
      lo:4, hi:30, ticks:["4 dB","30 dB"], more:"wider",
@@ -7079,8 +7091,12 @@ function toneRowDefs(){
      reason:()=>"no gap of 0.3 s between notes"},
     {g:"take", term:"comparability", name:"Material", text:true,
      unit:"what was played — the comparison is only fair when these match",
-     val:s=>{ const m=s.metrics, b=[]; if(m.onsetCount!=null) b.push(m.onsetCount+" onsets"); if(m.onsetRate!=null) b.push(m.onsetRate.toFixed(1)+" per s");
-       if(m.duration!=null) b.push(fmtMs(m.duration)); if(m.registerMidi!=null){ const n=noteInfo(midiToFreq(m.registerMidi,state.a4),state.a4); if(n) b.push("typical note "+n.name); }
+     light:s=>{ const m=s.metrics; return (m.onsetCount!=null&&m.onsetCount<6)||(m.duration!=null&&m.duration<3)?"warn":"good"; },
+     val:s=>{ const m=s.metrics, b=[]; if(m.onsetCount!=null) b.push(m.onsetCount+(m.onsetCount===1?" note":" notes")+(m.duration!=null?" in "+fmtMs(m.duration):""));
+       else if(m.duration!=null) b.push(fmtMs(m.duration)); if(m.registerMidi!=null){ const n=noteInfo(midiToFreq(m.registerMidi,state.a4),state.a4); if(n) b.push("around "+n.name); }
+       return b.join(" · "); },
+     detail:(v,s)=>{ const m=s.metrics, b=[]; if(m.onsetCount!=null) b.push(m.onsetCount+" onsets"); if(m.onsetRate!=null) b.push(m.onsetRate.toFixed(1)+" per s");
+       if(m.duration!=null) b.push(fmtMs(m.duration)); if(m.registerMidi!=null){ const n=noteInfo(midiToFreq(m.registerMidi,state.a4),state.a4); if(n) b.push("typical note "+n.name+" (median pitched f₀)"); }
        return b.join(" · "); }},
   ];
 }
@@ -7144,12 +7160,14 @@ function toneRecords(){
     // A row bound to one kind of guitar is hidden — not a pointer — when no loaded slot is that kind.
     if(def.type&&!loadedTypes.includes(def.type)) continue;
     const rec={group:def.g, key:def.term, name:def.name, unit:def.unit, def, a:null, b:null, aText:"", bText:"", detail:["",""],
-               reason:["",""], band:null, verdict:null, blocked:blocked[def.term]||null, evidence:[null,null], state:4, missing:[]};
+               reason:["",""], light:[null,null], band:null, verdict:null, blocked:blocked[def.term]||null, evidence:[null,null], state:4, missing:[]};
     for(let i=0;i<2;i++){
       const s=state.slots[i]; if(!s||!s.metrics) continue;
       if(def.type&&def.type!==types[i]) continue; // the other kind: this side stays empty
       let v=null; try{ v=def.val(s); }catch(_e){}
-      if(def.text){ rec[i?"bText":"aText"]=v||""; rec.evidence[i]={state:v?2:4, have:{}, need:{}, missing:v?[]:[{what:"value", reason:"nothing to report"}]}; continue; }
+      if(def.text){ rec[i?"bText":"aText"]=v||""; rec.evidence[i]={state:v?2:4, have:{}, need:{}, missing:v?[]:[{what:"value", reason:"nothing to report"}]};
+        try{ rec.detail[i]=def.detail?def.detail(v,s):""; }catch(_e){ rec.detail[i]=""; }
+        try{ rec.light[i]=def.light?def.light(s):null; }catch(_e){ rec.light[i]=null; } continue; }
       const ev=evidenceFor(def.term, evs[i]);
       if(v==null||!isFinite(v)||(def.log&&v<=0)){
         rec.reason[i]=(def.reason?def.reason(s):"")||"not measurable on this take";
@@ -7194,10 +7212,10 @@ function missingPhrase(x, def){
     case "span": return "needs notes spanning "+x.need+" semitones — "+n(x.have)+" here";
     case "snr": return "needs a quieter background — "+n(x.have)+" dB above the floor, "+x.need+" wanted";
     case "tap": return "needs a tap on the bridge — three knocks, strings muted";
-    case "openE": return "needs the open E with "+x.need+" clean partials — "+(x.have?x.have+" here":"not found");
-    case "openA": return "needs the open A with "+x.need+" clean partials — "+(x.have?x.have+" here":"not found");
+    case "openE": return "needs the open E with "+x.need+" clear overtones — "+(x.have?x.have+" here":"not found");
+    case "openA": return "needs the open A with "+x.need+" clear overtones — "+(x.have?x.have+" here":"not found");
     case "ring": return "needs "+x.need+" notes ringing "+RING_MIN_SEC+" s or more — "+n(x.have)+" here";
-    case "stage": return "needs "+x.need+" notes with a two-stage decay — "+n(x.have)+" here";
+    case "stage": return "needs "+x.need+" notes that fall in two stages — "+n(x.have)+" here";
     case "decays": return "needs "+x.need+(def&&def.term==="f0-decay"&&both?" notes both takes share":" notes with a measured decay")+" — "+n(x.have)+" here"+
       (def&&def.term==="neck-sustain"?" · play frets 0, 3, 5, 7, 9 and 12 on every string":"");
     case "attacks": return "needs "+x.need+" clean note attacks — "+n(x.have)+" here";
@@ -7229,12 +7247,14 @@ function toneRowHtml(rec){
   if(both&&!d.text){
     const v=rec.verdict, b=rec.band;
     if(!v) rel="";
-    else if(v.kind==="diff") rel='<b>'+esc(v.text)+'</b>'+(b?'<br><span class="nd">band '+_fmtBand(b,d)+'</span>':"");
-    else if(v.kind==="same") rel='<b>'+esc(v.text)+'</b><br><span class="nd">inside '+_fmtBand(b,d)+'</span>';
+    // E5.1: the band's size is rung 2 — it lives in the readout popover ("The band"), not here.
+    else if(v.kind==="diff"||v.kind==="same") rel='<b>'+esc(v.text)+'</b>';
     else rel='<span class="blocked">'+esc(v.text)+'</span>';
   }
   if(d.text){
-    const line=(i,t)=>state.slots[i]?'<span class="'+(i?"tb":"ta")+'">'+(t||'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span>':"";
+    // E5.2/E5.3: a light and one phrase; the phrase is the same tap as every value label.
+    const line=(i,t)=>state.slots[i]?'<span class="'+(i?"tb":"ta")+'"'+(t?' data-pop="'+d.term+':'+i+'" title="The numbers behind this"':'')+'>'+
+      (t?(rec.light[i]?'<span class="light '+rec.light[i]+'"></span>':'')+esc(t):'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span>':"";
     return '<div class="tonerow text"'+attrs+'>'+name+'<div class="axend lo"></div><div class="track">'+line(0,rec.aText)+line(1,rec.bText)+'</div><div class="axend hi"></div><div class="rel">'+rel+'</div></div>';
   }
   const vals=[rec.a,rec.b];
@@ -7271,13 +7291,13 @@ function toneRowHtml(rec){
 function openTonePop(key,i,anchor){
   const {records}=toneRecords(); const rec=records.find(r=>r.key===key); const s=state.slots[i];
   if(!rec||!s||!rec.evidence[i]) return;
-  const d=rec.def, ev=rec.evidence[i], val=i?rec.b:rec.a, txt=i?rec.bText:rec.aText;
+  const d=rec.def, ev=rec.evidence[i], val=i?rec.b:rec.a, txt=(i?rec.bText:rec.aText)||"";
   const sec=(label,inner)=>'<div class="pop-sec"><div class="pop-label">'+label+'</div>'+inner+'</div>';
   const p=t=>'<p>'+t+'</p>';
   const dotCls=i?"var(--slot-b)":"var(--slot-a)";
   let html='<div class="pop-term">'+esc(d.name)+'</div><div class="pop-cat">'+esc(slotLabel(i))+' · '+esc(TONE_STATE_WORD[rec.state]||"")+'</div>';
-  html+=sec("This number",'<div class="pop-vals"><div class="pop-val"><span class="dot" style="background:'+dotCls+'"></span><span class="l">'+esc(slotDesc(i,20))+'</span><span class="v">'+
-    (val!=null?txt:'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span></div></div>'+(rec.detail[i]?p(rec.detail[i]):""));
+  html+=sec(d.text?"This take":"This number",'<div class="pop-vals"><div class="pop-val"><span class="dot" style="background:'+dotCls+'"></span><span class="l">'+esc(slotDesc(i,20))+'</span><span class="v">'+
+    (val!=null||d.text?txt:'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span></div></div>'+(rec.detail[i]?p(rec.detail[i]):""));
   const needs=[]; for(const what in ev.need){ const miss=ev.missing.find(x=>x.what===what); needs.push(miss?'<li class="miss">'+esc(missingPhrase(miss,d))+'</li>':'<li class="met">'+esc(_needPhrase(what,ev.need[what],ev.have[what]))+'</li>'); }
   const rowMiss=(rec.missing||[]).map(x=>'<li class="miss">'+esc(missingPhrase(x,d))+'</li>');
   html+=sec("What it rests on",(needs.length||rowMiss.length)?'<ul class="tone-needs">'+needs.join("")+rowMiss.join("")+'</ul>':p("A fact about the take — nothing to earn."));
@@ -7293,8 +7313,8 @@ function openTonePop(key,i,anchor){
 function _needPhrase(what,need,have){
   const h=(have==null?"":" — "+(Math.round(have*10)/10)+" here");
   return ({notes:need+" pitched notes", span:"notes spanning "+need+" semitones", snr:"at least "+need+" dB above the floor", tap:"a tap on the bridge",
-    openE:"the open E with "+need+" clean partials", openA:"the open A with "+need+" clean partials", ring:need+" notes ringing "+RING_MIN_SEC+" s or more",
-    stage:need+" notes with a two-stage decay", decays:need+" notes with a measured decay", attacks:need+" clean note attacks"}[what]||what)+h;
+    openE:"the open E with "+need+" clear overtones", openA:"the open A with "+need+" clear overtones", ring:need+" notes ringing "+RING_MIN_SEC+" s or more",
+    stage:need+" notes that fall in two stages", decays:need+" notes with a measured decay", attacks:need+" clean note attacks"}[what]||what)+h;
 }
 function renderToneRows(){
   if(!anyLoaded()) return;
@@ -7304,10 +7324,11 @@ function renderToneRows(){
   // Comparability bar (THEORY §7.6.10): everything level-matching does not fix.
   const fails=compat.filter(c=>!c.ok);
   if(bothLoaded()&&(fails.length||typesDiffer)){
-    const bits=fails.map(c=>c.label+" ("+c.text+")");
+    // E5.1: the labels on the surface; the measured gaps sit behind the term's tap.
+    const bits=fails.map(c=>c.label);
     toneCompat.innerHTML='<b>These two takes are not directly comparable</b> — '+
-      (typesDiffer?"one is a solidbody and one a hollow body, so their resonances are different quantities and are not differenced"+(bits.length?"; ":"."):"")+
-      (bits.length?bits.join(", ")+". Rows those affect show no delta; "+termHtml("level-match","level-match")+" cannot fix these.":"");
+      (typesDiffer?"one is a solidbody and one a hollow body, so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
+      (bits.length?"the "+bits.join(", ")+(bits.length>1?" differ":" differs")+" too much. Rows those affect show no verdict; "+termHtml("level-match","level-match")+" cannot fix that — see "+termHtml("comparability","what a fair comparison needs")+".":"");
     toneCompat.style.display="";
   } else toneCompat.style.display="none";
   // E2.3: "Same guitar, two takes" is set by the app — on when both slots hold two or
@@ -7422,43 +7443,33 @@ function renderVerdict(){
   if(!n) return; // updateVisibility keeps the card hidden
   const parts=[];
   if(n===1){
+    // E5.1: rung 1 — the numbers this sentence used to quote are the Tone rows' own taps.
     const i=state.slots[0]?0:1, m=state.slots[i].metrics||{};
-    let t="One guitar loaded — "+slotNameHtml(i);
-    const bits=[];
-    if(m.centroid!=null&&isFinite(m.centroid))
-      bits.push(termHtml("brightness","spectral centroid")+" "+fmtHz(m.centroid));
-    if(m.tilt!=null&&isFinite(m.tilt))
-      bits.push(termHtml("spectral-tilt","spectral tilt")+" "+m.tilt.toFixed(1)+" dB/oct");
-    if(m.f0!=null&&isFinite(m.f0))
-      bits.push("longest sustained note "+fmtHz(m.f0)+" ("+esc(noteStr(m.f0,state.a4))+")");
-    parts.push(t+(bits.length?": "+bits.join(" · ")+".":"."));
+    const rd=takeReadiness(state.slots[i],i);
+    parts.push("One guitar loaded — "+slotNameHtml(i)+". "+esc(rd.head)+" — it supports "+rd.supported+" of the "+rd.total+" tone rows below.");
     parts.push("Drop a second recording of the same riff to unlock the comparison views.");
   }else{
     const g=state.lmOffset;
     if(g!=null&&isFinite(g)){
       if(Math.abs(g)>=0.5){
-        parts.push(slotNameHtml(g>0?0:1)+" ran "+Math.abs(g).toFixed(1)+" dB louder overall — "+
+        parts.push(slotNameHtml(g>0?0:1)+" was recorded louder overall — "+
           (state.lm?termHtml("level-match","level-match")+" is on, so the plots below correct for it."
-                   :termHtml("level-match","level-match")+" is off, so that gap flows into every Δ below."));
+                   :termHtml("level-match","level-match")+" is off, so that gap flows into every difference below."));
       }else{
-        parts.push("The two takes landed within "+Math.abs(g).toFixed(1)+" dB of each other overall — "+
-          "no meaningful "+termHtml("level-match","level")+" gap.");
+        parts.push("The two takes landed at much the same level — no "+termHtml("level-match","level-match")+" gap worth correcting.");
       }
     }
     const bdAll=biggestRegionDelta();
     const bd=bdAll?bdAll.best:null, bdFloor=bdAll?bdAll.floored:null;
     if(bd&&Math.abs(bd.d)>=1){
       const label=bd.r.label.charAt(0)+bd.r.label.slice(1).toLowerCase();
-      parts.push("Their widest audible spectral gap is "+termHtml(bd.r.key,label)+" ("+rangeStr(bd.f0,bd.f1)+
-        "), where "+slotNameHtml(bd.d>0?0:1)+" runs "+Math.abs(bd.d).toFixed(1)+" dB hotter.");
+      parts.push("Their widest audible gap is "+termHtml(bd.r.key,label)+", where "+slotNameHtml(bd.d>0?0:1)+" runs hotter.");
     }
     // Disclose, never rewrite: a bigger Δ that lives under the floor is named as
     // what it is — a difference of silences — rather than dropped or promoted.
     if(bdFloor&&Math.abs(bdFloor.d)>=1&&(!bd||Math.abs(bdFloor.d)>Math.abs(bd.d))){
       const flabel=bdFloor.r.label.charAt(0)+bdFloor.r.label.slice(1).toLowerCase();
-      parts.push(termHtml(bdFloor.r.key,flabel)+" ("+rangeStr(bdFloor.f0,bdFloor.f1)+") shows a wider "+
-        Math.abs(bdFloor.d).toFixed(1)+" dB Δ, but both takes sit below "+bdAll.floorDb.toFixed(0)+
-        " dB there — a difference of silences, not a tone difference.");
+      parts.push(termHtml(bdFloor.r.key,flabel)+" shows a wider gap on paper, but both takes sit below the floor there — a difference of silences, not a tone difference.");
     }
     const cands=proseCandidates();
     if(cands.length){
@@ -7479,22 +7490,13 @@ function renderVerdict(){
 
 function renderToneNote(){
   if(!anyLoaded()){ toneNote.textContent=""; return; }
-  const bits=[]; let snap=false;
-  for(let i=0;i<2;i++){
-    const s=state.slots[i]; if(!s) continue;
-    if(s.kind==="snapshot") snap=true;
-    const m=s.metrics||{}; const os=openStringNotes(m);
-    let b=slotLabel(i)+": ";
-    if(m.notes) b+=m.pitched+" pitched note"+(m.pitched===1?"":"s")+(os.length?", "+os.length+" of 6 open strings found":", no open strings found");
-    else b+=(m.f0!=null?"one sustained note "+fmtHz(m.f0):"no stable pitch")+" (older analysis)";
-    bits.push(b);
-  }
+  // E5.1: rung 1 only. What each take supplied is the readiness dot's tap on its card.
+  const snap=[0,1].some(i=>state.slots[i]&&state.slots[i].kind==="snapshot");
   const lv=liveToneBands();
-  const bandNote=lv.ready?"Reliability bands are measured live from the takes in the slots ("+slotTakes(0).length+" of "+slotLabel(0)+", "+slotTakes(1).length+" of "+slotLabel(1)+"); Save as bands keeps them for later sessions."
-    :state.toneBandsAt?"Reliability bands were measured on "+new Date(state.toneBandsAt).toLocaleDateString()+" from two takes of each guitar; rows without one have no verdict."
+  const bandNote=lv.ready?"Reliability bands are measured live from the takes in the slots; Save as bands keeps them for later sessions."
+    :state.toneBandsAt?"Reliability bands were measured on "+new Date(state.toneBandsAt).toLocaleDateString()+" from two takes of each guitar; rows without one carry no verdict."
     :"No reliability band is measured yet, so no row carries a verdict. Add a second take to each guitar (drop a file on its card, or record) and the bands measure themselves.";
-  toneNote.innerHTML="Instrument rows read the open strings when the take has them and every pitched note otherwise — "+
-    esc(bits.join(" · "))+". "+esc(bandNote)+" Level-matching never changes the numbers on this panel."+
+  toneNote.innerHTML="Instrument rows read the open strings when a take has them. "+esc(bandNote)+" Level-matching never changes the numbers on this panel."+
     (snap?" Snapshot slots reuse the metrics stored at export.":"");
 }
 
@@ -7519,9 +7521,9 @@ function renderFooter(){
 }
 function updateDiffSub(){
   diffSub.textContent=bothLoaded()
-    ? slotDesc(0,18)+" − "+slotDesc(1,18)+", dB"+
+    ? slotDesc(0,18)+" against "+slotDesc(1,18)+" — above the line "+slotDesc(0,12)+" is louder"+
       (state.lm?" · after level-match":"")
-    : "A − B, dB";
+    : "A against B";
 }
 function updateSgramSub(){
   const align=state.sgAlign==="file"?" · shared time axis"
@@ -10668,7 +10670,7 @@ function boot(){
     if(e._gsTermHandled) return;
     const t=e.target.closest?e.target.closest(".term"):null;
     if(t){ e._gsTermHandled=true; openPopover(t.dataset.term,t.getBoundingClientRect()); return; }
-    const vl=e.target.closest?e.target.closest(".vlab[data-pop]"):null;
+    const vl=e.target.closest?e.target.closest("[data-pop]"):null;
     if(vl){ e._gsTermHandled=true; const [k,i]=vl.dataset.pop.split(":"); openTonePop(k,+i,vl.getBoundingClientRect()); return; }
     if(popover.classList.contains("open")&&!popover.contains(e.target)) closePopover();
   });

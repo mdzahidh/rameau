@@ -153,7 +153,7 @@ section("E1.5 — the renderer: four visual states, one phrasing place, the read
   ok(needsElsewhere.length === 0, "no other code composes a 'needs …' sentence", needsElsewhere.length);
   const tp = body("openTonePop");
   ok(/rec\.detail\[i\]/.test(tp) && /TONE_STATE_WORD\[rec\.state\]/.test(tp) && /termHtml\(d\.term,/.test(tp), "the popover prints the rung-3 detail, the state word and a door to the full method");
-  ok(/closest\(".vlab\[data-pop\]"\)/.test(b4) && /openTonePop\(k,\+i,vl\.getBoundingClientRect\(\)\)/.test(b4), "clicking a value opens it through the same document click door as a term");
+  ok(/closest\("\[data-pop\]"\)/.test(b4) && /openTonePop\(k,\+i,vl\.getBoundingClientRect\(\)\)/.test(b4), "clicking a value opens it through the same document click door as a term");
   const css = html.slice(0, html.indexOf("<script>"));
   ok(/\.track \.pt\.a\.hollow\{ box-shadow:inset 0 0 0 2\.5px var\(--slot-a\); \}/.test(css) && /\.tonerow\.tone-s4 \.tone-missing\{ grid-column:2 \/ -1;/.test(css) && /\.track \.tone-band\{/.test(css),
     "the .tone-* classes exist and hollow dots keep the slot's own color");
