@@ -2455,11 +2455,11 @@ function betweenNoteResidual(rmsDb, frameHopSec, onsetTimes){
 // Everything level-matching does not fix. Each check names the rows it blocks.
 const COMPAT_CHECKS=[
   {key:"register", label:"register", val:m=>m.registerMidi, test:(a,b)=>Math.abs(a-b)<=5,
-   fmt:(a,b)=>Math.abs(a-b).toFixed(1)+" semitones apart", rows:["brightness","warmth","low-end","tightness","sustain"]},
+   fmt:(a,b)=>Math.abs(a-b).toFixed(1)+" semitones apart", rows:["brightness","f0-decay"]},
   {key:"density", label:"note density", val:m=>m.onsetRate, test:(a,b)=>Math.max(a,b)/Math.max(Math.min(a,b),1e-9)<=1.5,
-   fmt:(a,b)=>a.toFixed(1)+" vs "+b.toFixed(1)+" onsets/s", rows:["attack","dynamic-range","tightness","sustain"]},
+   fmt:(a,b)=>a.toFixed(1)+" vs "+b.toFixed(1)+" onsets/s", rows:["dynamic-range"]},
   {key:"onsets", label:"onset count", val:m=>m.onsetCount, test:(a,b)=>Math.max(a,b)/Math.max(Math.min(a,b),1)<=1.5,
-   fmt:(a,b)=>a+" vs "+b+" onsets", rows:["attack","dynamic-range"]},
+   fmt:(a,b)=>a+" vs "+b+" onsets", rows:["dynamic-range"]},
   {key:"floor", label:"noise floor", val:m=>m.noiseFloor, test:(a,b)=>Math.abs(a-b)<=10,
    fmt:(a,b)=>Math.abs(a-b).toFixed(0)+" dB apart", rows:["brightness","dynamic-range","residual"]},
   {key:"duration", label:"duration", val:m=>m.duration, test:(a,b)=>Math.max(a,b)/Math.max(Math.min(a,b),1e-9)<=2,
@@ -2486,7 +2486,7 @@ const TONE_BANDS_DEFAULT={
   "neck-sustain":{oct:0.3}, "body-resonance":{oct:0.06},
   "brightness":{oct:0.55}, "even-odd":{abs:4}, "harmonic-richness":{abs:4}, "warmth":{abs:0.05},
   "low-end":{abs:0.05}, "attack":{oct:1}, "attack-spectrum":{abs:0.5}, "tightness":{oct:0.3},
-  "sustain":{oct:0.3}, "dynamic-range":{abs:5},
+  "sustain":{oct:0.3}, "dynamic-range":{abs:5}, "f0-decay":{oct:0.3},
 };
 // Returns the delta in the band's domain and whether it clears the band.
 function bandVerdict(a, b, band){
@@ -3501,13 +3501,13 @@ function _bandVals(state, f0, f1){
 const GLOSSARY=[
   // ------------ frequency regions ------------
   { key:"low-end", name:"Low end", cat:"Frequency regions", hook:"60–200 Hz — weight and foundation",
-    musician:"The physical weight of the sound — what you feel in your chest. Too little and a guitar sounds thin; too much and it swamps the band.",
+    musician:"<b>Not a Tone character row since 2026-09-05</b> — it is the Band Energy share of 60–200 Hz and moves with what was played (THEORY §7.4), so it lives with the other band shares in the Frequency analysis card. The physical weight of the sound — what you feel in your chest. Too little and a guitar sounds thin; too much and it swamps the band.",
     science:"Energy between roughly 60 and 200 Hz, where the fundamentals of a guitar's lowest strings sit (low E ≈ 82 Hz, drop-D ≈ 73 Hz).",
     measure:"Share of total energy: ∫P(f)df over 60–200 Hz divided by the total over 60 Hz–20 kHz, from the Welch average spectrum.",
     values(state){ return _bandVals(state, 60, 200); } },
 
   { key:"warmth", name:"Warmth", cat:"Frequency regions", hook:"200–500 Hz in balance",
-    musician:"Roundness and comfort in the tone — enough low-mids that notes feel full-bodied rather than brittle. The dividing line between “warm” and “muddy” is taste and quantity.",
+    musician:"<b>Not a Tone character row since 2026-09-05</b> — it is the Band Energy share of 200–500 Hz and moves with what was played (THEORY §7.4), so it lives with the other band shares in the Frequency analysis card. Roundness and comfort in the tone — enough low-mids that notes feel full-bodied rather than brittle. The dividing line between “warm” and “muddy” is taste and quantity.",
     science:"Energy in the low-mid band, ≈200–500 Hz, where a guitar's note bodies and lower harmonics live.",
     measure:"Share of total energy: ∫P(f)df over 200–500 Hz ÷ total 60 Hz–20 kHz, from the Welch average.",
     values(state){ return _bandVals(state, 200, 500); } },
@@ -3746,7 +3746,7 @@ const GLOSSARY=[
     values(state){ return _vals(state, s=>s.metrics.evenOdd!=null ? fmtDb(s.metrics.evenOdd)+(s.metrics.evenOdd>0?"  (even)":"  (odd)") : null); } },
 
   { key:"attack", name:"Attack", cat:"Tone descriptors", hook:"how fast notes start",
-    musician:"The snap at the front of a note. Fast attack reads as percussive and immediate; slow attack as soft or compressed.",
+    musician:"<b>Folded into Attack colour’s readout on 2026-09-05</b> — the rise time is still measured and prints there, one tap down; the audit found it moves 20× more with the phrase than with the guitar (THEORY §7.4). The snap at the front of a note. Fast attack reads as percussive and immediate; slow attack as soft or compressed.",
     science:"The rise time of the amplitude envelope at note onset — conventionally the 10 %→90 % rise time.",
     measure:"Onsets by spectral flux (2048/512 STFT, adaptive median threshold); envelope by peak-follower (instant attack, 8 ms release); attack = median t₉₀−t₁₀ across detected onsets.",
     values(state){ return _vals(state, s=>s.metrics.attack!=null ? fmtMs(s.metrics.attack) : null); } },
@@ -3758,13 +3758,13 @@ const GLOSSARY=[
     values(state){ return _vals(state, s=>s.metrics.attackSpectrum!=null ? (s.metrics.attackSpectrum>0?"+":"")+s.metrics.attackSpectrum.toFixed(2)+" oct" : null); } },
 
   { key:"sustain", name:"Sustain", cat:"Tone descriptors", hook:"how long the mids ring",
-    musician:"How long a note keeps singing after you pick it. The quality players chase with heavier bodies, better break angles, and compression.",
+    musician:"<b>Removed from the Tone character panel on 2026-09-05</b> — replaced by Fundamental decay, which follows each note rather than a fixed band (a fixed band moves with register, THEORY §7.4). How long a note keeps singing after you pick it. The quality players chase with heavier bodies, better break angles, and compression.",
     science:"The decay time of note energy after the attack — here measured in the midrange (200 Hz–1.2 kHz), where the note's core lives.",
     measure:"Per onset: mid-band (200–1200 Hz) STFT power from post-onset peak, dB-vs-time regression → time to shed 20 dB. Median across onsets. A fixed band moves with register (the audit measured 1524 → 1193 ms for the same take a fifth up), so this is a voicing row; the per-string Overtone ring and Sustain across the neck carry the instrument's decay.",
     values(state){ return _vals(state, s=>s.metrics.decays && s.metrics.decays[1]!=null ? fmtMs(s.metrics.decays[1])+" to −20 dB" : null); } },
 
   { key:"tightness", name:"Tightness", cat:"Tone descriptors", hook:"how fast the low end gets out of the way",
-    musician:"A “tight” low end starts and stops with the note — no boom hanging over the next one. “Loose” or “flubby” lows keep ringing.",
+    musician:"<b>Removed from the Tone character panel on 2026-09-05</b> — replaced by Fundamental decay, which follows each note rather than a fixed band (a fixed band moves with register, THEORY §7.4). A “tight” low end starts and stops with the note — no boom hanging over the next one. “Loose” or “flubby” lows keep ringing.",
     science:"Short decay time in the low band: the faster low-frequency energy decays after each note, the tighter it sounds.",
     measure:"Per onset: low-band (60–200 Hz) STFT power decay from post-onset peak → time to shed 20 dB. Median across onsets. Shorter = tighter. A fixed band moves with register and note density, so this is a voicing row.",
     values(state){ return _vals(state, s=>s.metrics.decays && s.metrics.decays[0]!=null ? fmtMs(s.metrics.decays[0])+" to −20 dB" : null); } },
@@ -3785,7 +3785,7 @@ const GLOSSARY=[
       return parts.length?parts.join(" · "):null; }); } },
 
   { key:"dynamic-range", name:"Dynamic range", cat:"Tone descriptors", hook:"loud-to-quiet spread",
-    musician:"How much louder the loud bits are than the quiet bits. Wide range = expressive, uncompressed playing; narrow = compressed or consistently dug-in.",
+    musician:"<b>A Take / recording row since 2026-09-05</b> — a fact about the performance and the floor (a −60 dBFS floor took 4.7 dB off it in the audit), not about the guitar. How much louder the loud bits are than the quiet bits. Wide range = expressive, uncompressed playing; narrow = compressed or consistently dug-in.",
     science:"The statistical spread of short-term level over the performance, ignoring silence.",
     measure:"RMS in 50 ms frames (25 ms hop); frames above noise-floor + 8 dB count as active; DR = 95th − 10th percentile of active frame levels, in dB. A performance measure — and a −60 dBFS noise floor took 4.7 dB off it in the audit, so it also flags the take.",
     values(state){ return _vals(state, s=>s.metrics.dr!=null ? s.metrics.dr.toFixed(1)+" dB" : null); } },
@@ -3818,7 +3818,7 @@ const GLOSSARY=[
   { key:"inharmonicity", name:"String stiffness", cat:"Tone descriptors", hook:"inharmonicity B",
     musician:"Real strings are a little stiff, so their overtones run slightly sharp — more on thick plain strings and short scales, less on long scales and on wound strings' thin cores. It is why a plain G is the hardest string to intonate, and why a dead string sounds duller: this number rises as a string corrodes.",
     science:"f_n = n·f₀·√(1 + B·n²) with B = π³·E·d⁴ ⁄ (64·T·L²) for a plain string (THEORY §7.6.1): fourth power of diameter, inverse square of scale length. Typical guitar values 10⁻⁵–10⁻³; at B = 1.6×10⁻⁴ the 12th partial sits about 20 ¢ sharp.",
-    measure:"(f_n ⁄ n)² is linear in n² with intercept f₀² and slope f₀²·B, so f₀ is fitted free. Partials are accepted one at a time inside ±1.2 % of the running prediction, up to the 14th; the residual is reported in cents. Per string on the open strings when the take contains them (each string's longest comb-checked note within ±50 ¢), else the median over pitched notes.",
+    measure:"Since 2026-09-05 the row reads the open E and A only (the two wound strings every stocked tuning has), needs 12 accepted partials on each to count as measured, and never reaches At a glance; its verdict, when a measured band exists, is only “same strings and scale” or “different”. (f_n ⁄ n)² is linear in n² with intercept f₀² and slope f₀²·B, so f₀ is fitted free. Partials are accepted one at a time inside ±1.2 % of the running prediction, up to the 14th; the residual is reported in cents. Per string on the open strings when the take contains them (each string's longest comb-checked note within ±50 ¢), else the median over pitched notes.",
     values(state){ return _vals(state, s=>{ const os=openStringNotes(s.metrics).filter(n=>n.nB>=6); if(os.length) return os.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+(n.B*1e4).toFixed(2)).join(" · ")+"  ×10⁻⁴"; const v=slotInharmonicity(s.metrics); return v!=null ? (v*1e4).toFixed(2)+" ×10⁻⁴ (median over pitched notes)" : null; }); } },
 
   { key:"overtone-sustain", name:"Overtone ring", cat:"Tone descriptors", hook:"which harmonics die first",
@@ -3832,6 +3832,12 @@ const GLOSSARY=[
     science:"The neck and body have bending modes; where the neck's admittance is high at a played note's frequency, the string drives the neck instead of ringing and its energy leaves fast (THEORY §7.6.7, Fleischer & Zwicker). Non-uniform sustain across the neck is the solidbody's structural signature.",
     measure:"The time for the fundamental to shed 20 dB, for every note that passes the pitch check. The row prints the median; a note under one third of the median of the notes within an octave of it (at least three of them) is flagged with its name — a low string's fundamental rings far longer than a plain G's for reasons that are the string, so notes are only judged against their neighbours. A flag is a candidate, not a verdict — play the note again.",
     values(state){ return _vals(state, s=>{ const m=s.metrics; if(m.neckMedian==null) return null; const fl=(m.neckFlags||[]).map(f=>noteStr(f.f0,state.a4).split(" ")[0]+" "+fmtMs(f.t20)); return "median "+fmtMs(m.neckMedian)+" over "+m.neckN+" notes"+(fl.length?"  ·  flagged: "+fl.join(", "):"  ·  none flagged"); }); } },
+
+  { key:"f0-decay", name:"Fundamental decay", cat:"Tone descriptors", hook:"how long the note itself lasts",
+    musician:"How long the note you played keeps sounding — not its overtones, the note. Compared note for note when two takes are loaded, so an open E is only ever measured against an open E.",
+    science:"The fundamental loses energy to the air, inside the string and through the bridge into the body at its own rate (THEORY §7.6.2): a straight line in dB with slope −8.686 ⁄ τ, and 2.303·τ seconds to shed 20 dB. It replaces the fixed-band decay rows (Tightness, Sustain), which moved with register because their band stayed put while the notes moved (§7.4).",
+    measure:"Goertzel power at the comb-checked f₀ per 4096-pt Hann frame, hop 512, regression from the post-onset peak until −25 dB or the next onset; accepted with ≥ 6 frames, ≥ 6 dB of observed decay and a slope steeper than −1 dB/s. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, and the row prints the median over those.",
+    values(state){ return _vals(state, s=>{ const o=state.slots[0]&&state.slots[1]?_otherMetrics(s):null; const ns=_f0DecayNotes(s.metrics,o); return ns.length ? ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · ") : null; }); } },
 
   { key:"residual", name:"Between notes", cat:"Method", hook:"how quiet it gets between notes",
     musician:"On a direct recording the gaps between notes hold only the string's own ring and the noise floor. With a microphone the room fills those gaps, and the further the mic sits from the guitar, the more room and the less guitar it hears.",
@@ -6809,6 +6815,25 @@ function slotBloom(m){ if(!m||!m.notes) return null; const st=m.notes.filter(n=>
   if(!st.length) return null; return {knee:_median(st.map(x=>x.knee)), early:_median(st.map(x=>x.early)), late:_median(st.map(x=>x.late)), n:st.length}; }
 function slotBodyRes(m){ if(!m) return null; if(m.tap) return {f:m.tap.f, q:m.tap.q, src:"tap"}; if(m.air) return {f:m.air.f, q:m.air.q, src:"LTAS"}; return null; }
 const _sub=t=>'<small>'+t+'</small>';
+// Matched notes for the fundamental-decay row: with two takes loaded, only notes whose
+// pitch appears on both sides (±50 ¢) — the same match toneEvidenceOf() counts.
+function _f0DecayNotes(m, other){
+  if(!m||!m.notes) return [];
+  const mine=m.notes.filter(n=>n.pass&&n.t20>0);
+  if(!other||!other.notes) return mine;
+  const op=other.notes.filter(n=>n.pass&&n.t20>0);
+  return mine.filter(n=>op.some(o=>Math.abs(1200*Math.log2(o.f0/n.f0))<=50));
+}
+function _otherMetrics(s){ const j=state.slots.indexOf(s); const o=state.slots[j===0?1:0]; return o?o.metrics:null; }
+// Open E and A only (the two wound strings every stocked tuning has): String stiffness is
+// demoted to those, never a median over the neck (SPEC 2026-09-05, E phase).
+function slotStiffnessEA(m){
+  const os=openStringNotes(m).filter(n=>(n.si===0||n.si===1)&&n.nB>=6);
+  const v=_median(os.map(n=>n.B)); return v==null?null:Math.max(v,1e-6);
+}
+// Each row: `fmt` is the headline the dot carries (rung 2 — the number and its unit);
+// `detail` is rung 3 and lives in the readout popover only. `type` hides the row from
+// slots of another kind; `nfam` is the family Q5's strip reads.
 function toneRowDefs(){
   const both=bothLoaded();
   return [
@@ -6817,85 +6842,79 @@ function toneRowDefs(){
      unit:"where the pickup itself peaks — cable length and the volume pot move it too",
      lo:1000, hi:8000, log:true, ticks:["1 kHz","8 kHz"], more:"peaks higher",
      val:s=>s.metrics.hump&&!s.metrics.hump.edge?s.metrics.hump.f:null,
-     fmt:(v,s)=>fmtHz(v)+_sub(fmtDb(s.metrics.hump.db,1)+(s.metrics.hump.q?" · Q "+s.metrics.hump.q.toFixed(1):"")),
+     range:s=>{ const h=s.metrics.hump; if(!h||!(h.q>0)) return null; const w=1/(2*h.q); return [h.f/(1+w), h.f*(1+w)]; },
+     fmt:(v,s)=>fmtHz(v),
+     detail:(v,s)=>fmtDb(s.metrics.hump.db,1)+" over the trend"+(s.metrics.hump.q?" · Q "+s.metrics.hump.q.toFixed(1)+" (the bar is the −3 dB width)":""),
      reason:s=>s.metrics.hump?"no clear peak in 0.8–8 kHz":"no spectrum"},
     {g:"inst", term:"body-resonance", name:"Body voice", type:"hollow",
      unit:"the body's own low hum — from a tap on the bridge when the take has one",
      lo:70, hi:130, log:true, ticks:["70 Hz","130 Hz"], more:"hums higher",
      val:s=>{ const b=slotBodyRes(s.metrics); return b?b.f:null; },
-     fmt:(v,s)=>{ const b=slotBodyRes(s.metrics); return fmtHz(v)+_sub((b.q?"Q "+b.q.toFixed(1)+" · ":"")+(b.src==="tap"?"tap test":"from the average spectrum")); },
+     fmt:(v,s)=>fmtHz(v),
+     detail:(v,s)=>{ const b=slotBodyRes(s.metrics); return (b.q?"Q "+b.q.toFixed(1)+" · ":"")+(b.src==="tap"?"tap test":"from the average spectrum — a tap would be cleaner"); },
      reason:()=>"no peak found 70–130 Hz"},
-    {g:"inst", term:"inharmonicity", name:"String stiffness",
-     unit:"how far the overtones drift sharp — the strings and the scale length, not the pick",
+    {g:"inst", term:"inharmonicity", name:"String stiffness", plain:true,
+     unit:"how far the overtones drift sharp on the two low strings — the strings and the scale, not the pick",
      lo:1e-5, hi:1e-3, log:true, ticks:["0.1","10 ×10⁻⁴"], more:"stiffer / shorter scale",
-     val:s=>slotInharmonicity(s.metrics),
-     fmt:(v,s)=>(v*1e4).toFixed(2)+" ×10⁻⁴"+_sub(_instNotes(s.metrics).matched?_instNotes(s.metrics).notes.length+" open strings":"all pitched notes"),
-     reason:s=>s.metrics.notes?"no note with 6 clean partials":"analysed before this row existed"},
+     val:s=>slotStiffnessEA(s.metrics),
+     fmt:(v,s)=>(v*1e4).toFixed(2)+" ×10⁻⁴",
+     detail:(v,s)=>openStringNotes(s.metrics).filter(n=>(n.si===0||n.si===1)&&n.nB>=6).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+(n.B*1e4).toFixed(2)+" ×10⁻⁴ over "+n.nB+" partials"+(n.rmsCents!=null?" · ±"+n.rmsCents.toFixed(1)+" ¢":"")).join(" · "),
+     reason:s=>s.metrics.notes?"open E and A not found in this take":"analysed before this row existed"},
     {g:"inst", term:"overtone-sustain", name:"Overtone ring",
      unit:"how long the upper harmonics keep singing after the pick",
      lo:0.2, hi:10, log:true, ticks:["0.2 s","10 s"], more:"rings longer",
-     val:s=>slotOvertoneSustain(s.metrics), fmt:v=>fmtMs(v)+_sub("partials 3–8, to −20 dB"),
+     val:s=>slotOvertoneSustain(s.metrics), fmt:v=>fmtMs(v),
+     detail:(v,s)=>{ const {notes,matched}=_instNotes(s.metrics); const ls=notes.filter(n=>n.partials).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+n.partials.map(t=>t==null?"—":t.toFixed(1)).join(" / ")+" s");
+       return "partials 3–8, time to fall 20 dB, geometric mean"+(matched?" over the open strings":" over pitched notes")+(ls.length?" · per note (partials 1–8): "+ls.join(" · "):""); },
      reason:s=>s.metrics.notes?"no note long enough to fit":"analysed before this row existed"},
     {g:"inst", term:"bloom", name:"Bloom",
      unit:"a fast first fall, then a slow tail — what players hear as natural compression",
      lo:0.1, hi:4, log:true, ticks:["0.1 s","4 s"], noband:true,
      val:s=>{ const b=slotBloom(s.metrics); return b?b.knee:null; },
-     fmt:(v,s)=>{ const b=slotBloom(s.metrics); return "knee "+fmtMs(v)+_sub(b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · "+b.n+(b.n===1?" note":" notes")); },
+     fmt:(v,s)=>"knee "+fmtMs(v),
+     detail:(v,s)=>{ const b=slotBloom(s.metrics); return b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · median over "+b.n+(b.n===1?" note":" notes")+" that fit two stages"; },
      reason:s=>s.metrics.notes?"one slope fits — no knee":"analysed before this row existed"},
     {g:"inst", term:"neck-sustain", name:"Sustain across the neck",
      unit:"how evenly notes ring out — a note that dies early is flagged",
      lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
      val:s=>s.metrics.neckMedian,
-     fmt:(v,s)=>{ const m=s.metrics, fl=(m.neckFlags||[]).slice(0,2).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20));
-       return fmtMs(v)+_sub(m.neckN+" notes"+(fl.length?" · "+fl.join(" · "):" · none flagged")); },
+     fmt:(v,s)=>fmtMs(v),
+     detail:(v,s)=>{ const m=s.metrics, fl=(m.neckFlags||[]).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref));
+       return "median over "+m.neckN+" notes · "+(fl.length?fl.join(" · "):"none flagged"); },
      reason:s=>s.metrics.notes?"fewer than 6 notes with a measurable decay":"analysed before this row existed"},
+    {g:"inst", term:"f0-decay", name:"Fundamental decay",
+     unit:"how long the note itself lasts — matched note for note when two takes are loaded",
+     lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
+     val:s=>_median(_f0DecayNotes(s.metrics,both?_otherMetrics(s):null).map(n=>n.t20)),
+     fmt:v=>fmtMs(v),
+     detail:(v,s)=>{ const ns=_f0DecayNotes(s.metrics,both?_otherMetrics(s):null); return "time for the fundamental to fall 20 dB, median over "+ns.length+(both?" matched":"")+(ns.length===1?" note":" notes")+(ns.length?" · "+ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · "):""); },
+     reason:s=>s.metrics.notes?(both?"no note this take shares with the other":"no note with a measurable decay"):"analysed before this row existed"},
     // ---- Voicing / technique ----
     {g:"voice", term:"brightness", name:"Brightness",
      unit:"where the energy balances — the pick, the pickup and the register all move it",
      lo:400, hi:6000, log:true, ticks:["400 Hz","6 kHz"], more:"brighter",
      val:s=>s.metrics.centroid,
-     fmt:(v,s)=>fmtHz(v)+_sub(s.metrics.tilt!=null?"tilt "+s.metrics.tilt.toFixed(1)+" dB/oct":"")},
+     fmt:(v,s)=>fmtHz(v),
+     detail:(v,s)=>"spectral centroid of the whole take"+(s.metrics.tilt!=null?" · tilt "+s.metrics.tilt.toFixed(1)+" dB/oct":"")},
     {g:"voice", term:"even-odd", name:"Even / odd balance",
      unit:"set mostly by where you pick — plucking at a third of the string silences every third overtone",
      lo:-12, hi:12, zero:0, ticks:["odd −12","+12 even"], more:"further even",
      val:s=>s.metrics.evenOdd,
-     fmt:v=>fmtDb(v,1)+_sub(v>0.5?"even-leaning":(v<-0.5?"odd-leaning":"balanced")),
+     fmt:v=>fmtDb(v,1),
+     detail:(v,s)=>(v>0.5?"even-leaning":(v<-0.5?"odd-leaning":"balanced"))+" · median over "+s.metrics.pitched+" comb-checked notes",
      reason:s=>_pitchReason(s)},
     {g:"voice", term:"harmonic-richness", name:"Harmonic richness",
      unit:"overtones against the fundamental — median over every pitched note",
      lo:-6, hi:24, ticks:["−6 dB","+24 dB"], more:"richer",
-     val:s=>s.metrics.richness, fmt:v=>fmtDb(v,1), reason:s=>_pitchReason(s)},
-    {g:"voice", term:"warmth", name:"Warmth",
-     unit:"share of energy in a fixed 200–500 Hz band — depends on what was played",
-     lo:0, hi:0.6, ticks:["0 %","60 %"], more:"warmer",
-     val:s=>bandPower(s.welch.power,s.welch.df,200,500)/Math.max(bandPower(s.welch.power,s.welch.df,60,20000),1e-30),
-     fmt:v=>fmtPct(v)},
-    {g:"voice", term:"low-end", name:"Fullness",
-     unit:"share of energy in a fixed 60–200 Hz band — depends on what was played",
-     lo:0, hi:0.6, ticks:["0 %","60 %"], more:"fuller",
-     val:s=>bandPower(s.welch.power,s.welch.df,60,200)/Math.max(bandPower(s.welch.power,s.welch.df,60,20000),1e-30),
-     fmt:v=>fmtPct(v)},
-    {g:"voice", term:"attack", name:"Attack",
-     unit:"how fast notes start — the pick and the hand",
-     lo:0.002, hi:0.12, log:true, ticks:["2 ms","120 ms"], more:"slower to speak",
-     val:s=>s.metrics.attack, fmt:v=>fmtMs(v)},
+     val:s=>s.metrics.richness, fmt:v=>fmtDb(v,1),
+     detail:(v,s)=>"harmonics 2–10 against the fundamental · median over "+s.metrics.pitched+" comb-checked notes",
+     reason:s=>_pitchReason(s)},
     {g:"voice", term:"attack-spectrum", name:"Attack colour",
      unit:"the first 10 ms against the ring that follows — pick material and angle",
      lo:-2, hi:2, zero:0, ticks:["darker −2","+2 oct brighter"], more:"brighter at the pick",
      val:s=>s.metrics.attackSpectrum, fmt:v=>(v>0?"+":"")+v.toFixed(2)+" oct",
+     detail:(v,s)=>"centroid of the first 10 ms over the centroid 300–500 ms later, median over the longest notes"+(s.metrics.attack!=null?" · rise time (10 → 90 %) "+fmtMs(s.metrics.attack)+", median over onsets":""),
      reason:s=>_pitchReason(s)},
-    {g:"voice", term:"tightness", name:"Tightness",
-     unit:"how fast the 60–200 Hz band gets out of the way — phrase median",
-     lo:0.06, hi:3, log:true, ticks:["60 ms","3 s"], more:"looser",
-     val:s=>s.metrics.decays?s.metrics.decays[0]:null, fmt:v=>fmtMs(v)},
-    {g:"voice", term:"sustain", name:"Sustain (mid band)",
-     unit:"how long the 200–1200 Hz band rings — phrase median",
-     lo:0.06, hi:3, log:true, ticks:["60 ms","3 s"], more:"rings longer",
-     val:s=>s.metrics.decays?s.metrics.decays[1]:null, fmt:v=>fmtMs(v)},
-    {g:"voice", term:"dynamic-range", name:"Dynamic range",
-     unit:"loud-to-quiet spread of the performance",
-     lo:4, hi:30, ticks:["4 dB","30 dB"], more:"wider",
-     val:s=>s.metrics.dr, fmt:v=>v.toFixed(1)+" dB"},
     // ---- Take / recording ----
     {g:"take", term:"pitch-check", name:"Pitch check", text:true,
      unit:"notes the harmonic rows are built on, and the check that caught wrong octaves",
@@ -6906,10 +6925,16 @@ function toneRowDefs(){
      val:s=>{ const m=s.metrics, b=[]; if(m.levelRms!=null) b.push("RMS "+m.levelRms.toFixed(1)+" dBFS"); if(m.levelPeak!=null) b.push("peak "+m.levelPeak.toFixed(1)+" dBFS");
        if(m.noiseFloor!=null) b.push("floor "+m.noiseFloor.toFixed(0)+" dBFS"); if(m.snr!=null) b.push("SNR "+m.snr.toFixed(0)+" dB");
        if(m.clipped) b.push('<span class="err">clipped — '+m.clipCount+' samples</span>'); return b.join(" · "); }},
+    {g:"take", term:"dynamic-range", name:"Dynamic range",
+     unit:"loud-to-quiet spread of the performance — a fact about the take, and one the floor eats into",
+     lo:4, hi:30, ticks:["4 dB","30 dB"], more:"wider",
+     val:s=>s.metrics.dr, fmt:v=>v.toFixed(1)+" dB",
+     detail:()=>"95th − 10th percentile of 50 ms RMS frames above the floor + 8 dB"},
     {g:"take", term:"residual", name:"Between notes",
      unit:"how far the sound drops between notes — room, distance and noise all show up here",
      lo:-60, hi:-10, ticks:["−60 dB","−10 dB"], more:"less quiet between notes",
      val:s=>s.metrics.residual, fmt:v=>Math.abs(v).toFixed(0)+" dB below the note",
+     detail:()=>"median over every gap of 0.3 s or more: the gap's quietest 50 ms against the peak of the note before it",
      reason:()=>"no gap of 0.3 s between notes"},
     {g:"take", term:"comparability", name:"Material", text:true,
      unit:"what was played — the comparison is only fair when these match",
