@@ -696,9 +696,9 @@ build educational copy from it, never re-derive from scratch.
   timer (250 → **100 ms**, still one per capture, teardown still `stopCapture`'s existing
   `clearInterval`) drains it in `paintLevel()`. The bar is **linear in dBFS over −60..0** and the
   number beside it is the same quantity, so picture and readout cannot disagree — fill = RMS,
-  thin rider = a 1 s peak hold falling 12 dB/s. Zones `--slot-c` / `--warn` (≥ −6) / `--err`
-  (≥ −1): there is no green token in the palette and a level meter is not the place to invent
-  one. `fmtDb()` is deliberately **not** used for the readout — its leading `+` reads as a
+  thin rider = a 1 s peak hold falling 12 dB/s. (Its three zone colors, and the rule that the
+  palette has no green token, were **both** reversed the same day — see the pre-roll-monitor
+  bullet below.) `fmtDb()` is deliberately **not** used for the readout — its leading `+` reads as a
   difference, which a level below full scale is not. **(b) One transport per card:** ▶/■, ‖,
   a native `accent-color` seek range, a tabular elapsed/duration readout and ● Record in one
   `.transport` row; ⟳ Replace and ✕ Clear stay in `.fileacts`, because they act on the *slot*,
@@ -712,6 +712,31 @@ build educational copy from it, never re-derive from scratch.
   *Verification, in proportion*, per the user's instruction in the same message: `node --check` on
   all five blocks, one `--dump-dom` to see the row render, a read-through — **no new suite, no new
   `verify.sh` step, no new assertion, no new Chrome screenshot launch.**
+- **Pre-roll monitor + Logic-colored meter BUILT (session 30, reviewer; user request:
+  "level metering enabled once the device and channel are detected … colored from green to red
+  similarly to logic pro … a text tip … around -12dB").** A meter that only lives during
+  capture arrives **after** the moment it exists to prevent: you set the gain *before* you
+  play the take. So the arming panel now meters as soon as a device and a channel are known.
+  The monitor is **`_startCapture`'s own graph with the recorder removed** — same device, same
+  channel pick, same discrete 32-channel `ScriptProcessorNode`, same gain-0 silent sink, same
+  one-walk peak/RMS accumulation — but **no chunks, no total, no `t0`**, and `paintLevel()`
+  uses that missing `t0` to know it must not write the elapsed clock. **One device, one
+  owner:** monitor and capture are mutually exclusive, so every exit door (`renderCard`'s
+  head, `recAbort`, `startCapture`, the interval's mode check, `track.onended`) calls
+  `stopMonitor()`, and both `await`s in `_startMonitor` are followed by a `recMonSeq`
+  staleness check. **A monitor that cannot open reports nothing** — *Start recording* opens
+  the same device and surfaces the same failure, and two error paths for one cause is how a
+  panel comes to contradict itself. The face is Logic's: **one green→amber→red gradient
+  painted across the whole track and revealed by `clip-path: inset(...)`**, never recolored
+  per level — the zone then belongs to the **dB**, not to the fill length, so −12 dB is always
+  the same green and the 80 % hairline sits exactly where the tip says. **This is a deliberate
+  reversal of "there is no green token in the palette and a level meter is not the place to
+  invent one"** (written when the meter had three zone colors): meter hues are a **data**
+  palette like `STRING_COLORS` — identical in both themes — and green→red is the convention
+  every player already reads. The −12 dB target is said **once in each place**: the mark on
+  the bar, one tip line beside it, and the recording guide's Levels bullet — never re-derived.
+  *Verification, in proportion:* `node --check` on all five blocks and a read-through of every
+  `stopMonitor()` door; no new suite, no new `verify.sh` step, no new Chrome launch.
 - **Odd-harmonics-only overlay BUILT (session 31, reviewer; user request: "an option to show
   only the Harmonic 1, 3 and 5 in the spectrogram").** The Overlay harmonic selector gains
   **`Harmonics 1, 3, 5 (odd only)`**. It is a **filter over the existing series**, not a second
@@ -912,10 +937,21 @@ build educational copy from it, never re-derive from scratch.
   looking like a recording. Nothing leaves the
   machine: a take stays in the page, like every file dropped on it. No realtime analysis —
   that is M3, still gated.
-  **While it captures, the panel meters the level** — from the walk `onaudioprocess` already
-  did for `cap.heard`, never a second pass or an added node: bar linear in dBFS over −60..0,
-  fill RMS, rider a 1 s peak hold at −12 dB/s, `--slot-c`/`--warn`/`--err`, drained by the
-  elapsed clock's own 100 ms tick.
+  **The panel meters the level before the take, not only during it** — from the walk
+  `onaudioprocess` already did for `cap.heard`, never a second pass or an added node: bar
+  linear in dBFS over −60..0, fill RMS, rider a 1 s peak hold at −12 dB/s, drained by a
+  100 ms tick. As soon as the device and channel are known the panel opens a **pre-roll
+  monitor** — `_startCapture`'s graph with the recorder removed (no chunks, no total, no
+  `t0`; `paintLevel()` reads the missing `t0` to know it must not write the elapsed clock) —
+  because a meter that only lives during capture arrives after the moment it exists to
+  prevent. **One device, one owner:** monitor and capture are mutually exclusive and every
+  exit door calls `stopMonitor()`; a monitor that cannot open **reports nothing**, since
+  *Start recording* opens the same device and surfaces the same failure. The face is Logic's
+  — one green→amber→red gradient painted across the whole track and **revealed** by
+  `clip-path`, so the zone belongs to the dB and not to the fill length, with the −12 dB
+  target marked on the bar and said once in words beside it (the same target the recording
+  guide names). **This reverses the "no green token" rule above:** meter hues are a data
+  palette, identical in both themes, and green→red is what a player already reads.
 - **Every visible number defensible.** Analysis params live in the footer; smoothing
   state is always printed on the plot; dB re full-scale sine everywhere; glossary terms
   link each label to its formula with current values.

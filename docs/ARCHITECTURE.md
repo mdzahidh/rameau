@@ -1813,9 +1813,9 @@ capture and `stopCapture`'s existing `clearInterval` is still the whole teardown
 
 Geometry: width is **linear in dBFS over −60..0** (`meterPct`), and the printed peak is the
 same quantity, so bar and number cannot disagree. Fill = RMS of the interval, rider = a 1 s
-peak hold decaying 12 dB/s. Zones `--slot-c` / `--warn` (≥ −6) / `--err` (≥ −1); the palette
-has no green var and this is not the place to add one. `fmtDb()` is not used for the readout —
-its leading `+` reads as a *difference*, which a level below full scale is not.
+peak hold decaying 12 dB/s. (The three zone colors this section originally described were
+replaced the same day by one gradient — see the next section.) `fmtDb()` is not used for the
+readout — its leading `+` reads as a *difference*, which a level below full scale is not.
 
 **The card transport.** `.fileacts` keeps ⟳ Replace and ✕ Clear (slot management); a new
 `.transport` row carries ▶/■, ‖, a native `accent-color` seek range, a tabular
@@ -1841,6 +1841,44 @@ Seek previews on `input` and commits on `change`: keyboard arrows fire both, and
 the source on every `input` would stutter arrow-key seeking. The card's click delegation
 exempts `select,input[type=range]` so a drag on the slider does not fall through to the file
 picker.
+
+## Pre-roll monitor (session 30): the meter has to run before the take
+
+**A meter that only lives during capture arrives too late.** The gain that decides a take is
+set *before* it — on the amp, on the interface — so the arming panel meters live, from the
+moment the device and its channel count are known.
+
+**The monitor is `_startCapture`'s graph with the recorder taken out.** Same device, same
+channel pick, same discrete 32-channel `ScriptProcessorNode`, same gain-0 sink, the same
+one-walk peak/RMS accumulation `paintLevel()` already drains — but **no chunks, no total and
+no `t0`**, which is exactly how `paintLevel` tells them apart: only a capture carries `t0`, so
+only a capture writes the elapsed clock. Building a second, simpler graph would have been a
+second answer to "what does this channel sound like", and the two would eventually disagree.
+
+**It holds the device, so exactly one of the monitor and the capture may exist.** Every door
+out of the arming panel goes through `stopMonitor()`: `renderCard`'s head, `startCapture`
+(with the comment *one device, one owner*), the probe in `ensureRecChannels`, `recAbort`, the
+interval's own mode check, and `track.onended`. The channel `<select>` is the one door that
+does **not** re-render, so its handler calls `syncMonitor(i)` itself. Both `await`s in
+`_startMonitor` are followed by a `stale()` check against a `recMonSeq` token; a monitor that
+cannot open **says nothing**, because *Start recording* opens the same device and reports the
+same failure — two error surfaces for one cause is noise.
+
+**Logic's colors, and why the meter is a data palette.** The bar goes green → amber → red.
+One gradient is painted across the **whole** track and revealed by `clip-path: inset(...)`,
+never recolored per zone: the zone is a property of the **level**, not of how long the fill
+happens to be, so −12 dB is the same green whatever else is happening, and the hairline at
+80 % sits exactly where the tip says it does. Stops read in dB on the −60..0 axis — green to
+−12 (80 %), amber by −6 (90 %), red by −1 (98 %). These three hues are a meter convention,
+so like every other data palette they are **identical in both themes**. This is the documented
+reversal of the house rule *"there is no green token in the palette"*, which was written when
+the meter had three zone colors and no gradient; a hardware meter's green is not a theme
+accent, and inventing a `--meter-lo` token per theme would make −12 dB mean two different
+colors.
+
+**The −12 dB tip sits beside the bar it is about**, in full ink (`.recnote.rectip`), naming
+the same target the recording guide's *Levels* section names — said once in each place, never
+derived twice.
 
 ## Hard-won correctness notes (dead ends — do not retry)
 

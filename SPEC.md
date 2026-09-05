@@ -2444,3 +2444,47 @@ E2/G3/B3; the E shape → E2/B2/G♯3, keeping the lowest fifth; Am → A2/E3/C4
 own root), and **one** Chrome `--dump-dom` at `?sgchord=E&sgtriadonly=1`: `data-sgcomb` 36 →
 **18**, the checkbox no longer `disabled`. No new suite, no new `verify.sh` step, no new
 assertion, no new screenshot launch.
+
+## 2026-09-04 — the meter runs before the take, in Logic's colors
+
+The user's follow-up to the meter, in one sentence: meter as soon as the device and channel are
+known, color it green→red the way Logic Pro does, and print the −12 dB target from *How to
+record* beside the bar.
+
+**Why "before" is the whole point.** The gain that decides a take is set before it — on the amp,
+on the interface — so a meter that only lives during capture is a meter that arrives after the
+decision it exists to inform. The arming panel now meters live.
+
+**The pre-roll monitor is `_startCapture`'s graph with the recorder taken out.** Same device,
+same channel pick, same discrete node, same silent sink, the same one-walk peak/RMS accumulation
+`paintLevel()` already drains — but no chunks, no total and no `t0`. That absence is the
+distinction: only a capture carries `t0`, so only a capture writes the clock, and the monitor
+meters without claiming anything is being kept. A separate, simpler monitor graph would have
+been a second answer to the same question, and the two would eventually disagree about what the
+input sounds like.
+
+**One device, one owner.** The monitor holds the input, so exactly one of it and the capture may
+exist at a time. Every door out of the panel goes through `stopMonitor()` — `renderCard`'s head,
+`startCapture`, the probe in `ensureRecChannels`, `recAbort`, the interval's own mode check,
+`track.onended` — and the channel `<select>`, the one door that does not re-render, calls
+`syncMonitor(i)` itself. Both awaits are followed by a `stale()` check against a `recMonSeq`
+token. **A monitor that cannot open says nothing:** *Start recording* opens the same device and
+reports the same failure, and two error surfaces for one cause is noise.
+
+**The gradient is painted across the whole track and revealed by `clip-path`,** rather than
+recolored by zone. The zone belongs to the dB, not to the length of the fill, so −12 dB is the
+same green whatever else is happening and the hairline at 80 % sits where the tip says it does.
+Stops on the −60..0 axis: green to −12 (80 %), amber by −6 (90 %), red by −1 (98 %).
+
+**This reverses a house rule, deliberately.** "There is no green token in the palette and a level
+meter is not the place to invent one" was written when the meter had three zone colors; a
+green→amber→red meter face is a *convention*, not an accent, so the three hues are hard-coded as
+a **data palette** — identical in both themes, like the colormaps and the string hues. Making
+them theme tokens would let −12 dB mean two different colors.
+
+**The tip is said once in each place.** `.recnote.rectip` carries the −12 dB target in full ink
+beside the meter that measures it, naming the same number the recording guide's *Levels* section
+names — instrument copy, not another caveat.
+
+*Verification, in proportion:* `node --check` on all five blocks and a read-through of every
+`stopMonitor()` door. No new suite, no new `verify.sh` step, no new Chrome launch.
