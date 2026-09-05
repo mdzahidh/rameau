@@ -2717,3 +2717,62 @@ red; nothing here touches it.
 (E5.4); whether String stiffness stays as a demoted row or goes to the Pickup voice popover;
 whether `Save as bands` stays a button or happens on export; whether `Guided` defaults on for
 a slot that already has a take.
+
+## 2026-09-05 — E1 built: the tone panel says how sure it is (session 34, reviewer)
+
+The first E-phase gate. Everything below is on `master`, one commit per task (E1.1 → E1.7),
+plus the "verify first" item and two gate hooks.
+
+- **E1.1 measured before frozen.** The shipped per-note pass was run on the three audit takes
+  and the demo pair; THEORY §7.7 carries the counts and the manifests. Two starting values
+  were adjusted with reasons: **Pickup voice 20 notes / 40 dB → 10 / 35** (the audit takes
+  that validated the hump have 11–14 comb-checked notes at 38–44 dB; the starting values would
+  have called all three *partial* while the measurement demonstrably worked on them) and
+  **Bloom 10 → 4** (`NOTE_MAX_HEAVY` = 12 caps the fits and the takes accept 3–4; 10 is
+  unreachable on any riff). "Over ≥ 4 strings" for the neck row **cannot be read from audio**;
+  the pitch span is the proxy and the guided neck walk (E3) the guarantee. **Brightness inside
+  comb-checked note bodies was measured and rejected**: with a −60 dBFS floor added at −12 dB
+  the note-body median moves *more* than the whole take (tilt +4.0 vs +1.6 dB/oct; the SG's
+  centroid +0.30 vs +0.04 oct), also when the body is cut at floor + 20 dB. The whole-take
+  centroid stays, `computeTimeMetrics` is untouched, the floor flag stays on the row.
+- **E1.2 block 0:** `TONE_EVIDENCE` (need = measured, min = the floor), `toneEvidenceOf()`,
+  `evidenceFor()` → `{state, have, need, missing:[{what,have,need}]}`, `toneRowState()`.
+  `tests/e.test.js` is the E-phase suite; `verify.sh` gains it as step 6 of 8.
+- **E1.3 disposition:** Warmth, Fullness, Tightness, Sustain (band) removed; Attack folded
+  into Attack colour's readout; Dynamic range moved to Take; **Fundamental decay** added
+  (T20 of f₀ per note, matched by pitch across the pair when two takes are loaded); String
+  stiffness reads open E and A only, prints only "same strings and scale" / "different strings
+  or scale", and never reaches At a glance; Body voice is **hidden** for a solidbody pair, not
+  a pointer. Each moved or dropped row's glossary entry opens with where it went and why.
+- **E1.4 one door to a verdict.** `toneRecords()` carries `evidence` and `state` on every
+  record; `diff`/`same` are assigned exactly once each, inside the measured-band guard. **How
+  "the provisional band decides state 2 vs 3" was read:** in a one-take-each comparison with
+  both sides measured, a gap *inside* the audit's provisional spread renders both dots hollow
+  (state 3, `missing:{what:"band"}` — the gap is thinner than the spread), a gap outside it
+  renders solid dots and no verdict (state 2). Nothing else reads the provisional band.
+- **E1.5 renderer:** the four visual states; every rung-3 annotation moved off the surface into
+  the readout popover (`openTonePop`, opened by clicking a value through the same document
+  click door a term uses): the number, its detail, what the row rests on (✓/○ from the one
+  `missingPhrase()`), the band, the verdict, a door to the full method. `.tone-*` classes only;
+  the row grid is unchanged. Pickup voice draws its −3 dB width as a bar under the dot.
+- **E1.6 At a glance** reads state-1 Instrument rows only. With none, both the strip and the
+  prose print the rung-1 sentence and `cheapestUpgrade()`: "record a second take of either
+  guitar" when a row is measured, else the first Instrument row's first missing item.
+- **E1.7 exports** are schema `tone-3`, additive.
+- **Found, verified first — the bandlimited take is the source, not the capture.**
+  `rameau_Take-00-58-04.wav` was recorded 2026-09-05 00:58 on the same raw-PCM graph as the
+  three clean takes of 2026-09-04 15:39–18:21 (same app, same day: gentle −8…−12 dB/oct tilts,
+  floors −33…−49 dBFS, no cliff). It alone has a −96 dBFS floor, a 25 dB drop between 2 and
+  3 kHz and 14.8 % of its energy under 100 Hz — an all-digital, cabinet-simulated feed arriving
+  through the Aggregate Device, recorded faithfully. Nothing in the graph can make a 2.5 kHz
+  cliff and the three processors are requested off. The app now records what the browser says
+  landed (`track.getSettings()` after the grant → `info.processing`) and the card warns if any
+  processor was on. Recorded in the M5 notes as a known trap.
+- **Gate hooks:** `?load=<rel>[,<rel>]` (with `?debug` only; `--allow-file-access-from-files`)
+  lands one or two files relative to `index.html`; `?tuning=<id>` session-only;
+  `?pop=tone.<row>.<slot>` opens a readout popover.
+- *Verification, in proportion:* `tests/e.test.js` **67** (block-0 states, `missing` exact, the
+  inverted provisional-band contract, source-read contracts on the door, the four state classes,
+  the one phrasing place, At a glance, `tone-3`); six mutation-checked. One both-theme screenshot
+  pass: `?demo&open=all` and the Les Paul + SG audit takes in E♭ through `?load=`, plus two
+  readout popovers. Full gate once at the end. Awaiting the user's visual test before E2.

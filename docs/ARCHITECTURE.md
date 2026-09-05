@@ -1926,6 +1926,36 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   exponentials vs one, T20 = 2.303τ per partial, the hump over a slope, dead spots, comparability,
   band verdicts) and the rewritten Q5 contracts. `tests/audit_tone.js` is a tool, not a step.
 
+### E1 (session 34): the panel says how sure it is
+
+- **Evidence, once per take.** `toneEvidenceOf(m, openMidis, a4, other)` in block 0 counts what
+  a take supplies (comb-checked notes and their span, SNR, tap/LTAS peak, the best partial count
+  on open E and A against the *current* tuning, notes ringing ≥ `RING_MIN_SEC` with partial
+  decays, two-stage fits, fundamental decays — matched by pitch against `other` when given,
+  attack spectra). `evidenceFor(key, ev)` reads `TONE_EVIDENCE[key]` (`need` → state 2, `min` →
+  the floor under which the row is state 4) and returns `{state, have, need, missing}` with
+  `missing` structured — `{what:"notes", have:5, need:10}` — never a sentence. `toneRowState()`
+  combines the loaded takes: state 1 only when both are 2 **and** the band is `measured`; a
+  provisional band decides 3 (gap inside the spread) vs 2 and nothing else; a take at 4 beside
+  one at 2 leaves the row at 3 (one dot, one missing line).
+- **One door to a verdict.** In `toneRecords()` `kind:"diff"` and `kind:"same"` are assigned
+  exactly once each, inside `rs.verdict&&rec.band.measured`. `tests/e.test.js` pins that as an
+  inverted contract (count of assignments, and where they sit).
+- **One phrasing place.** `missingPhrase(x, def)` in block 4 is the only place a missing item
+  becomes words; the collapsed row, the value label of an unmeasurable side, the readout
+  popover, `cheapestUpgrade()` and the CSV all call it. A contract asserts no other code
+  composes a `"needs "+` sentence.
+- **Renderer.** `toneRowHtml()` renders four states: `.tone-s4` collapses to the title and one
+  line (per side when the sides differ); `.pt.hollow` per dot from that take's own evidence
+  state; `.tone-band` shaded around A's value in state 1 only; `.tone-range` is Pickup voice's
+  −3 dB width. Every value label carries `data-pop="<key>:<slot>"` and opens `openTonePop()`
+  through the same document click handler as a `.term`. Rung-3 detail (`def.detail`) lives
+  only there. The row grid is unchanged.
+- **Brightness stays whole-take.** Measured (THEORY §7.7): a per-note centroid is *more*
+  floor-sensitive, not less. Do not retry without a different premise.
+- **Gate hooks:** `?load=` (debug only, relative paths, `--allow-file-access-from-files`),
+  `?tuning=`, `?pop=tone.<row>.<slot>`.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

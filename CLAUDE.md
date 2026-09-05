@@ -809,7 +809,24 @@ build educational copy from it, never re-derive from scratch.
   readouts`; THEORY §7.7 is a placeholder E1.1 fills with measured numbers. Three reversals
   of T are named there. **E1 next** (gate), then E2 (gate), E3–E5 (batch), E6 (gate), E7
   (gate). Stop at each gate for the user's test.
-- **NEXT — E1, then the user’s visual test of each gate.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
+- **E1 BUILT (session 34, reviewer) — gate 8 run; awaiting the user's visual test.** The tone
+  panel says how sure it is: `TONE_EVIDENCE` / `toneEvidenceOf` / `evidenceFor` /
+  `toneRowState` in block 0 (measured on the audit takes first — THEORY §7.7: Pickup voice
+  20/40 → 10/35, Bloom 10 → 4, "≥ 4 strings" proxied by span, **brightness-in-note-bodies
+  rejected** because the floor sensitivity rises); four render states (solid + shaded band +
+  verdict / solid / hollow / collapsed to one `missingPhrase()` line); **a verdict only from a
+  band measured on the user's own takes** — `diff`/`same` assigned once each inside the
+  measured guard; a provisional band decides hollow-vs-solid and nothing else; Warmth /
+  Fullness / Tightness / Sustain (band) gone, Attack folded, Dynamic range in Take, Fundamental
+  decay added, String stiffness open E/A only with plain words and never in At a glance, Body
+  voice hidden for a solidbody pair; rung-3 detail lives in the readout popover
+  (`openTonePop`, click a value); At a glance reads state-1 rows and otherwise names the
+  cheapest upgrade; exports `tone-3`. **Verified first:** the bandlimited
+  `rameau_Take-00-58-04.wav` is the source (an all-digital, cab-simulated feed), not the capture
+  — the app now records `track.getSettings()`'s processing flags on the take and warns if any
+  was on. Gate hooks `?load=` (debug), `?tuning=`, `?pop=tone.<row>.<slot>`. `tests/e.test.js`
+  is the E-phase suite (**67**), verify.sh step 6 of 8. **E2 next, after the user's test.**
+- **NEXT — the user’s visual test of E1; then E2.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
   in docs/THEORY.md.) M3/M4 remain gated on explicit user go-ahead.
@@ -822,7 +839,8 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **330**, headless 69.
+- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 67**, headless 69
+  (eight steps since E1; `--node` skips the headless step).
   **Step 1 is red on master and has been since `ac65835` "EQ match: fit
   each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound
   `ok(mx < 1.0)` at [tests/dsp.test.js:547](tests/dsp.test.js#L547) went 0.999 → 1.022 dB there
@@ -941,6 +959,11 @@ build educational copy from it, never re-derive from scratch.
   "both curves below the floor" (R5.5), absent when there are none (again: node cannot read a
   canvas) — and the Band Energy table carries `data-nearfloor-rows="<count>"`, the rows whose
   whole band sits under that floor (Q3), absent by the same convention,
+  `?load=<rel>[,<rel>]` (**with `?debug` only**: fetch one or two audio files by a path
+  relative to `index.html` and land them as A/B — headless needs
+  `--allow-file-access-from-files`; how the gate renders the real audit takes),
+  `?tuning=estd|eb|dstd|dropd|dadgad` (session-only, never saved), `?pop=tone.<row>.<slot>`
+  (the E1 readout popover of a tone row, slot 0/1),
   `?strings=1|0` (bottom-axis open-string labels), `?harmonics=0|1` (compat hook —
   `1` turns harmonics 2–4 on for every string), `?how` (open the "How to use this
   app" walkthrough), `?about` (open the About modal), `?debug` (reveal the hidden
@@ -1022,9 +1045,16 @@ build educational copy from it, never re-derive from scratch.
 - **Every visible number defensible.** Analysis params live in the footer; smoothing
   state is always printed on the plot; dB re full-scale sine everywhere; glossary terms
   link each label to its formula with current values.
-- **The tone panel reports the guitar, and says how sure it is.** Three groups (Instrument /
-  Voicing / Take); only Instrument rows reach At a glance; every row carries a reliability band
-  and prints "not distinguishable" inside it; harmonic-indexed numbers exist only for notes that
+- **The tone panel reports the guitar, and says how sure it is — by shape, not by sentence
+  (E1).** Every row declares its evidence in `TONE_EVIDENCE` and renders in one of four states:
+  banded (solid dots, shaded band, verdict — only from a band measured on the user's own takes),
+  measured (solid, no band, no verdict), partial (hollow), not measurable (title plus one
+  `missingPhrase()` line, which is also the instruction for next time). A provisional band never
+  makes a verdict; it only decides hollow vs solid. Thresholds are measured on the audit takes
+  before they become constants (THEORY §7.7). Rung-3 detail lives in the readout popover, never
+  beside the dots. Three groups (Instrument /
+  Voicing / Take); only state-1 Instrument rows reach At a glance; "not distinguishable" is said
+  only inside a measured band; harmonic-indexed numbers exist only for notes that
   pass the comb check (`combCheckF0`) — a blank with a reason beats a confident wrong number; a
   spectral centroid is never spelled as a note. Instrument type is per card and asked, never
   inferred; a solidbody's resonant signature is its pickup hump, a hollow body's is its air

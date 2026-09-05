@@ -70,8 +70,8 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **M5** | **Record directly into a slot** — capture a take per guitar through a device picker, landed through the existing pipeline; no realtime analysis. | ✅ built 2026-09-04 (raw-PCM rewrite of the reverted MediaRecorder attempt) | `# M5 — Record directly into a slot` |
 | **P** | **Process fixes** — no Chrome outside a gate (CLAUDE.md house rule), the ROADMAP contradiction deleted, `verify.sh --node`, `HEADLESS_TRIES`, effort per role. | ✅ done 2026-09-05 (`P — process`) | "Verification, in proportion", "Model and effort, per role" |
 | **E0** | **E phase recorded** — three principles, decisions, row disposition, THEORY §7.7 placeholder. | ✅ done 2026-09-05 | `# E — evidence-driven readouts` |
-| **E1** | **The tone panel says how sure it is** — evidence manifests measured then frozen, four render states, verdicts only from measured bands, row disposition, schema `tone-3`. | ⏳ next — **gate** | `### E1 — the tone panel says how sure it is` |
-| **E2** | **A slot holds takes** — `slot.takes[]`, snapshot `files[i].takes[]`, live bands from two takes, card redesign, readiness line, waveform seek. | ⏸ after E1 — **gate** | `### E2 — a slot holds takes` |
+| **E1** | **The tone panel says how sure it is** — evidence manifests measured then frozen, four render states, verdicts only from measured bands, row disposition, schema `tone-3`. | ✅ built 2026-09-05 — **gate 8**, awaiting the user's test | `### E1 — the tone panel says how sure it is` |
+| **E2** | **A slot holds takes** — `slot.takes[]`, snapshot `files[i].takes[]`, live bands from two takes, card redesign, readiness line, waveform seek. | ⏳ next, after the user tests E1 — **gate** | `### E2 — a slot holds takes` |
 | **E3** | **The guided take** — `REC_PROTOCOL` on M5's capture, steps labelled by the rows they unlock, `protocol` in the take's facts. | ⏸ after E2 | `### E3 — the guided take` |
 | **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ⏸ after E3 | `### E4 — the Band Energy fold` |
 | **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ⏸ after E4 (E3–E5 batch) | `### E5 — the language ladder` |
@@ -1910,6 +1910,18 @@ rate the context states. The house rule is unchanged and satisfied more directly
 still comes from the data, and is never asked of the user. A rate outside 8–384 kHz is refused
 through `slotLoadError()`, the same door a bad file uses.
 
+### Known trap: a bandlimited take was the source, not the capture (2026-09-05)
+
+`rameau_Take-00-58-04.wav` (recorded 00:58 on 2026-09-05, after the pre-roll monitor) falls
+off a cliff at ~2.5 kHz, sits on a −96 dBFS floor and carries 14.8 % of its energy under
+100 Hz. Three takes recorded the previous afternoon on the same raw-PCM graph show none of
+that. An all-digital, cabinet-simulated feed arriving through the Aggregate Device is the
+only thing on the list that makes that shape; the page has no filter and asks for the three
+processors off. What was added: `recTrackInfo()` now reads `echoCancellation` /
+`noiseSuppression` / `autoGainControl` from `track.getSettings()` after the grant, the take
+carries `info.processing`, and the card prints a warning chip if any was on — so the next
+such take says whether the browser touched it. It never did here, as far as the evidence goes.
+
 ### Scope notes (do not re-litigate)
 
 - **There is no port or interface to choose.** A browser exposes input *devices*; the
@@ -2070,7 +2082,15 @@ only, with a round-trip test through the shipped reader.
   "Evidence requirements", a placeholder E1.1 fills with measured numbers. E0.4 `CLAUDE.md`
   status. One commit.
 
-### E1 — the tone panel says how sure it is (block 0 + THEORY + renderer) — **gate**
+### E1 — the tone panel says how sure it is (block 0 + THEORY + renderer) — **gate** ✅ BUILT 2026-09-05
+
+*Built by the reviewer in seven task commits (`9cdb0a1` … `8e3911a`) plus the M5 trap
+(`da1f8eb`) and two gate hooks (`648ed89`); SPEC.md 2026-09-05 "E1 built" has the
+account. Deviations, each with its reason there and in THEORY §7.7: Pickup voice 20/40 →
+10/35, Bloom 10 → 4, "≥ 4 strings" proxied by pitch span, **Brightness-in-note-bodies
+measured and rejected**. Interpretation recorded: a gap inside the provisional band is
+state 3 (hollow), outside it state 2 (solid, no verdict).*
+
 
 Anchors: `const TONE_BANDS_DEFAULT=` / `function bandVerdict(` (block 0);
 `async function computeTimeMetrics(` (block 4); `function toneRowDefs(`,
