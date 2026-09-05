@@ -2502,6 +2502,21 @@ const TONE_BANDS_DEFAULT={
   "low-end":{abs:0.05}, "attack":{oct:1}, "attack-spectrum":{abs:0.5}, "tightness":{oct:0.3},
   "sustain":{oct:0.3}, "dynamic-range":{abs:5}, "f0-decay":{oct:0.3},
 };
+// E2.3: bands measured from a slot's own takes. `vals` maps a row key to the values that
+// row took on each take of one guitar; `bands` says the domain per key (oct → the log₂
+// spread max/min over positive values, abs → max − min). A key with fewer than two
+// usable values yields no band. Same semantics toneBandFor() gives a saved band.
+function toneBandsFromTakes(vals, bands){
+  const out={};
+  for(const k in vals){
+    const dom=bands&&bands[k]; if(!dom) continue;
+    const v=(vals[k]||[]).filter(x=>x!=null&&isFinite(x)&&(dom.oct==null||x>0));
+    if(v.length<2) continue;
+    const mx=Math.max(...v), mn=Math.min(...v);
+    out[k]={v: dom.oct!=null ? Math.log2(mx/mn) : (mx-mn), n:v.length};
+  }
+  return out;
+}
 // Returns the delta in the band's domain and whether it clears the band.
 function bandVerdict(a, b, band){
   if(a==null||b==null||!isFinite(a)||!isFinite(b)||!band) return null;
@@ -6994,10 +7009,38 @@ function toneRowDefs(){
   ];
 }
 function _pitchReason(s){ const m=s.metrics; if(!m.notes) return "analysed before the comb check existed"; return m.pitched?"":"no note passed the comb check"; }
-// The reliability band for a row: measured (repeatability mode) if the user saved one,
-// else the provisional value from THEORY §7.4.
+// E2.3: bands from the takes in the slots, live. Each row's value is taken on every
+// take of a guitar (the same def.val the panel prints), the spread per guitar comes from
+// toneBandsFromTakes(), and with BOTH slots holding two or more takes the larger of the
+// two spreads is that row's measured band for this comparison. Rebuilt per render;
+// cheap (a handful of medians per take).
+let _liveBands=null;
+function liveToneBands(){
+  if(_liveBands) return _liveBands;
+  const per=[0,1].map(i=>{
+    const takes=slotTakes(i); if(takes.length<2) return null;
+    const vals={};
+    for(const def of toneRowDefs()){
+      if(def.text||def.noband||!TONE_BANDS_DEFAULT[def.term]) continue;
+      vals[def.term]=takes.map(t=>{ try{ const v=def.val(t); return (v==null||!isFinite(v))?null:v; }catch(_e){ return null; } });
+    }
+    return toneBandsFromTakes(vals, TONE_BANDS_DEFAULT);
+  });
+  const out={};
+  if(per[0]&&per[1]) for(const k in TONE_BANDS_DEFAULT){
+    const a=per[0][k], b=per[1][k]; if(!a||!b) continue;
+    out[k]={v:Math.max(a.v,b.v), n:a.n+b.n};
+  }
+  _liveBands={bands:out, ready:!!(per[0]&&per[1]), perSlot:per};
+  return _liveBands;
+}
+// The reliability band for a row, in order of trust: measured live from the takes in the
+// slots (E2.3), else measured and saved earlier (gsSettings v5), else the provisional
+// value from THEORY §7.4 — which never yields a verdict (E1).
 function toneBandFor(key){
   const d=TONE_BANDS_DEFAULT[key]; if(!d) return null;
+  const lv=liveToneBands(); const lb=lv.ready&&lv.bands[key];
+  if(lb&&isFinite(lb.v)) return d.oct!=null?{oct:lb.v, measured:true, live:true}:{abs:lb.v, measured:true, live:true};
   const mv=state.toneBands&&state.toneBands[key];
   if(mv&&isFinite(mv.v)) return d.oct!=null?{oct:mv.v, measured:true}:{abs:mv.v, measured:true};
   return Object.assign({provisional:true},d);
@@ -7012,6 +7055,7 @@ function _fmtDelta(d,def){ if(d.log) return "×"+Math.pow(2,Math.abs(d.d)).toFix
 // (`diff`/`same`) exists only through the one door below — a band measured on the
 // user's own takes. A provisional band never reaches it.
 function toneRecords(){
+  _liveBands=null;
   const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&types[0]!==types[1];
   const compat=both?comparability(state.slots[0].metrics||{},state.slots[1].metrics||{}):[];
   const blocked={}; for(const c of compat) if(!c.ok) for(const r of c.rows) (blocked[r]=blocked[r]||[]).push(c.label);
@@ -7052,7 +7096,6 @@ function toneRecords(){
       else if(rec.blocked&&rec.a!=null&&rec.b!=null) rec.verdict={kind:"blocked", text:"not comparable · "+rec.blocked.join(", ")};
       else if(rec.a!=null&&rec.b!=null&&d){
         if(!isFinite(d.d)) rec.verdict={kind:"noband", text:"these two values cannot be compared"};
-        else if(state.toneRepeat) rec.verdict={kind:"repeat", d, text:"spread "+_fmtDelta(d,def)};
         else if(rs.verdict&&rec.band&&rec.band.measured){
           // The only door to a verdict: the band was measured on the user's own takes.
           if(!d.distinguishable) rec.verdict={kind:"same", d, text:def.plain?"same strings and scale":"not distinguishable"};
@@ -7112,7 +7155,6 @@ function toneRowHtml(rec){
     if(!v) rel="";
     else if(v.kind==="diff") rel='<b>'+esc(v.text)+'</b>'+(b?'<br><span class="nd">band '+_fmtBand(b,d)+'</span>':"");
     else if(v.kind==="same") rel='<b>'+esc(v.text)+'</b><br><span class="nd">inside '+_fmtBand(b,d)+'</span>';
-    else if(v.kind==="repeat") rel='<b>'+esc(v.text)+'</b><br><span class="nd">same guitar — Save keeps it as the band</span>';
     else rel='<span class="blocked">'+esc(v.text)+'</span>';
   }
   if(d.text){
@@ -7192,15 +7234,20 @@ function renderToneRows(){
       (bits.length?bits.join(", ")+". Rows those affect show no delta; "+termHtml("level-match","level-match")+" cannot fix these.":"");
     toneCompat.style.display="";
   } else toneCompat.style.display="none";
-  toneSaveBandsBtn.disabled=!(state.toneRepeat&&bothLoaded());
-  toneRepeatToggle.checked=!!state.toneRepeat;
+  // E2.3: "Same guitar, two takes" is set by the app — on when both slots hold two or
+  // more takes — and is no longer a control. Save keeps the live bands across sessions.
+  const lv=liveToneBands();
+  state.toneRepeat=lv.ready;
+  toneRepeatToggle.checked=lv.ready;
+  toneRepeatToggle.disabled=true;
+  toneSaveBandsBtn.disabled=!lv.ready;
 }
-// Repeatability mode: two takes of the same guitar → |A − B| per row becomes its band.
+// Two takes of each guitar → the spread per row is its band, live (liveToneBands). Save
+// persists those spreads to gsSettings v5 so a later single-take session still has them.
 function saveToneBands(){
-  if(!state.toneRepeat||!bothLoaded()) return;
-  const {records}=toneRecords(); let n=0;
-  state.toneBands=state.toneBands||{};
-  for(const r of records){ if(r.verdict&&r.verdict.kind==="repeat"&&TONE_BANDS_DEFAULT[r.key]){ state.toneBands[r.key]={v:Math.abs(r.verdict.d.d)}; n++; } }
+  const lv=liveToneBands(); if(!lv.ready) return;
+  state.toneBands=state.toneBands||{}; let n=0;
+  for(const k in lv.bands){ if(TONE_BANDS_DEFAULT[k]&&isFinite(lv.bands[k].v)){ state.toneBands[k]={v:lv.bands[k].v}; n++; } }
   state.toneBandsAt=new Date().toISOString();
   saveSettings();
   toast(n+" reliability band"+(n===1?"":"s")+" saved — later comparisons call anything inside them “not distinguishable”.");
@@ -7373,8 +7420,10 @@ function renderToneNote(){
     else b+=(m.f0!=null?"one sustained note "+fmtHz(m.f0):"no stable pitch")+" (older analysis)";
     bits.push(b);
   }
-  const bandNote=state.toneBandsAt?"Reliability bands were measured on "+new Date(state.toneBandsAt).toLocaleDateString()+" from two takes of one guitar; rows without one use the provisional bands from the audit."
-    :"Reliability bands are provisional — the audit's spread, not your setup's. Load two takes of the same guitar, switch on “Same guitar, two takes” and Save to measure your own.";
+  const lv=liveToneBands();
+  const bandNote=lv.ready?"Reliability bands are measured live from the takes in the slots ("+slotTakes(0).length+" of "+slotLabel(0)+", "+slotTakes(1).length+" of "+slotLabel(1)+"); Save as bands keeps them for later sessions."
+    :state.toneBandsAt?"Reliability bands were measured on "+new Date(state.toneBandsAt).toLocaleDateString()+" from two takes of each guitar; rows without one have no verdict."
+    :"No reliability band is measured yet, so no row carries a verdict. Add a second take to each guitar (drop a file on its card, or record) and the bands measure themselves.";
   toneNote.innerHTML="Instrument rows read the open strings when the take has them and every pitched note otherwise — "+
     esc(bits.join(" · "))+". "+esc(bandNote)+" Level-matching never changes the numbers on this panel."+
     (snap?" Snapshot slots reuse the metrics stored at export.":"");
@@ -10262,7 +10311,8 @@ function boot(){
   cards.forEach((card,i)=>card.addEventListener("change",e=>{
     const t=e.target.closest(".slottype"); if(t) setSlotType(i,t.value);
   }));
-  toneRepeatToggle.addEventListener("change",()=>{ state.toneRepeat=toneRepeatToggle.checked; renderToneRows(); renderProse(); renderVerdict(); renderToneNote(); });
+  // E2.3: the switch is read-only — the app sets it from the takes in the slots.
+  toneRepeatToggle.addEventListener("change",()=>{ renderToneRows(); });
   toneSaveBandsBtn.addEventListener("click", saveToneBands);
   if(debugLoadBtn) debugLoadBtn.addEventListener("click",()=>loadDemo());
   guideBtn.addEventListener("click",()=>guideModal.classList.add("open"));

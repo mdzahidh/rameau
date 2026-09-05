@@ -9,7 +9,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 const dspSrc = blocks[0];
 const modFile = path.join(os.tmpdir(), "rameau_e_under_test.js");
 fs.writeFileSync(modFile, dspSrc + `
-module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi };
+module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes };
 `);
 const D = require(modFile);
 
@@ -218,6 +218,25 @@ section("E2.1 — a slot holds takes: one door, one array, no cycle in the seria
   ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
   const rt = body("removeTake");
   ok(/if\(arr\.length===1\)\{ clearSlot\(i\); return; \}/.test(rt) && /state\.slots\[i\]=arr\[0\];/.test(rt), "removing the last take clears the slot; removing take 0 promotes take 1");
+}
+
+section("E2.3 — bands from takes: the spread across one guitar's takes, live, with the same semantics as a saved band");
+{
+  const bands = { "pickup-resonance": { oct: 0.138 }, "even-odd": { abs: 4 }, "overtone-sustain": { oct: 0.3 } };
+  const r = D.toneBandsFromTakes({ "pickup-resonance": [3000, 3300], "even-odd": [1.0, -0.5, 2.0], "overtone-sustain": [2.0, null], "unknown": [1, 2] }, bands);
+  ok(Math.abs(r["pickup-resonance"].v - Math.log2(1.1)) < 1e-12 && r["pickup-resonance"].n === 2, "an oct band is the log₂ spread of max over min");
+  ok(Math.abs(r["even-odd"].v - 2.5) < 1e-12 && r["even-odd"].n === 3, "an abs band is max − min");
+  ok(!("overtone-sustain" in r) && !("unknown" in r), "fewer than two usable values, or no domain, yields no band");
+  ok(!("pickup-resonance" in D.toneBandsFromTakes({ "pickup-resonance": [3000, -1] }, bands)), "a log band ignores non-positive values");
+  const tb = body("toneBandFor"), lv = body("liveToneBands"), rr = body("renderToneRows"), sv = body("saveToneBands"), tr = body("toneRecords");
+  ok(/const lv=liveToneBands\(\); const lb=lv\.ready&&lv\.bands\[key\];/.test(tb) && tb.indexOf("lv.ready") < tb.indexOf("state.toneBands&&state.toneBands[key]") && tb.indexOf("state.toneBands[key]") < tb.indexOf("provisional:true"),
+    "precedence: live from the takes, then saved, then provisional");
+  ok(/measured:true, live:true/.test(tb), "a live band is a measured band — it opens the verdict door");
+  ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /v:Math\.max\(a\.v,b\.v\)/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and take the larger spread");
+  ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(t\);/.test(lv), "…and every take's value comes from the same def.val the panel prints");
+  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneRepeatToggle\.disabled=true;/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr), "the switch is set by the app and disabled; Save follows it");
+  ok(!/kind:"repeat"/.test(tr), "the old repeat-mode verdict is gone — live bands flow through the one door");
+  ok(/for\(const k in lv\.bands\)/.test(sv) && /state\.toneBands\[k\]=\{v:lv\.bands\[k\]\.v\};/.test(sv), "Save persists the live spreads");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
