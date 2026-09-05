@@ -9406,13 +9406,14 @@ function exportBandsCSV(){
 function exportToneCSV(){
   if(!anyLoaded()) return;
   const {records}=toneRecords();
-  const L=["# "+APP_NAME+" tone character", "# schema: tone-2 (group, band and verdict columns added 2026-09-05; the first three columns are unchanged)", "# created: "+new Date().toISOString()];
-  L.push("descriptor,a_value,b_value,group,band,verdict");
+  const L=["# "+APP_NAME+" tone character", "# schema: tone-3 (state and missing columns added 2026-09-05 E1; group, band and verdict added the same day at tone-2; the first three columns are unchanged)", "# created: "+new Date().toISOString()];
+  L.push("descriptor,a_value,b_value,group,band,verdict,state,missing");
   const strip=h=>String(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
   const q=t=>'"'+String(t).replace(/"/g,'""')+'"';
   for(const r of records){
     const band=r.band?(_fmtBand(r.band,r.def)+(r.band.provisional?" provisional":" measured")):"";
-    L.push([q(r.name),q(strip(r.aText)),q(strip(r.bText)),q(TONE_GROUPS.find(g=>g.id===r.group).name),q(band),q(r.verdict?strip(r.verdict.text):"")].join(","));
+    const miss=[0,1].map(i=>r.evidence[i]&&r.evidence[i].missing.length?slotLabel(i)+": "+missingLine(r.evidence[i].missing,r.def):"").filter(Boolean).concat(r.missing.length?[missingLine(r.missing,r.def)]:[]).join(" | ");
+    L.push([q(r.name),q(strip(r.aText)),q(strip(r.bText)),q(TONE_GROUPS.find(g=>g.id===r.group).name),q(band),q(r.verdict?strip(r.verdict.text):""),q(r.state),q(miss)].join(","));
   }
   download(new Blob([L.join("\n")+"\n"],{type:"text/csv"}),"rameau-tone_"+exportBaseName()+".csv");
 }
@@ -9469,8 +9470,9 @@ function exportToneJSON(){
   const rows=[]; document.querySelectorAll("#toneRows .tonerow").forEach(r=> rows.push(r.innerText.replace(/\s+/g," ").trim()));
   const rowsV2=records.map(r=>({group:r.group, key:r.key, name:r.name, a:r.a, b:r.b, aText:strip(r.aText), bText:strip(r.bText),
     band:r.band?{value:r.band.oct!=null?r.band.oct:r.band.abs, domain:r.band.oct!=null?"log2":"abs", provisional:!!r.band.provisional}:null,
-    verdict:r.verdict?{kind:r.verdict.kind, text:strip(r.verdict.text), delta:r.verdict.d?r.verdict.d.d:null}:null}));
-  _exportCardJson("Tone character", {schema:"tone-2", rows, rowsV2, comparability:compat, instrumentTypes:[slotType(0),slotType(1)], prose:document.getElementById("prosePara")?.innerText||""});
+    verdict:r.verdict?{kind:r.verdict.kind, text:strip(r.verdict.text), delta:r.verdict.d?r.verdict.d.d:null}:null,
+    state:r.state, evidence:{a:r.evidence[0], b:r.evidence[1], row:r.missing}, detail:{a:strip(r.detail[0]), b:strip(r.detail[1])}}));
+  _exportCardJson("Tone character", {schema:"tone-3", rows, rowsV2, comparability:compat, instrumentTypes:[slotType(0),slotType(1)], prose:document.getElementById("prosePara")?.innerText||""});
 }
 function exportSgramJSON(){
   if(!anyLoaded()) return;

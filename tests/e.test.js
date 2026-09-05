@@ -172,5 +172,13 @@ section("E1.6 — At a glance: state-1 Instrument rows only; the empty case name
   ok(/r\.group==="inst"&&r\.state===1/.test(rv) && /r\.group==="inst"&&r\.state===1/.test(rp), "…and 'not distinguishable' is said only when a banded row exists to say it");
 }
 
+section("E1.7 — exports: schema tone-3, additive");
+{
+  const csv = body("exportToneCSV"), js = body("exportToneJSON");
+  ok(/# schema: tone-3/.test(csv) && /"descriptor,a_value,b_value,group,band,verdict,state,missing"/.test(csv), "CSV: tone-3, the six tone-2 columns first and unchanged, state and missing appended");
+  ok(/schema:"tone-3"/.test(js) && /state:r\.state, evidence:\{a:r\.evidence\[0\], b:r\.evidence\[1\], row:r\.missing\}/.test(js), "JSON: tone-3, rowsV2 gains state and evidence per row");
+  ok(/rows, rowsV2, comparability:compat, instrumentTypes/.test(js), "…and keeps every tone-2 field");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
