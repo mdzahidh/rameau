@@ -586,11 +586,20 @@ section("R5.2 — a chord is fret offsets from the current tuning");
   const i = s.indexOf("function sgramModelFor");
   const body = i < 0 ? "" : s.slice(i, s.indexOf("\nfunction ", i + 10));
   ok(body !== "", "sgramModelFor() is in block 4");
-  // Name the tuning array the model actually built, then require the fret to be
+  // The fret→midi arithmetic lives in sgSoundingMidis(), the one door onto the notes
+  // the overlay draws (the model, the hit test, ?pop=clu and syncSgHarmSel all read it),
+  // so the contract is read there — and the model is required to go through that door
+  // rather than doing the sum a second time.
+  const di = s.indexOf("function sgSoundingMidis(");
+  const door = di < 0 ? "" : s.slice(di, s.indexOf("\nfunction ", di + 10));
+  ok(door !== "", "sgSoundingMidis() is in block 4");
+  ok(/\bsgSoundingMidis\s*\(\s*\)/.test(body) && !/state\.sgFrets\.map\(/.test(body),
+    "…and sgramModelFor() asks it for the notes instead of mapping the frets itself");
+  // Name the tuning array the door actually built, then require the fret to be
   // added to THAT array at the string's own index — "+ fr" alone would be satisfied
   // by a hard-coded 40 + fr, which is E standard's low E and nothing else.
-  const openVar = /const\s+(\w+)\s*=\s*tuningMidi\s*\(\s*state\.tuning/.exec(body);
-  const mapExpr = /state\.sgFrets\.map\(([\s\S]{0,240}?)\)\s*;/.exec(body);
+  const openVar = /const\s+(\w+)\s*=\s*tuningMidi\s*\(\s*state\.tuning/.exec(door);
+  const mapExpr = /state\.sgFrets\.map\(([\s\S]{0,240}?)\)\s*;/.exec(door);
   ok(!!openVar && !!mapExpr &&
      new RegExp("\\b" + openVar[1] + "\\s*\\[\\s*si\\s*\\]\\s*\\+\\s*fr\\b").test(mapExpr[1]),
     "…and it adds each fret to that string's OPEN midi — Drop D moves the chord with it");
