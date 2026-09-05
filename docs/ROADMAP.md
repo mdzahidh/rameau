@@ -18,8 +18,10 @@ were renumbered when it was scheduled — the old R5 (consonance) is now **R6**.
   doesn't cover a claim, **flag it to the user — never improvise physics.**
 - Measure first, never lecture. The instrument shows a marker; the user clicks; the
   physics answers.
-- After each task: `node tests/dsp.test.js` must stay green, a headless screenshot in
-  **both** themes, then commit.
+- After each task: the node suites stay green (`./tests/verify.sh --node`, seconds), then
+  commit. **No headless Chrome between tasks** — the full gate runs once per milestone, by
+  the reviewer. See "Verification, in proportion" below; it supersedes the older per-task
+  screenshot rule that used to sit here (removed 2026-09-05, process fix P2).
 - Update `SPEC.md` changelog + `CLAUDE.md` status at each milestone boundary.
 
 Verification command (see CLAUDE.md for the full list of `?` hooks):
@@ -179,14 +181,24 @@ testing and verification strategies as you seem to take a very long time and eff
   break silently; state machine with a single stop path is guarded by there being only one
   path, and a `.transport` row that fails to render fails visibly on first use.
 
+**Model and effort, per role** (2026-09-05, process fix P4)
+- The **reviewer session** runs at the default *high*; *xhigh* only inside the four E-phase
+  gate milestones (E1, E2, E6, E7), set with `/effort` and reverted after; never *max* as a
+  standing setting.
+- The **builder** (`muse exec` / in-session sub-agents) runs Sonnet at *medium* — the tasks
+  are anchored and the tests pre-written, and medium scopes work to what was asked.
+- **Small tweaks** in the reviewer session: `/effort medium` first.
+
 **Per task, before you call it done**
-1. `./tests/verify.sh` — the gate: the DSP suite, the R3 contracts, the headless
-   render checks, and the two tamper guards. It ends in `gate passed` / `gate failed`
-   and exits nonzero on any failure. It is red until the milestone is complete, so
+1. `./tests/verify.sh --node` between tasks (the node suites and the tamper guards,
+   seconds; it prints `node suites passed · headless skipped by request`, never
+   `gate passed`). The full `./tests/verify.sh` — with the headless render checks — runs
+   **once, at the milestone's end**. Either is red until the milestone is complete, so
    between tasks read *which* lines are red and confirm they are the ones still
    unbuilt; a line that was green and went red is a regression you caused.
-   **Do not open the PR until it exits 0.**
-2. Headless screenshot in **both** themes (command above), eyeballed.
+   **Do not open the PR until the full gate exits 0.**
+2. One both-theme screenshot pass **per milestone**, at the gate, eyeballed by the reviewer
+   — not per task ("Verification, in proportion").
 3. `git diff --stat` — read it. Every changed file and roughly every changed line should
    be explainable by the task text. Unexplained lines get reverted, not justified.
 4. One commit per task, subject line starting with the task id (`R1.2 — …`), body saying
@@ -414,8 +426,9 @@ Replace in place (each is a literal string in the file):
 
 ### R1.5 — Verify + commit
 
-- `node tests/dsp.test.js` (107+ pass), headless screenshot in `?theme=bright` and
-  `?theme=dark`, one PNG export eyeballed for the new footer.
+- `node tests/dsp.test.js` (107+ pass); one PNG export eyeballed for the new footer.
+  *(Historical: this task predates "Verification, in proportion" — screenshots are per
+  milestone now, not per task.)*
 - Commit: `Rename: GuitarScope → Claude Rameau across user-visible strings`.
 
 ---

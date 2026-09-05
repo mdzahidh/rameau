@@ -3,6 +3,7 @@
 #
 # Run from the repo root:          ./tests/verify.sh
 # Compare against another base:    BASE=origin/master ./tests/verify.sh
+# Node suites + tamper guards only:  ./tests/verify.sh --node   (seconds; not the gate)
 #
 # Seven things must hold:
 #   1. the existing DSP suite is still green   - no regression in shipped math
@@ -10,7 +11,7 @@
 #   3. tests/r4.test.js is green               - the R4 wiring contracts are met
 #   4. tests/m27.test.js is green              - the M2.7 wiring contracts are met
 #   5. tests/r5.test.js is green               - the R5 wiring contracts are met
-#   6. tests/headless.js is green              - it really renders and opens
+#   6. tests/headless.js is green              - it really renders and opens (skipped by --node)
 #   7. the gate itself was not edited          - tests/ untouched, all three copies frozen
 #
 # (7) is what makes (1)-(6) mean anything: a builder who may edit the tests can
@@ -21,6 +22,11 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 
 BASE=${BASE:-master}
+# --node (2026-09-05, process fix P3): run the node suites and the tamper guards only,
+# skipping the headless step. Seconds instead of minutes, for use between tasks; it
+# never prints "gate passed", so it cannot be mistaken for the gate.
+NODE_ONLY=0
+for arg in "$@"; do case "$arg" in --node) NODE_ONLY=1;; esac; done
 # R3 re-frozen 2026-08-26: HARM_NODES gained the 6th, 7th and 8th harmonics when the
 # string popover widened to 8 (THEORY §6.1). Node fret positions written by the
 # reviewer who owns the prose -- the freeze stops a delegated builder rewriting the
@@ -61,8 +67,12 @@ node tests/r5.test.js
 verdict $? "tests/r5.test.js"
 
 step "6/7  headless render + popover"
-node tests/headless.js
-verdict $? "tests/headless.js"
+if [ "$NODE_ONLY" -eq 1 ]; then
+  printf 'skipped by request (--node)\n'
+else
+  node tests/headless.js
+  verdict $? "tests/headless.js"
+fi
 
 step "7/7  the gate is intact"
 
@@ -129,7 +139,13 @@ got=$(awk '
 frozen "$got" "$FROZEN_SHA_R5" "collision copy unchanged"
 
 printf '\n'
-if [ "$fail" -eq 0 ]; then
+if [ "$NODE_ONLY" -eq 1 ]; then
+  if [ "$fail" -eq 0 ]; then
+    printf '\033[32mnode suites passed\033[0m \xc2\xb7 headless skipped by request -- not the gate\n'
+  else
+    printf '\033[31mnode suites failed\033[0m \xc2\xb7 headless skipped by request\n'
+  fi
+elif [ "$fail" -eq 0 ]; then
   printf '\033[32mgate passed\033[0m -- open the PR\n'
 else
   printf '\033[31mgate failed\033[0m -- do not open the PR\n'

@@ -957,6 +957,13 @@ build educational copy from it, never re-derive from scratch.
 
 ## House rules
 
+- **Never launch headless Chrome unless the current task names a headless assertion.
+  `./tests/verify.sh` runs once per milestone, at the gate, by the reviewer. A pure-UI task
+  ships on `node --check` on all five blocks and a read-through; a copy or CSS change ships
+  on that alone. A small request that says 'no gate' means no Chrome and no new assertion.**
+  Between tasks, `./tests/verify.sh --node` (the five node suites + tamper guards, seconds,
+  never prints `gate passed`). Recorded 2026-09-05 as process fix P1; the reasoning is in
+  docs/ROADMAP.md "Verification, in proportion".
 - **Sample rate is read from file bytes, never asked of the user.** Decode via
   OfflineAudioContext at the file's native rate; each file's own rate in its frequency
   math; refuse files whose rate can't be determined. "Facts come from the data, intent

@@ -339,7 +339,10 @@ function drew(page) {
 // means for its own assertion. It cannot launder a broken build: a build that
 // never refines fails the predicate on every try, and the assertion then
 // runs against the last page and reports the wrong number, exactly as before.
-const TRIES = 10;
+// HEADLESS_TRIES=<n> caps the budget for a local run (2026-09-05, process fix P3) —
+// the gate keeps the default; a reviewer iterating on one assertion need not pay ten
+// launches to learn it is red.
+const TRIES = Math.max(1, parseInt(process.env.HEADLESS_TRIES, 10) || 10);
 function domDrawn(query, ready) {
   const done = ready || drew;
   let page = dom(query), tries = 1;
