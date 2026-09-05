@@ -825,7 +825,7 @@ build educational copy from it, never re-derive from scratch.
   `rameau_Take-00-58-04.wav` is the source (an all-digital, cab-simulated feed), not the capture
   — the app now records `track.getSettings()`'s processing flags on the take and warns if any
   was on. Gate hooks `?load=` (debug), `?tuning=`, `?pop=tone.<row>.<slot>`. `tests/e.test.js`
-  is the E-phase suite (**134** after E5), verify.sh step 6 of 8.
+  is the E-phase suite (**167** after E6), verify.sh step 6 of 8.
 - **E2 BUILT (session 34, branch `e-phase`; the user asked for E2–E7 on one branch without
   stopping at each gate).** A slot holds takes: `state.slots[i]` stays take 0, siblings in a
   non-enumerable shared `takes` array (`slotTakes(i)` the door); drop/record/"+ Add take" append
@@ -850,7 +850,23 @@ build educational copy from it, never re-derive from scratch.
   x-axis row; the Frequency card header is title and subtitle only; `gsCollapse`/`?open=` drop
   `bands`. **E5:** rung-1 words on every surface (SPEC has the moved-strings table); Take rows
   are a light and a phrase; every value/phrase is the same `[data-pop]` tap. **E5.4 taste call
-  presented, not decided:** default vocabulary Band mix vs EQ speak (or None). **E6 next.**
+  presented, not decided:** default vocabulary Band mix vs EQ speak (or None).
+- **E6 BUILT (session 34, branch `e-phase`, gate).** Hollow and acoustic: the type is
+  `solid | hollow | acoustic` (`normType`, snapshot readers accept all three); block 0 gains
+  `tapResonance()` (both modes from one knock, `TAP_WELCH_N = 8192`, `tapQCeiling()` — the
+  4096-pt window capped Q near 3, measured before freezing), `roomTail()` +
+  `roomOutlastsNote()` (relational at 1.5× the note's slower decay, so bloom is never a room)
+  and `recordingPath()` (`di | mic | piezo | unknown`; a room tail or differing channels ⇒ mic;
+  DI vs piezo by the declared type; never writes the type); THEORY §7.6.6/§7.6.11/§7.6.12 and a
+  **fourth frozen copy block** (`E6_COPY`, `FROZEN_SHA_E6`). Rows declare `types:[…]`; Body
+  voice headlines for hollow/acoustic; Pickup voice (piezo) for an acoustic on a piezo; a
+  cross-type pair collapses one-sided rows with `missing:{what:"type"}` and At a glance opens
+  with *Different kinds of guitar*; the four decay rows drop to partial when the room outlasts
+  the note; the **Recording path** Take row has an override in its popover (`state.slotPaths`,
+  snapshot-additive); mic-vs-DI joins the comparability bar; Anatomy swaps to an acoustic set
+  (air / top & back / strings / sparkle) via `syncVocabTuning()`; the card says `stereo,
+  summed`; the guided mic step lights for mic takes. Gate hook `?types=<a>,<b>`.
+  `tests/e.test.js` **167**. **E7 next.**
 - **NEXT — E3 → E7 on `e-phase`, then the user’s test of the whole branch.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -864,7 +880,7 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 134**, headless **73**
+- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 167**, headless **73**
   (eight steps since E1; `--node` skips the headless step).
   **Step 1 is red on master and has been since `ac65835` "EQ match: fit
   each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound
@@ -990,7 +1006,8 @@ build educational copy from it, never re-derive from scratch.
   `?tuning=estd|eb|dstd|dropd|dadgad` (session-only, never saved), `?pop=tone.<row>.<slot>`
   (the E1 readout popover of a tone row, slot 0/1), `?vocab=none` (E4.5 — the empty
   vocabulary; both frequency canvases carry `data-regions="<n>"`, absent for None, and the
-  Difference canvas carries `data-nearfloor-rows` since E4.2),
+  Difference canvas carries `data-nearfloor-rows` since E4.2), `?types=<solid|hollow|acoustic>[,<…>]`
+  (E6 — the two slots' instrument types, session-only),
   `?strings=1|0` (bottom-axis open-string labels), `?harmonics=0|1` (compat hook —
   `1` turns harmonics 2–4 on for every string), `?how` (open the "How to use this
   app" walkthrough), `?about` (open the About modal), `?debug` (reveal the hidden

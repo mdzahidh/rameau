@@ -75,7 +75,7 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **E3** | **The guided take** — `REC_PROTOCOL` on M5's capture, steps labelled by the rows they unlock, `protocol` in the take's facts. | ✅ built 2026-09-05 (branch `e-phase`) | `### E3 — the guided take` |
 | **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ✅ built 2026-09-05 (branch `e-phase`) | `### E4 — the Band Energy fold` |
 | **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ✅ built 2026-09-05 (branch `e-phase`) — E3–E5 **gate** | `### E5 — the language ladder` |
-| **E6** | **Hollow and acoustic** — three-valued type, `tapResonance()`, `roomTail()`, `recordingPath()`, acoustic Anatomy rows. | ⏸ after E5 — **gate** | `### E6 — hollow and acoustic` |
+| **E6** | **Hollow and acoustic** — three-valued type, `tapResonance()`, `roomTail()`, `recordingPath()`, acoustic Anatomy rows. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E6 — hollow and acoustic` |
 | **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ⏸ after E6 — **gate** | `### E7 — the name in the file` |
 | **R6** | **Interval consonance explainer** — joint period, comb alignment, Plomp–Levelt/Sethares roughness. Now also carries **R6.4**, the overlay's time bound (was R5.4). | ⏸ blocked: two `docs/THEORY.md` §2.5 numeric caveats are unresolved (R6.4 is not blocked) | `# R6 — Interval consonance explainer` |
 | **Warped sgram difference** | Replace the removed pixel-wise spectrogram difference with an onset-warped / DTW one. | ⏸ deferred until after R6 | `### Deferred — warped spectrogram difference` |
@@ -2260,7 +2260,10 @@ Anchors: `id="freqBands"`, the band-table renderer, `function nearFloorBands(`,
 - **Done when** a first-time single-take comparison reads as a plain answer with everything
   technical one tap away.
 
-### E6 — hollow and acoustic (block 0 + physics copy) — **gate**
+### E6 — hollow and acoustic (block 0 + physics copy) — **gate** ✅ BUILT 2026-09-05 (branch `e-phase`)
+
+*Reviewer-built (`ef88bd1` block 0 + THEORY, `b218ceb` UI + frozen copy); SPEC.md 2026-09-05
+"E6 built" has the account, including the Q-ceiling correction measured before freezing.*
 
 Anchors: `function slotType(`, `function setSlotType(`, the `.slottype` select in
 `renderCard`, `settings.slotTypes` in the snapshot builder and `applySnapshot`;

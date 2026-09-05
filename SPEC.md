@@ -2918,3 +2918,63 @@ names a mix zone). The ladder argues for the **plainest set**, which is **EQ spe
 END / LOW MIDS / MIDS / UPPER MIDS / HIGHS / AIR` — the words a first-time user already has),
 or now **None** (a clean plot; the chip invites the choice). Nothing was changed; `setVocab("mix")`
 is still the default path.
+
+## 2026-09-05 — E6 built: hollow and acoustic (session 34, reviewer; branch `e-phase`)
+
+Physics first, frozen, then the UI — the E-phase rule. THEORY §7.6.6 gained *the tap, read*,
+§7.6.11 *the room in a decay* and §7.6.12 *what the recording path leaves in the audio*, all
+written by the reviewer; the user-facing sentences built from them sit in a **fourth frozen
+copy block** (`E6_COPY`, SHA `ef7e6780…` in `tests/verify.sh` and `tests/e.test.js`).
+
+- **E6.2 the tap (block 0).** `tapResonance(db, df)` reads **both** modes from one knock: the air
+  mode is the most prominent peak in 70–130 Hz, the first top mode in 140–260 Hz, Q from the
+  −3 dB width. **Measured before frozen — and the first number was wrong:** with the shipped
+  4096-point window over a 0.25 s knock, a synthetic air mode of Q 12 read Q 2.8, because the
+  resolution floor is the Hann main lobe (≈ 17 Hz at 48 kHz), not the 1/12-octave smoothing
+  I had written down; the tap now uses `TAP_WELCH_N = 8192` and `tapQCeiling(f, rate)` states
+  the ceiling (window and smoothing in quadrature: ≈ 10 near 100 Hz, ≈ 14 near 200 Hz), which
+  the Body voice detail prints beside a Q that sits at it (*at least this*). THEORY §7.6.6
+  carries the corrected sentence.
+- **E6.3 the room (block 0).** `roomTail()` fits the broadband RMS envelope after the **last**
+  onset from 10 dB under its peak to the floor + 6 dB (never more than 70 dB down — a file
+  with digital silence has no finite floor to stop at) and returns the tail's T20;
+  `roomOutlastsNote(room, noteT20)` at `ROOM_TAIL_RATIO = 1.5`. The reference is the note's
+  **slower** decay — its fundamental T20 or its late two-stage slope — so bloom is never read
+  as a room. In `toneRecords()` the four decay rows (Overtone ring, Bloom, Fundamental decay,
+  Sustain across the neck) drop to partial with `missing:{what:"room", tail, note}`; an
+  ordinary room (RT60 ≈ 0.5 s) never trips it, which is the physics, not a gap.
+- **E6.4 the path (block 0 + a Take row).** `recordingPath({room, noteT20, channels,
+  stereoDiffDb, type})` → `mic` on a room tail or on two channels differing by more than
+  −20 dB against the mid; else `piezo` for a declared acoustic, `di` for an electric;
+  `unknown` before analysis. `pathFor(i)` in block 4 is the one door (override first, then
+  the detector over take 0); the resolved value rides on the metrics (`m.path`) so
+  `comparability()` — which now accepts string checks — and the glossary read one value; a
+  mic-vs-DI pair blocks the decay rows, Brightness and Between notes. The **Recording path**
+  Take row prints `Piezo pickup · detected`; its popover carries the override
+  (`state.slotPaths`, in the snapshot as `settings.slotPaths` and `files[i].path`, additive),
+  which **never writes the type**. The three audit takes read as DI (asserted).
+- **E6.1 the type.** `solid | hollow | acoustic` through one `normType()`; the card's select
+  gains *Acoustic*; snapshot readers accept the third value on `settings.slotTypes` and on
+  the file entry. Rows declare `types:[…]`: Pickup voice for solid + hollow (and an acoustic
+  on a piezo, renamed *Pickup voice (piezo)*), Body voice for hollow + acoustic and the
+  **headline row** when either is loaded. On a cross-type pair a typed row that applies to
+  one side only collapses that side with `missing:{what:"type"}` — *not shared — a solidbody
+  has no body voice to compare*; a typed row both sides share keeps the *not compared across
+  instrument types* verdict (house rule: never differenced).
+- **E6.5** A stereo file's card says `stereo, summed` (or `stereo, left/right` when one side
+  was picked); the analysed mix was already (L+R)/2 — only the label is new.
+- **E6.6** Anatomy has two row sets: the electric one and `ANATOMY_ACOUSTIC` (row 0 STRINGS
+  lowF–fretTopF, SPARKLE 5–20 kHz; row 1 AIR RESONANCE 70–130 Hz, TOP & BACK 140–260 Hz —
+  the two tap windows), swapped in by `syncVocabTuning()` whenever a loaded slot is acoustic
+  (called from `setSlotType` and `afterDataChange`). At a glance opens a cross-type pair with
+  *Different kinds of guitar — an acoustic and a solidbody — comparing what they share.*
+- **E6.7** The guided take's mic-placement step lights up for an acoustic (unless its existing
+  take reads as piezo) or for a slot whose take already reads as mic.
+- **Gate hook:** `?types=<a>,<b>` (session-only). **Verification:** `tests/e.test.js` 134 →
+  **167** (block 0: synthetic knock, dry note vs note + room tail, the path table, the audit
+  takes; source-read: the frozen SHA, no document cited at the user, three-valued readers,
+  the inverted "nothing writes a detected path into the type", rows/vocabulary/mic step);
+  the fourth frozen block in `verify.sh`; one both-theme screenshot pass (acoustic-vs-solid
+  with the path popover; a hollow pair). **Not verifiable here:** the *done when* names a
+  J-45 through a microphone — no such take exists in `samples/`; the tap and room paths are
+  proven on synthetic signals and the audit takes only.

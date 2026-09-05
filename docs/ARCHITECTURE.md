@@ -2016,6 +2016,30 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
 - **Headless `dom()` is cached** like `shot()`: the determinism section runs first, so a repeated
   query is a repeated page.
 
+### E6 (session 34): hollow and acoustic
+
+- **The tap's resolution floor is the window, not the smoothing.** A 0.25 s knock through a
+  4096-pt Hann at 48 kHz has a −3 dB main lobe of ≈ 17 Hz — wider than a Q-12 air mode's whole
+  bandwidth — so Q read ≈ 3 whatever the body did. `TAP_WELCH_N = 8192` halves that and
+  `tapQCeiling(f, rate)` prints the remaining ceiling; a synthetic Q-12 knock reads ≈ 9–10.
+  Never quote a Q from a tap without the ceiling beside it.
+- **The room test is relational.** `roomTail()` returns a T20; `roomOutlastsNote()` compares it
+  with the note's *slower* decay (fundamental T20 or late two-stage slope) so bloom's second
+  stage is never a room. `computeTimeMetrics` stores `m.room = {t20, noteT20, outlasts, …}`; the
+  fit stops at the floor + 6 dB **or 70 dB under the peak** — a file with digital silence has no
+  finite floor and the line would otherwise run along the plateau.
+- **`pathFor(i)` is the one door onto the path** (override → detector over take 0 → unknown) and
+  it is written onto `s.metrics.path` at the head of `toneRecords()` so `comparability()` (which
+  now lets string-valued checks through its numeric guard) and the glossary read one value.
+  `state.slotPaths` is identity-like (snapshot, not gsSettings), reset with the name and type.
+- **Typed rows:** `def.types` + `applies(def, i)`; a row is hidden when no loaded slot passes,
+  and on a pair the side that does not pass gets `evidence {state:4, missing:[{what:"type"}]}`
+  so `toneRowState` collapses the row rather than showing a one-sided value as if it compared.
+  Text rows now receive `(s, i)` — the path row needs the slot index.
+- **Anatomy swaps in place:** `VOCAB_BY_ID.anatomy.regions` is reassigned between
+  `ANATOMY_ELECTRIC` and `ANATOMY_ACOUSTIC` by `syncVocabTuning()`; every consumer already loops
+  `vocab.regions`, and `syncLaneHeight()` follows because the acoustic set has a second row.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never
