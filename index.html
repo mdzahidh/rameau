@@ -10501,7 +10501,9 @@ function boot(){
   if(zm&&(zm[1].toLowerCase() in ZOOMS))
     ZOOMS[zm[1].toLowerCase()]={x0:parseFloat(zm[2]), x1:parseFloat(zm[3]),
       y0:zm[4]!=null?parseFloat(zm[4]):null, y1:zm[5]!=null?parseFloat(zm[5]):null};
-  const pp=location.search.match(/[?&]pop=([a-z0-9-]+)(?:&|$)/i);                   // test hook
+  const tn=location.search.match(/[?&]tuning=(estd|eb|dstd|dropd|dadgad)(?:&|$)/i);  // gate hook — session-only, not saved
+  if(tn){ state.tuning=tn[1].toLowerCase(); if(tuningSel) tuningSel.value=state.tuning; syncVocabTuning(); fillSgNoteSel(); }
+  const pp=location.search.match(/[?&]pop=([a-z0-9.-]+)(?:&|$)/i);                  // test hook
   if(pp){        // wait for analysis (lmOffset) so the audition row is complete, then pin open:
     let hops=0;  // the screenshot capture resizes the surface, and resize normally closes popovers
     const tryOpen=()=>{
@@ -10513,7 +10515,10 @@ function boot(){
       const sm=key.match(/^str(\d+)$/);
       const cm=key.match(/^coin(\d+)$/);
       const km=key.match(/^clu(\d+)$/);
-      if(sm){
+      const tm=key.match(/^tone\.([a-z0-9-]+)\.([01])$/);   // E1: the readout popover of row <key>, slot 0/1
+      if(tm){
+        openTonePop(tm[1],parseInt(tm[2],10),{left:c-40,right:c+40,top:80,bottom:100});
+      } else if(sm){
         const n=parseInt(sm[1],10);
         if(n>=0&&n<6) openStringPopover(n,{left:c-40,right:c+40,top:80,bottom:100});
       } else if(cm){
