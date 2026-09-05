@@ -2495,6 +2495,97 @@ function bandVerdict(a, b, band){
   const d=a-b; return {d, band:band.abs, log:false, distinguishable:Math.abs(d)>band.abs};
 }
 
+// ---------- evidence requirements (THEORY §7.7, E1) ----------
+// One manifest per tone row. `need` is what a take must supply for the row to render as
+// *measured* (state 2); `min` is the floor under which it is *not measurable* (state 4);
+// between the two it is *partial* (state 3). Every number here was run against the three
+// audit takes and the demo pair before it was written (THEORY §7.7 has the counts and the
+// two adjustments). Requirements are structured, never sentences — the renderer phrases
+// `missing` in one place.
+const TONE_EVIDENCE={
+  "pickup-resonance":{need:{notes:10, span:12, snr:35}, min:{notes:4, span:5, snr:25}},
+  "body-resonance":{need:{tap:1}, min:{air:1}},
+  "inharmonicity":{need:{openE:12, openA:12}, min:{openE:6, openA:6}},
+  "overtone-sustain":{need:{ring:6}, min:{partials:2}},
+  "bloom":{need:{stage:4}, min:{stage:1}},
+  "neck-sustain":{need:{decays:18, span:12}, min:{decays:6}},
+  "f0-decay":{need:{decays:6}, min:{decays:2}},
+  "brightness":{need:{notes:6}, min:{notes:1}},
+  "even-odd":{need:{notes:6}, min:{notes:2}},
+  "harmonic-richness":{need:{notes:6}, min:{notes:2}},
+  "attack-spectrum":{need:{attacks:6}, min:{attacks:2}},
+};
+const RING_MIN_SEC=1.5;
+// What one take supplies, counted once from its metrics. `openMidis` is the current
+// tuning's open strings (intent, read at render time like openStringNotes); `other` is
+// the other slot's metrics, so the fundamental-decay count can be of notes matched by
+// pitch across the pair.
+function toneEvidenceOf(m, openMidis, a4, other){
+  const ev={analysed:!!(m&&m.notes), notes:0, span:0, snr:(m&&isFinite(m.snr))?m.snr:null,
+            tap:(m&&m.tap)?1:0, air:(m&&m.air)?1:0, openE:0, openA:0, ring:0, partials:0,
+            stage:0, decays:0, attacks:0};
+  if(!ev.analysed) return ev;
+  const pass=m.notes.filter(n=>n.pass&&n.f0>0);
+  ev.notes=pass.length;
+  const midi=pass.map(n=>69+12*Math.log2(n.f0/440));
+  if(midi.length) ev.span=Math.max(...midi)-Math.min(...midi);
+  const near=(n,mi)=>Math.abs(1200*Math.log2(n.f0/midiToFreq(mi,a4||440)))<=50;
+  if(openMidis&&openMidis.length>=2) for(const n of pass){
+    if(near(n,openMidis[0])) ev.openE=Math.max(ev.openE,n.nB||0);
+    if(near(n,openMidis[1])) ev.openA=Math.max(ev.openA,n.nB||0);
+  }
+  for(const n of m.notes){
+    const hasP=!!(n.partials&&n.partials.some((v,h)=>h>=2&&v!=null));
+    if(hasP){ ev.partials++; if(n.gap>=RING_MIN_SEC) ev.ring++; }
+    if(n.stage&&n.stage.twoStage) ev.stage++;
+    if(n.attackOct!=null&&isFinite(n.attackOct)) ev.attacks++;
+  }
+  const dec=pass.filter(n=>n.t20!=null&&isFinite(n.t20)&&n.t20>0);
+  ev.decays=dec.length;
+  if(other&&other.notes){
+    const op=other.notes.filter(n=>n.pass&&n.t20>0);
+    ev.matchedDecays=dec.filter(n=>op.some(o=>Math.abs(1200*Math.log2(o.f0/n.f0))<=50)).length;
+  }
+  return ev;
+}
+// The row's evidence state for one take: {state, have, need, missing:[{what,have,need}]}.
+// `missing` lists every state-2 requirement the take falls short of — it is also the
+// instruction for next time. A row without a manifest (the take facts) is measured
+// whenever it has a value.
+function evidenceFor(key, ev){
+  const man=TONE_EVIDENCE[key];
+  if(!man) return {state:2, have:{}, need:{}, missing:[]};
+  if(!ev||!ev.analysed) return {state:4, have:{}, need:man.need, missing:[{what:"analysis"}]};
+  const h=(key==="f0-decay"&&ev.matchedDecays!=null)?Object.assign({},ev,{decays:ev.matchedDecays}):ev;
+  const have={}, missing=[]; let state=2;
+  for(const what in man.need){
+    const v=h[what]; have[what]=v;
+    if(!(v>=man.need[what])) missing.push({what, have:(v==null?null:Math.round(v*10)/10), need:man.need[what]});
+  }
+  if(missing.length){ // short of measured: partial, unless even the floor is missed
+    state=3;
+    for(const what in man.min){ const v=h[what]; have[what]=v; if(!(v>=man.min[what])){ state=4; break; } }
+  }
+  return {state, have, need:man.need, missing};
+}
+// The row's state from the loaded takes' evidence states, the band and the delta.
+// *Banded* (1) only when both takes are measured (2) and the band was measured on the
+// user's own takes. A provisional band never yields a verdict: in a one-take-each
+// comparison it only says whether the gap is thinner than the audit's own spread
+// (partial, 3) or not (2). A take at 4 beside one at 2 leaves the row partial — one dot
+// and one missing line, never a comparison.
+function toneRowState(states, band, d){
+  const s=states.filter(x=>x!=null);
+  if(!s.length||s.every(x=>x>=4)) return {state:4, verdict:false, missing:[]};
+  const st=Math.max(...s.map(x=>Math.min(x,3)));
+  if(s.length===2&&st===2&&d&&isFinite(d.d)&&band){
+    if(band.measured) return {state:1, verdict:true, missing:[]};
+    if(!d.distinguishable) return {state:3, verdict:false,
+      missing:[{what:"band", have:Math.abs(d.d), need:(band.oct!=null?band.oct:band.abs), log:!!d.log}]};
+  }
+  return {state:st, verdict:false, missing:[]};
+}
+
 // ---------- short-term RMS / dynamics / noise floor ----------
 // 50 ms frames, 25 ms hop, in dBFS (sine reference: +3.01 dB over RMS-of-1...
 // we keep plain RMS dBFS here and say so in the glossary).

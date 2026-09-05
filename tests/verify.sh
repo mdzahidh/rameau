@@ -1,20 +1,21 @@
 #!/bin/sh
-# The Rameau gate (R3, R4, M2.7, then R5). One command; exit 0 means the branch is reviewable.
+# The Rameau gate (R3, R4, M2.7, R5, then the E phase). One command; exit 0 means the branch is reviewable.
 #
 # Run from the repo root:          ./tests/verify.sh
 # Compare against another base:    BASE=origin/master ./tests/verify.sh
 # Node suites + tamper guards only:  ./tests/verify.sh --node   (seconds; not the gate)
 #
-# Seven things must hold:
+# Eight things must hold:
 #   1. the existing DSP suite is still green   - no regression in shipped math
 #   2. tests/r3.test.js is green               - the R3 wiring contracts are met
 #   3. tests/r4.test.js is green               - the R4 wiring contracts are met
 #   4. tests/m27.test.js is green              - the M2.7 wiring contracts are met
 #   5. tests/r5.test.js is green               - the R5 wiring contracts are met
-#   6. tests/headless.js is green              - it really renders and opens (skipped by --node)
-#   7. the gate itself was not edited          - tests/ untouched, all three copies frozen
+#   6. tests/e.test.js is green                - the E-phase contracts are met (2026-09-05 ->)
+#   7. tests/headless.js is green              - it really renders and opens (skipped by --node)
+#   8. the gate itself was not edited          - tests/ untouched, all three copies frozen
 #
-# (7) is what makes (1)-(6) mean anything: a builder who may edit the tests can
+# (8) is what makes (1)-(7) mean anything: a builder who may edit the tests can
 # always make them pass. The frozen copy blocks are educational prose already
 # reviewed against docs/THEORY.md -- wiring them up is the task, rewriting them is not.
 
@@ -46,27 +47,31 @@ verdict() {
   else printf '\033[31mFAIL\033[0m  %s\n' "$2"; fail=1; fi
 }
 
-step "1/7  DSP suite (must stay green)"
+step "1/8  DSP suite (must stay green)"
 node tests/dsp.test.js
 verdict $? "tests/dsp.test.js"
 
-step "2/7  R3 contracts"
+step "2/8  R3 contracts"
 node tests/r3.test.js
 verdict $? "tests/r3.test.js"
 
-step "3/7  R4 contracts"
+step "3/8  R4 contracts"
 node tests/r4.test.js
 verdict $? "tests/r4.test.js"
 
-step "4/7  M2.7 contracts"
+step "4/8  M2.7 contracts"
 node tests/m27.test.js
 verdict $? "tests/m27.test.js"
 
-step "5/7  R5 contracts"
+step "5/8  R5 contracts"
 node tests/r5.test.js
 verdict $? "tests/r5.test.js"
 
-step "6/7  headless render + popover"
+step "6/8  E-phase contracts"
+node tests/e.test.js
+verdict $? "tests/e.test.js"
+
+step "7/8  headless render + popover"
 if [ "$NODE_ONLY" -eq 1 ]; then
   printf 'skipped by request (--node)\n'
 else
@@ -74,7 +79,7 @@ else
   verdict $? "tests/headless.js"
 fi
 
-step "7/7  the gate is intact"
+step "8/8  the gate is intact"
 
 # The tests are the specification. Editing them is how a green run becomes
 # meaningless, so any diff under tests/ against the base fails the gate --
