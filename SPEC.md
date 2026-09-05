@@ -2528,3 +2528,53 @@ the documented pre-existing `dsp` red); a real-Chrome screenshot of `?demo&open=
 guitars named, showing the name in every card, table, legend and title; the popover
 screenshotted in both themes; and a snapshot round-trip driven in the page (export → clear the
 names → restore) confirming `settings.slotNames`, the per-file `label` and the restored state.
+
+### 2026-09-05 — Tone character reworked: the panel reports the guitar (user request, session 33)
+
+The user's brief: the ten descriptors conflated instrument, performance and recording, and an
+A/B silently attributed take differences to the guitar. Audit first (recorded in
+docs/THEORY.md §7, reproducible from `tests/audit_tone.js`), proposal approved on all five
+calls, then built.
+
+- **What the audit found, on the user's three takes of one riff:** no shipped descriptor moves
+  less with the phrase than with the guitar; pick position alone moves the centroid 0.37 oct
+  (three guitars differ by 0.33); even/odd swings +5 → +21 dB with pluck position; the Majesty's
+  "sustained note" was a ×3 sub-harmonic read at 0.84 confidence; richness read 5.0 or 12.9 dB
+  on the same file depending on where it was cut; tilt and centroid correlate at r = 0.80.
+- **Three groups, in order.** *Instrument* (feeds At a glance): pickup voice (LTAS hump, f/gain/Q)
+  for solidbodies or body voice (tap test, Helmholtz f and Q) for hollow bodies, string stiffness
+  (inharmonicity B), overtone ring (per-partial T20), bloom (two-stage decay, fit-gated), sustain
+  across the neck (dead spots). *Voicing / technique*: brightness with tilt folded under it,
+  even/odd, richness, warmth, fullness, attack, attack colour, tightness, sustain (band), dynamic
+  range. *Take / recording*: pitch check, level and floor, between-note residual, material.
+  **Nothing was dropped** — every old row moved with its definition, and its glossary entry says why.
+- **Pitch guard** (`combCheckF0`): candidates ×1, ×2, ×3; the lowest whose teeth 1–6 all stand
+  ≥ 10 dB over the floor wins; the pitch is never lowered. Harmonic rows exist only for notes
+  that pass, and print a blank with the reason otherwise. The comb is the gate rather than the
+  autocorrelation's confidence because 0.84 did not catch the ×3 and the comb did.
+- **Centroid note spelling removed** everywhere it was a centroid. Note names stay on pitches.
+- **Reliability bands** (`TONE_BANDS_DEFAULT`, THEORY §7.6.10): a row's |Δ| inside its band prints
+  "not distinguishable", never a delta. Provisional values from the audit, labelled so, until the
+  **repeatability mode** ("Same guitar, two takes" + Save as bands) stores the user's own in
+  `gsSettings` **v5** (additive `toneBands`/`toneBandsAt`; v4 still loads).
+- **Comparability bar** (`comparability()`): register, density, onset count, floor, duration,
+  level — a failed check greys the rows it affects and says why at the top of the panel.
+- **Instrument type per card returns** (Solidbody / Hollow or acoustic), reversing the v1.0.0
+  removal: it now selects which resonance is measured, and cross-type pairs are never differenced.
+  Asked, never inferred; carried in the snapshot (`settings.slotTypes`, per-file `instrument`),
+  dropped on clear/replace like the name; not in `gsSettings`.
+- **At a glance** reads Instrument rows only, each candidate tagged tone/time as Q5 requires, and
+  only when the difference cleared its band. The user's three calls: brightness leaves the
+  Instrument group; attack colour is a voicing row; the mic-distance proxy is named "between
+  notes" and stops there. Provisional bands apply until measured.
+- **Exports**: CSV keeps `descriptor,a_value,b_value` and appends `group,band,verdict`
+  (`# schema: tone-2`); JSON keeps `rows` and adds `rowsV2`, `comparability`, `instrumentTypes`,
+  `schema:"tone-2"`. Old snapshots load with the new rows blank and a stated reason.
+- **Two rules found on the way:** a dead-spot flag compares a note only with its
+  octave-neighbours (a low E's fundamental outlasts a plain G's for reasons that are the string),
+  and the neck-sustain row needs six measured notes before it may headline.
+- *Verification, in proportion:* 16 new block-0 assertions in `tests/dsp.test.js` (193 → 216,
+  the documented EQ red unchanged), Q5's contracts rewritten for the new candidate list, the
+  other four suites untouched and green, and the panel rendered in real Chrome with the user's
+  Les Paul and SG in both themes. No new suite, no new `verify.sh` step, no new headless launch.
+

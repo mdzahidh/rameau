@@ -780,6 +780,24 @@ build educational copy from it, never re-derive from scratch.
   `inp.addEventListener` in the source to the triad picker. *Verification, in proportion:* `node --check` ×5,
   the five node suites (only the documented `dsp` red), `?demo&open=all` in real Chrome with both
   guitars named, the popover in both themes, and an in-page snapshot round-trip.
+- **Tone character REWORKED (session 33, user request; audit → proposal approved on all five
+  calls → built).** The ten descriptors conflated instrument, performance and recording; the
+  audit on the user's three takes (docs/THEORY.md §7, `node tests/audit_tone.js`) found **none**
+  of them moves less with the phrase than with the guitar, and the Majesty's sustained note was a
+  ×3 sub-harmonic at 0.84 confidence. Now **three groups**: *Instrument* (pickup voice / body voice
+  by slot type, string stiffness B, overtone ring, bloom, sustain across the neck — the only rows
+  that feed At a glance), *Voicing / technique* (brightness with tilt under it, even/odd, richness,
+  warmth, fullness, attack, attack colour, tightness, sustain band, dynamic range), *Take /
+  recording* (pitch check, level and floor, between notes, material). Nothing dropped. Every row
+  has a **reliability band** — provisional from the audit until the **repeatability mode** ("Same
+  guitar, two takes" → Save as bands, `gsSettings` **v5**) measures the user's own — and |Δ| inside
+  it prints "not distinguishable". A **comparability bar** greys rows a mismatched register /
+  density / onset count / floor / duration / level would poison. **Pitch comb check**
+  (`combCheckF0`: ×1/×2/×3, lowest with teeth 1–6 present, never lowered) gates every
+  harmonic-indexed number. **Instrument type per card is back** (Solidbody / Hollow or acoustic —
+  it now selects what is measured; cross-type pairs are never differenced). Centroids carry no
+  note name. Exports are schema `tone-2` (additive). Details: SPEC.md 2026-09-05, ARCHITECTURE
+  "Tone character rework", THEORY §7.6 for every derivation. Awaiting the user's visual test.
 - **NEXT — the user’s visual test.** R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -793,7 +811,7 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **193**, r3 42, r4 60, m27 51, r5 **330**, headless 69.
+- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **330**, headless 69.
   **Step 1 is red on master and has been since `ac65835` "EQ match: fit
   each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound
   `ok(mx < 1.0)` at [tests/dsp.test.js:547](tests/dsp.test.js#L547) went 0.999 → 1.022 dB there
@@ -840,6 +858,9 @@ build educational copy from it, never re-derive from scratch.
   contains every string literal — scope copy assertions to the target element.
 - `tests/png.js` — dependency-free PNG decode / pixel diff / blob clustering (node
   `zlib` only), used by `headless.js`.
+- `tests/audit_tone.js` — the tone-panel audit (THEORY §7), a tool not a gate step: runs the
+  shipped block-0 descriptors on `samples/{Les_Paul,SG,Majesty}.wav` and prints every number
+  quoted in the confounder table.
 - `tests/make_samples.js` — regenerates `samples/*.wav` (deterministic Karplus–Strong,
   same seeds/math as the in-app demo — the two must stay in lockstep), then verifies the
   app's own sniffer reads the rates back.
@@ -912,7 +933,9 @@ build educational copy from it, never re-derive from scratch.
   `?strings=1|0` (bottom-axis open-string labels), `?harmonics=0|1` (compat hook —
   `1` turns harmonics 2–4 on for every string), `?how` (open the "How to use this
   app" walkthrough), `?about` (open the About modal), `?debug` (reveal the hidden
-  "Load test files" button).
+  "Load test files" button). `samples/Les_Paul.wav`, `samples/SG.wav`, `samples/Majesty.wav` are the
+  user's real takes (one riff, then the six open strings in E♭ standard) — set the tuning to E♭
+  so the Instrument rows read the open strings.
 - `node tests/dsp.test.js` — full DSP suite. `node tests/make_samples.js` — regenerate WAVs.
 - `./tests/verify.sh` — the Rameau gate (all suites + tamper guards; seven steps as of R5).
   **Green as of gate 7**; keep it that way, and reuse its shape (frozen copy + read-only
@@ -981,6 +1004,14 @@ build educational copy from it, never re-derive from scratch.
 - **Every visible number defensible.** Analysis params live in the footer; smoothing
   state is always printed on the plot; dB re full-scale sine everywhere; glossary terms
   link each label to its formula with current values.
+- **The tone panel reports the guitar, and says how sure it is.** Three groups (Instrument /
+  Voicing / Take); only Instrument rows reach At a glance; every row carries a reliability band
+  and prints "not distinguishable" inside it; harmonic-indexed numbers exist only for notes that
+  pass the comb check (`combCheckF0`) — a blank with a reason beats a confident wrong number; a
+  spectral centroid is never spelled as a note. Instrument type is per card and asked, never
+  inferred; a solidbody's resonant signature is its pickup hump, a hollow body's is its air
+  resonance, and the two are never differenced. New descriptors need their derivation in
+  docs/THEORY.md §7.6 before they appear.
 - **Identity & education.** The app is **Claude Rameau**; the slogan *"Yes — but why
   does it sound that way?"* sits beside the title. Educational features teach the way
   the app's own origin did (docs/STORY.md): the instrument surfaces a curiosity

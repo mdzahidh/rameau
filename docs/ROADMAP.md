@@ -62,6 +62,7 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **Q2** | Small changes: the shelf glyph that lied, defaults from real material, a key for the two stars. | ✅ done | `### Q2 — small changes a/b/c` |
 | **R5.5** | **Near-floor disclosure on the LTAS Difference** — say where a large Δ is two views of the floor rather than a real difference. | ✅ done | `### R5.5 — near-floor disclosure` |
 | **Q3** | Near-floor disclosure carried into the **Band Energy** table and the **At-a-glance** strip — one predicate, three cards. | ✅ done | `### Q3 — the same floor in three cards` |
+| **T** | **Tone character reworked** — audit (THEORY §7), three groups, pitch comb check, reliability bands, comparability bar, repeatability mode, instrument type per card. | ✅ done (session 33) | *(SPEC.md 2026-09-05, ARCHITECTURE "Tone character rework")* |
 | **Q4a** | The **expanded view, truly expanded** (1/2) — collision-mark clicks and Hold-Fade work in the magnify overlay. | ✅ done | `#### Q4a — the two interactions` |
 | **Q4b** | The **expanded view, truly expanded** (2/2) — the overlay carries the sgram card head's Overlay / Colors / Legibility controls. | ✅ done | `#### Q4b — the controls in the expanded view` |
 | **M5** | **Record directly into a slot** — capture a take per guitar through a device picker, landed through the existing pipeline; no realtime analysis. | ✅ built 2026-09-04 (raw-PCM rewrite of the reverted MediaRecorder attempt) | `# M5 — Record directly into a slot` |

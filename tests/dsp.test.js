@@ -22,7 +22,9 @@ module.exports = { welch, powerToDb, smoothOct, bandPower, spectralCentroid,
   spectrogramLog, decimateEnvelope, magmaColor, MAGMA,
   eqPeakingDb, eqLowShelfDb, eqHighShelfDb, eqShapeDb, EQ_DEVICES, EQ_DEVICE_BY_ID,
   lsqSolve, fitGraphicEq, fitParametricEq, eqSettingsResponseDb,
-  sgramDifference, divergeColor };
+  sgramDifference, divergeColor,
+  combCheckF0, fitInharmonicity, twoStageDecay, ltasHump, deadSpots, comparability, bandVerdict,
+  betweenNoteResidual, partialDecays, COMB_TEETH, TONE_BANDS_DEFAULT };
 `);
 const D = require(modFile);
 
@@ -902,7 +904,7 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
     ok(/hm\.x-lastHX<\d+\) continue;/.test(axis), "crowded labels are skipped, never smeared");
 
     // (b) the per-string colour is the user's, and it is remembered.
-    ok(/const SETTINGS_VER=4\b/.test(html), "settings are at v4 — the version that carries string colours");
+    ok(/const SETTINGS_VER=5\b/.test(html) && /j\.v===4\)\)/.test(html), "settings are at v5 — bands added, and a v4 payload (string colours) still loads");
     ok(/stringColors:\(state\.stringColors\|\|STRING_COLORS\)\.slice\(\)/.test(html),
       "saved settings carry the string colours");
     const sh = html.slice(html.indexOf("function _stringHex("));
@@ -938,23 +940,83 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
     };
     const pc = body("proseCandidates"), rv = body("renderVerdict");
 
+    // 2026-09-05 tone rework (THEORY §7): the strip reads Instrument rows only, each
+    // tagged, and the difference must clear the row's reliability band first.
     const pushes = pc.match(/cands\.push\(\{/g) || [];
     const tagged = pc.match(/cands\.push\(\{fam:"(tone|time)"/g) || [];
-    ok(pushes.length === 10 && tagged.length === 10,
+    ok(pushes.length >= 5 && tagged.length === pushes.length,
       "every ranked sentence declares its family", pushes.length + " pushes, " + tagged.length + " tagged");
-    ok((pc.match(/fam:"time"/g) || []).length === 4,
-      "attack, sustain, tightness and dynamic range are the time-domain family");
-    // The one the user missed, pinned by name: sustain must not be filed as colour.
-    const sus = pc.slice(pc.indexOf('termHtml("sustain","sustains")') - 200, pc.indexOf('termHtml("sustain","sustains")'));
-    ok(/fam:"time"/.test(sus), "sustain is a time-domain difference");
-    const susSent = pc.slice(pc.indexOf('termHtml("sustain","sustains")'));
-    ok(/r\.toFixed\(1\)[^;]*(\\u00d7|\u00d7)/.test(susSent.slice(0, susSent.indexOf("});"))),
-      "the sustain sentence prints the ratio a player would quote");
-
+    ok(/fam:"tone"/.test(pc) && /fam:"time"/.test(pc), "both families are represented");
+    ok(/const clear=k=>\{ const r=rec\(k\); return \(r&&r\.verdict&&r\.verdict\.kind==="diff"\)\?r:null; \};/.test(pc),
+      "a sentence exists only when the row's difference cleared its band and no comparability check blocked it");
+    for (const k of ["brightness", "warmth", "low-end", "even-odd", "attack", "dynamic-range"])
+      ok(!new RegExp('clear\\("' + k + '"\\)').test(pc), "voicing row " + k + " never reaches At a glance");
+    const sus = pc.slice(pc.indexOf('clear("overtone-sustain")'), pc.indexOf('clear("neck-sustain")'));
+    ok(/fam:"time"/.test(sus) && /ratio\.toFixed\(1\)\+"\u00d7 longer/.test(sus),
+      "overtone ring is a time-domain difference and prints the ratio a player would quote");
     ok(/const other=cands\.find\(c=>c\.fam!==cands\[0\]\.fam\);/.test(rv),
       "the strip looks past its leader for the other family");
     ok(/if\(other\) parts\.push\(other\.html\);/.test(rv),
       "and prints it when the measurement cleared its own threshold");
+  }
+
+
+  // ---- tone rework (THEORY §7): the comb check catches a sub-harmonic pick ----
+  {
+    // A harmonic comb at 310 Hz with amplitudes 1/n, on a 48 kHz Welch at 8192.
+    const rate = 48000, f0 = 310, n = rate * 2, x = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let v = 0; for (let h = 1; h <= 10; h++) v += Math.sin(2 * Math.PI * h * f0 * i / rate) / h; x[i] = 0.3 * v; }
+    const { power, df } = await D.welch(x, rate, 8192, 4096, null);
+    const c1 = D.combCheckF0(power, df, f0 / 3);
+    ok(c1.pass && c1.mult === 3 && approx(c1.f0, f0, 0.01), "a twelfth-low pick is raised ×3 to the comb", JSON.stringify([c1.mult, c1.f0]));
+    const c2 = D.combCheckF0(power, df, f0 / 2);
+    ok(c2.pass && c2.mult === 2, "an octave-low pick is raised ×2");
+    const c3 = D.combCheckF0(power, df, f0);
+    ok(c3.pass && c3.mult === 1, "the true pitch is kept — the lowest passing hypothesis wins");
+    const c4 = D.combCheckF0(power, df, f0 * 2);
+    ok(c4.mult === 1 && c4.f0 === f0 * 2, "the pick is never lowered", JSON.stringify([c4.mult, c4.f0, c4.pass]));
+    ok(D.COMB_TEETH === 6, "six teeth decide");
+    // ---- inharmonicity: synthetic stiff string, B = 2e-4, f0 free ----
+    const B = 2e-4, y = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let v = 0; for (let h = 1; h <= 12; h++) v += Math.sin(2 * Math.PI * h * f0 * Math.sqrt(1 + B * h * h) * i / rate) / h; y[i] = 0.3 * v; }
+    const w2 = await D.welch(y, rate, 8192, 4096, null);
+    const bf = D.fitInharmonicity(w2.power, w2.df, f0 * 1.003, 12);   // start 5 ¢ off
+    ok(bf && approx(bf.B, B, 3e-5) && approx(bf.f0, f0, 0.3) && bf.n >= 10 && bf.rmsCents < 3,
+      "inharmonicity fit recovers B and f0 from a 5 ¢-off start", bf && JSON.stringify([bf.B, bf.f0, bf.n, bf.rmsCents]));
+    const bf0 = D.fitInharmonicity(power, df, f0, 12);
+    ok(bf0 && bf0.B < 2e-5, "a harmonic comb reads B ≈ 0", bf0 && bf0.B);
+    // ---- two-stage decay: a₁e^{−t/0.08} + a₂e^{−t/1.2} has a knee; one exponential has none ----
+    const two = new Float32Array(rate * 3), one = new Float32Array(rate * 3);
+    for (let i = 0; i < two.length; i++) { const t = i / rate, c = Math.sin(2 * Math.PI * 220 * t);
+      two[i] = c * (0.5 * Math.exp(-t / 0.08) + 0.05 * Math.exp(-t / 1.2)); one[i] = c * 0.5 * Math.exp(-t / 0.6); }
+    const ts2 = D.twoStageDecay(two, rate, 0, 3), ts1 = D.twoStageDecay(one, rate, 0, 3);
+    ok(ts2 && ts2.twoStage && ts2.early < ts2.late && ts2.knee > 0.1 && ts2.knee < 0.5, "two exponentials read as two-stage with the knee where they cross", ts2 && JSON.stringify(ts2));
+    ok(ts1 && !ts1.twoStage && approx(ts1.single, -8.686 / 0.6, 0.6), "one exponential reads as one slope of −8.686/τ dB/s", ts1 && JSON.stringify(ts1));
+    // ---- partial decays: T20 of a partial with τ is 2.303·τ ----
+    const pdx = new Float32Array(rate * 4);
+    for (let i = 0; i < pdx.length; i++) { const t = i / rate; pdx[i] = 0.4 * Math.sin(2 * Math.PI * 220 * t) * Math.exp(-t / 0.5) + 0.2 * Math.sin(2 * Math.PI * 440 * t) * Math.exp(-t / 0.15); }
+    const pd = D.partialDecays(pdx, rate, 0, 4, 220, 0);
+    ok(pd && approx(pd[0].t20, 2.303 * 0.5, 0.12) && approx(pd[1].t20, 2.303 * 0.15, 0.06), "per-partial T20 = 2.303·τ for each partial", pd && JSON.stringify(pd.slice(0, 2)));
+    // ---- LTAS hump: a pink-ish slope with a Gaussian bump at 3 kHz ----
+    const hp = new Float64Array(4097), hdf = rate / 8192;
+    for (let k = 1; k < hp.length; k++) { const f = k * hdf; const bump = 8 * Math.exp(-Math.pow(Math.log2(f / 3000) / 0.35, 2)); hp[k] = Math.pow(10, (-10 * Math.log2(f / 100) + bump) / 10); }
+    const hump = D.ltasHump(hp, hdf, 800, 8000);
+    ok(hump && approx(Math.log2(hump.f / 3000), 0, 0.1) && hump.db > 5 && hump.q > 1 && !hump.edge, "the hump over the trend lands on the bump", hump && JSON.stringify(hump));
+    // ---- dead spots, comparability, band verdict ----
+    const ds = D.deadSpots([{ f0: 200, t20: 3 }, { f0: 220, t20: 3.5 }, { f0: 250, t20: 2.8 }, { f0: 230, t20: 0.6 }, { f0: 80, t20: 12 }, { f0: 300, t20: 3.2 }]);
+    ok(ds.flags.length === 1 && ds.flags[0].t20 === 0.6 && ds.flags[0].ref === 3.2 && ds.flags[0].near === 4, "a note under a third of its octave-neighbours' median is flagged, and the low E is not its reference", JSON.stringify(ds));
+    const ds2 = D.deadSpots([{ f0: 80, t20: 12 }, { f0: 85, t20: 11 }, { f0: 90, t20: 13 }, { f0: 95, t20: 12 }, { f0: 300, t20: 1 }, { f0: 320, t20: 1.2 }]);
+    ok(ds2.flags.length === 0, "a note with fewer than three neighbours within an octave is not judged");
+    const cmp = D.comparability({ registerMidi: 50, onsetRate: 1.6, onsetCount: 80, noiseFloor: -70, duration: 55, levelRms: -20 },
+                                { registerMidi: 57, onsetRate: 1.5, onsetCount: 70, noiseFloor: -58, duration: 43, levelRms: -22 });
+    ok(cmp.find(c => c.key === "register") && !cmp.find(c => c.key === "register").ok && cmp.find(c => c.key === "register").rows.includes("brightness"),
+      "a register gap of 7 semitones blocks the register-bound rows");
+    ok(cmp.find(c => c.key === "floor") && !cmp.find(c => c.key === "floor").ok && cmp.find(c => c.key === "density").ok, "a 12 dB floor gap fails, a 1.07× density ratio passes");
+    const bv = D.bandVerdict(423, 486, D.TONE_BANDS_DEFAULT.brightness), bv2 = D.bandVerdict(3.0, 1.3, D.TONE_BANDS_DEFAULT["overtone-sustain"]);
+    ok(bv && !bv.distinguishable && bv2 && bv2.distinguishable, "423 vs 486 Hz is inside the centroid band; 3.0 vs 1.3 s clears the overtone band");
+    ok(D.bandVerdict(-1, 2, { oct: 0.3 }) === null && D.bandVerdict(1, 2, null) === null, "a log band refuses non-positive values, and no band means no verdict");
+    const res = D.betweenNoteResidual(new Float64Array([-20, -22, -50, -55, -21, -23, -48, -40]), 0.1, [0, 0.4]);
+    ok(res != null && res <= -25, "between-note residual is the gap minimum relative to the note peak", res);
   }
 
   console.log(`\n${pass} passed, ${fail} failed`);

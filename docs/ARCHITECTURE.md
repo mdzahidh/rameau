@@ -1880,6 +1880,52 @@ colors.
 the same target the recording guide's *Levels* section names — said once in each place, never
 derived twice.
 
+## Tone character rework (session 33): the panel reports the guitar
+
+Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
+
+- **Orchestration.** `computeTimeMetrics(slot, onProgress)` runs a **per-note pass**: every onset
+  followed by ≥ `NOTE_MIN_GAP` (0.45 s) gets a Welch over the note, an autocorrelation at its
+  temporal middle, and `combCheckF0()`; notes that pass get `harmonicProfile`, `fitInharmonicity`
+  and the fundamental's T20; the `NOTE_MAX_HEAVY` (12) longest also get `partialDecays`
+  (8 Goertzel tracks), `twoStageDecay` and the attack-transient centroids. `m.notes` carries one
+  record per note; `m.f0/f0Conf/richness/evenOdd` keep their old keys but are now the longest
+  passing note and **medians** over passing notes. The loop yields (`setTimeout 0`) after each
+  heavy note so the progress bar moves. A snapshot's stored metrics are reused as before; an old
+  snapshot has no `m.notes`, and every new row prints "analysed before this row existed".
+- **Matched material.** `openStringNotes(m)` picks, per string of the *current* tuning, the
+  longest comb-checked note within ±50 ¢ — at render time, because tuning is intent and may
+  change after analysis. Instrument rows read those when ≥ `TONE_MIN_STRINGS` (2) are found and
+  every pitched note otherwise; the row's sub-label says which.
+- **One record per row.** `toneRecords()` builds `{group,key,a,b,aText,bText,band,verdict,blocked}`
+  for every row of `toneRowDefs()`; the renderer, both exports and `proseCandidates()` read that,
+  so the panel, the CSV and At a glance cannot disagree. Verdict kinds: `diff`, `same`, `blocked`
+  (a comparability check names the row), `types` (solid vs hollow), `repeat` (repeatability mode
+  shows the spread), `noband`.
+- **Bands.** `toneBandFor(key)` returns the user's measured band from `state.toneBands` or the
+  provisional `TONE_BANDS_DEFAULT` entry (block 0, THEORY §7.4 provenance in its comment).
+  `oct` bands compare log₂ ratios, `abs` bands compare differences. Attack colour is already in
+  octaves, so its band is `abs`. `bandVerdict()` returns null for a log band with a non-positive
+  value — `slotInharmonicity` floors B at 1e-6 for that reason, and the renderer treats a null as
+  "these two values cannot be compared" rather than crashing (found in real Chrome: one SG string
+  fitted B = 0 exactly).
+- **Instrument type** is per slot (`state.slotTypes`, `slotType(i)`, `setSlotType`), a `<select
+  class="slottype">` in the card's `.fileacts`, dispatched by a `change` listener on the card.
+  Rows carry `type:"solid"|"hollow"`; a slot of the other type prints a pointer to the sibling
+  row, and a cross-type pair gets `verdict.kind==="types"`.
+- **Dead spots.** `deadSpots()` judges a note only against notes within `DEAD_SPOT_NEAR_ST` (6)
+  semitones, needing `DEAD_SPOT_MIN_NEAR` (3) of them, and needs `DEAD_SPOT_MIN_NOTES` (6) before
+  a median exists. The first version used the take's global median and flagged the plain G on all
+  three audit guitars — the string, not the neck.
+- **Attack colour** at 48 kHz: 10 ms is 480 samples, under a 512-pt Welch, so the transient
+  window uses 256/128. First real-Chrome render showed the row blank for that reason.
+- **Exports** are schema `tone-2`: additive columns/fields only, the first three CSV columns and
+  the JSON `rows` array unchanged.
+- **Gate.** No suite depends on the panel's DOM; `tests/dsp.test.js` carries the block-0 math
+  (comb check on a synthetic comb picked a twelfth low, B recovered from a 5 ¢-off start, two
+  exponentials vs one, T20 = 2.303τ per partial, the hump over a slope, dead spots, comparability,
+  band verdicts) and the rewritten Q5 contracts. `tests/audit_tone.js` is a tool, not a step.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

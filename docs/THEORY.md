@@ -371,11 +371,121 @@ Probed on the six open-string plucks with the comb-checked f₀ (`tests/audit_to
 One take per guitar cannot say how much any of these moves between two takes of the *same*
 guitar. That number — the reliability band — is what the repeatability mode exists to measure.
 
-### 7.6 · Derivations for the new descriptors
+### 7.6 · Derivations for the new descriptors (added 2026-09-05, before the UI)
 
-*(to be added with each descriptor before it appears in the UI — inharmonicity, per-partial
-and two-stage decay, pickup RLC resonance, Helmholtz f and Q, dead spots, the comparability
-check and the reliability band)*
+Every row the reworked panel prints traces to one of these. Where a sentence would need a
+fact this section does not state, the UI stops at the measurement.
+
+**7.6.1 · Inharmonicity B.** A real string has bending stiffness as well as tension, so its
+partials are not exact multiples of f₀:
+
+> f_n = n · f₀ · √(1 + B·n²) ,  B = π³·E·d⁴ / (64·T·L²)  (plain cylindrical string)
+
+(Fletcher & Rossing §2.18; E Young's modulus, d diameter, T tension, L speaking length.)
+B rises with the fourth power of diameter and falls with the square of scale length —
+a plain G string is the stiffest plain string on the set, and a 25.5" scale reads lower
+than a 24.75" one on every string, which is what §7.5 measured. A wound string's winding
+adds mass but almost no stiffness, so its B is set by the core, not the outer diameter —
+why wound low strings read *lower* B than the plain G. Typical guitar values 10⁻⁵–10⁻³;
+at B = 1.6×10⁻⁴ the 12th partial sits 600·log₂(1 + 144B) ≈ 20 ¢ sharp of harmonic. Fit:
+(f_n / n)² = f₀²·(1 + B·n²) is linear in n² — intercept f₀², slope f₀²·B — so f₀ is fitted
+free and never assumed from the autocorrelation. Teeth are accepted one at a time inside
+±1.2 % of the running prediction (interior peak, ≥ 8 dB above the floor that follows);
+the residual in cents is reported with the value. B is a property of the string set and
+the scale, i.e. of the guitar as strung — it also states the string's state (a dead,
+corroded string reads higher).
+
+**7.6.2 · Per-partial decay.** Each partial loses energy at its own rate — to the air
+(viscous, ∝ f^½), inside the string (internal friction, rising with f) and through the
+bridge into the body (whatever the body accepts at that frequency) — so a note's timbre
+*changes* as it rings: A_n(t) = a_n·e^(−t/τ_n). In dB that is a straight line of slope
+−8.686/τ_n dB/s, and the time to shed 20 dB is T20_n = 2.303·τ_n. Which partials die first
+is set by the body's admittance at those frequencies, which is the guitar. Measured by a
+Goertzel filter at f_n (7.6.1) per 4096-pt Hann frame, hop 512, regression from the
+post-onset peak until −25 dB or the next onset; accepted with ≥ 6 frames, ≥ 6 dB of observed
+decay and a slope steeper than −1 dB/s. The panel's *Overtone sustain* is the geometric mean
+of T20₃…₈ on the matched open strings; the popover prints every partial.
+
+**7.6.3 · Two-stage decay (bloom).** A string vibrates in two polarizations. Motion
+perpendicular to the top drives the bridge strongly and loses energy fast; motion parallel
+to it couples weakly and rings on. The sum
+
+> A(t) = a₁·e^(−t/τ₁) + a₂·e^(−t/τ₂) ,  τ₁ < τ₂
+
+has two asymptotic slopes in dB and a knee near t_k = ln(a₁/a₂)·τ₁τ₂/(τ₂ − τ₁), where the
+terms are equal (Weinreich 1977, *Coupled piano strings*, for the mechanism; Woodhouse 2004
+for the guitar). Players hear the slow tail as *bloom* or natural compression. Measured as
+a piecewise-linear regression of the broadband RMS envelope in dB (10 ms frames, from the
+onset peak to −30 dB) with one breakpoint chosen to minimise the residual; reported are the
+early slope, the late slope, the knee and the fraction of the single-line residual the knee
+removes. Accepted as two-stage only when that fraction is ≥ 0.40 and the early slope is at
+least 1.5× the late; otherwise the row says *one slope fits*.
+
+**7.6.4 · Pickup resonance.** A magnetic pickup is a coil: inductance L (single coils
+≈ 2–3 H, humbuckers ≈ 4–8 H) in series with its DC resistance, loaded by the cable
+capacitance (≈ 100 pF per metre), its own winding capacitance (≈ 100 pF) and the pots. That
+is an RLC low-pass with a resonant peak at
+
+> f_r = 1 / (2π·√(L·C))
+
+— L = 8 H, C = 600 pF gives 2.3 kHz; L = 2.5 H, C = 500 pF gives 4.5 kHz. The height and
+width of the peak (Q) are set by the load: a 250 kΩ pot damps more than a 500 kΩ one, a
+longer cable lowers f_r, and a volume pot below maximum lowers both f_r and Q. It is the
+dominant spectral shaper of a solidbody and it characterises the rig (cable, pots) as much
+as the guitar — the UI says so. Estimated from the LTAS as the hump over the local trend:
+1/3-octave-smoothed curve sampled 800 Hz–8 kHz, an OLS line in log-f fitted inside that
+window, the maximum of the residual, and Q = f / (−3 dB width of the residual). The residual
+is still shaped by the material, so the number is comparable only on matched material.
+
+**7.6.5 · Pickup-position comb.** From §7.2: a pickup at fraction q of the string senses
+partial n weighted |sin(nπq)| and is blind where n·q is an integer. Given the scale length
+and the pickup's distance from the bridge (both user-supplied), the first nulls are at
+n = 1/q, 2/q, … for each string's f₀. Reported as predicted null frequencies, not measured.
+
+**7.6.6 · Body-air (Helmholtz) resonance and top mode.** f = (c/2π)·√(A/(V·L′)) — the
+soundhole area A, body volume V and the effective neck length L′ of the air plug; on
+steel-strings 90–120 Hz, pulled down by the flexible top. The first top-plate mode follows
+at 140–260 Hz. Q = f / (−3 dB bandwidth) of the peak. A tap on the bridge excites both with
+no string pitch in the way, so the tap test is preferred: an onset that fails the comb check
+and decays within 0.35 s, its 0.25 s spectrum searched 70–130 Hz for the air peak. The LTAS
+peak is the fallback and is labelled as such. **Measured only on hollow/acoustic slots**: on
+a solidbody the same window holds the riff's notes (§7.4 — the Les Paul's "air resonance"
+was A♭2).
+
+**7.6.7 · Dead spots.** The neck and body of a solidbody have bending modes (the first near
+60–120 Hz, higher ones at a few hundred Hz — Fleischer & Zwicker 1998, *Mechanical
+vibrations of electric guitars*, Acustica 84). The string's end is not a rigid support:
+where the neck's admittance is high at a played note's frequency, the string drives the neck
+and its energy leaves fast — that note, on that string, dies early. Non-uniform sustain
+across the neck is therefore the solidbody's structural signature. Measured as the T20 of
+the fundamental (7.6.2) for every pitched note of the take; a note under one third of the
+median of the notes within an octave of it (at least three) is flagged — a low string's
+fundamental outlasts a plain G's for reasons that are the string, not the neck, so a note
+is only judged against its neighbours (provisional threshold). A flag is a candidate — play
+it again.
+
+**7.6.8 · Attack-transient spectrum.** The spectral centroid (§7.4) of the first 10 ms after
+an onset (512-pt Welch) against the centroid 300–500 ms later, as a ratio in octaves. On
+the audit takes it varied as much between strings of one guitar as between guitars on one
+string (§7.5), so it is filed under voicing/technique: it is the pick meeting the string.
+
+**7.6.9 · Between-note residual.** For every gap of ≥ 0.3 s between onsets, the minimum
+short-term RMS in the gap minus the peak RMS of the note before it, in dB; the median over
+gaps. On a direct take this is the string's own ring plus the noise floor; with a
+microphone it rises with room and distance. THEORY does not give a distance from it, so it
+is named as what it is.
+
+**7.6.10 · Comparability and the reliability band.** Two takes are compared row by row only
+when the things level-matching does not fix are close: register (median pitched f₀ within
+5 semitones), onset density and count (ratio ≤ 1.5), noise floor (within 10 dB), duration
+(ratio ≤ 2), level (|offset| ≤ 12 dB even with level-match on). A failed check greys the rows
+it affects and says why. A row's **band** is how far its number is expected to move between
+two takes of the same guitar; |Δ| inside the band prints *not distinguishable*, never a
+delta. Bands come from the repeatability mode (two takes of one guitar → |A − B| stored per
+row); until measured, provisional bands from §7.4 apply and are labelled so: centroid
+±0.55 oct, B ±20 %, pickup f ±10 %, even/odd ±4 dB, richness ±4 dB, band shares ±5 pts,
+attack ±1 oct, attack colour ±0.5 oct (already a log quantity, so an absolute band),
+band decays ±0.3 oct, overtone sustain ±0.3 oct, neck sustain ±0.3 oct, dynamic range ±5 dB.
 
 ---
 
