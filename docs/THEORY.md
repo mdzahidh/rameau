@@ -487,15 +487,65 @@ row); until measured, provisional bands from §7.4 apply and are labelled so: ce
 attack ±1 oct, attack colour ±0.5 oct (already a log quantity, so an absolute band),
 band decays ±0.3 oct, overtone sustain ±0.3 oct, neck sustain ±0.3 oct, dynamic range ±5 dB.
 
-### 7.7 · Evidence requirements (placeholder, added 2026-09-05 — E1.1 fills it)
+### 7.7 · Evidence requirements (added 2026-09-05, E1.1 — measured before frozen)
 
-Per tone-panel row: the evidence a take must supply before the row renders as *measured*
-(state 2), what thinner evidence renders as *partial* (state 3), and below what the row
-collapses (state 4). The starting values are in SPEC.md (2026-09-05, E phase, "Row
-disposition"); the final table is written here **only after** each threshold has been run
-against the three audit takes and the demo pair, with the note counts each take actually
-supplied and the reason for any adjustment — the same discipline as the reliability bands
-in §7.6.10. Until then this section states no numbers.
+Per tone-panel row: what a take must supply before the row renders as **measured** (state 2),
+the floor under which it is **not measurable** (state 4), and — between the two — **partial**
+(state 3). The starting values came from the user's brief (SPEC.md 2026-09-05, E phase); each
+was run against the three audit takes (§7.1) and the synthetic demo pair through the shipped
+per-note pass (`computeTimeMetrics`, scratch driver over block 0 + block 4) before it was
+written into `TONE_EVIDENCE` in block 0. Counts are what each take actually supplied.
+
+**What the takes supply** (E♭ standard for the audit takes, E standard for the demo):
+
+| Take | comb-checked notes / span | SNR | open strings | open E · A best partial count | notes ringing ≥ 1.5 s with partial decays | two-stage fits | fundamental decays (T20) | attack spectra |
+|---|---|---|---|---|---|---|---|---|
+| Les Paul | 12 / 24.0 st | 38 dB | 6 of 6 | 14 · 14 | 6 | 3 | 4 | 9 |
+| SG | 11 / 26.4 st | 39 dB | 6 of 6 | 14 · 14 | 6 | 3 | 6 | 10 |
+| Majesty | 14 / 23.9 st | 44 dB | 6 of 6 | 14 · 14 | 6 | 4 | 5 | 7 |
+| demo-bright | 6 / 24.0 st | 34 dB | 6 of 6 | 14 · 14 | 1 (6 with partials) | 6 | 1 | 5 |
+| demo-warm | 6 / 24.0 st | 68 dB | 6 of 6 | 14 · 14 | 1 (6 with partials) | 3 | 3 | 5 |
+
+Only onsets followed by ≥ 0.45 s become notes at all (`NOTE_MIN_GAP`), so a riff with 85
+onsets yields 17 candidates; and only the `NOTE_MAX_HEAVY` = 12 longest get the partial,
+two-stage and attack fits. Both caps bound what any take can supply and are the reason for
+two of the adjustments below.
+
+**The manifests** (`TONE_EVIDENCE`; *need* = state 2, *min* = state 3 floor):
+
+| Row | need | min | Provenance / adjustment |
+|---|---|---|---|
+| Pickup voice | ≥ 10 comb-checked notes, span ≥ 12 st, SNR ≥ 35 dB | 4 notes, 5 st, 25 dB | **Adjusted from 20 notes / 40 dB.** The audit takes supply 11–14 notes at 38–44 dB and are the material on which the two guitars sharing pickups landed within 9 % at the same Q (§7.5) — the starting values would have called all three *partial* while the measurement demonstrably worked on them. The threshold sits just under the weakest take that did. Demo pair: 6 notes → partial. |
+| Body voice | a tap (§7.6.6) | an LTAS peak 70–130 Hz | As briefed: tap → measured; LTAS peak → partial. Hidden for solidbody slots. No audit take has a tap. |
+| String stiffness | open E **and** open A, each with ≥ 12 accepted partials | each ≥ 6 | As briefed. All five takes reach it (14 partials on both). |
+| Overtone ring | ≥ 6 notes ringing ≥ 1.5 s with partial decays | ≥ 2 notes with partial decays (any length) | As briefed; the six open-string plucks are exactly the six. The demo's 0.5 s notes carry partial fits but only one rings 1.5 s → partial, which is right. |
+| Bloom | ≥ 4 two-stage fits | ≥ 1 | **Adjusted from 10.** `NOTE_MAX_HEAVY` = 12 caps the candidates and the audit takes accepted 3–4 of them (§7.5: the fit's gain over one line ranges 0.07–0.87), so 10 is unreachable on any riff; 4 is what the Majesty supplied and the point where a median is more than one outlier plus one. LP/SG → partial. |
+| Sustain across the neck | ≥ 18 notes with a fundamental T20, span ≥ 12 st | ≥ 6 (a median exists, `DEAD_SPOT_MIN_NOTES`) | **"Over ≥ 4 strings" cannot be verified from audio** — string identity is not in the pitch. The span is what the dead-spot judgement needs (neighbours within 6 st); the guided neck walk (E3) is what guarantees the strings, recorded in `protocol.stepsDone`. Audit takes: 4–6 decays → partial or collapsed, which is correct: a riff is not a neck walk. |
+| Fundamental decay | ≥ 6 notes with a T20 (matched by pitch across the two takes when both are loaded) | ≥ 2 | As briefed. SG 6 → measured; LP 4, Majesty 5 → partial. |
+| Brightness | ≥ 6 comb-checked notes | ≥ 1 | As briefed. **Not** recomputed inside note bodies — see below. |
+| Even/odd, Harmonic richness | ≥ 6 comb-checked notes | ≥ 2 | As briefed. |
+| Attack colour | ≥ 6 attack spectra | ≥ 2 | As briefed; the count is of notes with an attack spectrum (heavy notes only). Demo 5 → partial. |
+| Take rows (Pitch check, Level and floor, Between notes, Material, Dynamic range) | — | — | Facts about the take; measured whenever present. |
+
+**Brightness inside note bodies — measured and rejected.** The brief proposed computing the
+centroid inside comb-checked note bodies above the floor, expecting the floor sensitivity to
+drop. It rises. With a −60 dBFS floor added to each take at −12 dB (the §7.4 manipulation):
+
+| Take | whole-take centroid / tilt shift | note-body median (full body) | note-body median (cut at floor + 20 dB) |
+|---|---|---|---|
+| Les Paul | +0.026 oct / +1.6 dB/oct | +0.033 oct / +4.3 dB/oct | +0.033 / +3.9 |
+| SG | +0.039 / +1.3 | **+0.303 / +4.0** | +0.234 / +3.7 |
+| Majesty | +0.004 / +0.7 | +0.008 / +4.0 | +0.008 / +3.8 |
+
+A single note's Welch has a short segment and a decaying tail that sits closer to the floor
+than the take's loud passages, so the floor weighs more, not less. The whole-take centroid
+stays, `computeTimeMetrics` is unchanged, and the "not comparable · noise floor" flag on the
+Brightness row stays with it.
+
+**Not from audio at all:** the provisional band (§7.6.10) no longer decides a verdict. In a
+one-take-each comparison it decides only whether the gap between two measured values is
+thinner than the audit's own spread — *partial* — or not; a verdict exists only from a band
+measured on the user's own takes.
 
 ---
 
