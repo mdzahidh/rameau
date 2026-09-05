@@ -235,6 +235,148 @@ with a lower harmonic's, the three lowest all sit between frets, and the pitch i
 
 Fret spacing itself is the geometric series L·2^(−n/12) — the physical picture of "every semitone = same *ratio*, not same distance," which is also why capos and Eb tuning change nothing about any of the above: harmony is ratios, and ratios ride along.
 
+## 7 · Timbre descriptors: what moves them (audit, added 2026-09-05)
+
+The Tone character panel (M1.5) reports ten descriptors as if each were a property of the
+guitar. This section records what an audit of the shipped math on real takes found: for
+each descriptor, how much of its variation comes from the instrument versus from the player,
+the pick, the room and what was played. Method and numbers first; the physics of the
+confounders (§7.2–7.4) is the ground truth for the panel's regrouping.
+
+### 7.1 · Method
+
+Material: three takes of the same riff on three guitars (`samples/Les_Paul.wav`,
+`samples/SG.wav`, `samples/Majesty.wav`, 43–59 s, E♭ standard), each ending with the six
+open strings plucked one at a time (E♭2 A♭2 D♭3 G♭3 B♭3 E♭4). The Les Paul and the SG carry
+the same pickups and the same strings at the same 24.75" scale; the Majesty is a 25.5" guitar
+with different pickups and strings. Every number below comes from the app's own block-0
+functions run under node (`tests/audit_tone.js`, sections A–H). Five manipulations:
+
+1. **Between-guitar spread** — SD of each descriptor across the three full takes (same riff).
+2. **Within-guitar spread** — SD across the four quarters of one take (same guitar, different
+   material), pooled over the three guitars. A descriptor whose within-guitar spread exceeds
+   its between-guitar spread is measuring the phrase, not the guitar.
+3. **Level** — the take at −12 dB, and at −12 dB with white noise added at −60 dBFS.
+4. **Transposition** — the take resampled +7 and −5 semitones (pitch and tempo move together;
+   the register test is what matters here).
+5. **Pluck and pickup position** — an ideal-string model (§7.2) with the same partial decays,
+   plucked at L/12.5 … L/2, and sensed at L/14 (bridge), L/7 and L/4 (neck).
+
+### 7.2 · The plucked string: where the pick and the pickup sit
+
+An ideal string of length L plucked at a fraction *p* of its length has partial amplitudes
+
+> a_n ∝ sin(nπp) / n²
+
+(Fletcher & Rossing, *The Physics of Musical Instruments*, §2.8; the displacement is a
+triangle with its corner at *p*, and this is that triangle's Fourier series). Two consequences:
+
+- **Nulls.** Partial *n* vanishes whenever *np* is an integer: plucking at L/2 kills every even
+  partial, at L/3 every multiple of 3, and so on. The even/odd balance of a note is therefore
+  set by **where the pick lands**, before the guitar has a say.
+- **Pickup comb.** A magnetic pickup at fraction *q* from the bridge senses each partial
+  weighted by |sin(nπq)|: it is blind to partial *n* when *nq* is an integer. A bridge pickup
+  at L/14 first nulls partial 14; a neck pickup at L/4 nulls partials 4, 8, 12 … — most of
+  the bridge-versus-neck difference is this comb, not "tone".
+
+Measured on the model (same "guitar", same phrase, only *p* or *q* moved):
+
+| Moved | Centroid | Richness | Even/odd |
+|---|---|---|---|
+| pluck L/12.5 → L/2 | 252 → 195 Hz (0.37 oct) | −9.4 → −24.9 dB | +5.5 → −90 dB (null) |
+| pluck at L/3 | — | — | **+21.2 dB** (partials 3, 6, 9 nulled) |
+| pickup L/14 → L/4 | 334 → 242 Hz (0.46 oct) | −3.8 → −8.1 dB | +4.0 → +9.8 dB |
+
+For scale: the three real guitars, same riff, differ in centroid by 0.33 oct (SD). The pick
+alone moves it further than that.
+
+### 7.3 · A sub-harmonic is not a fundamental
+
+The shipped f₀ estimate is a normalized autocorrelation (lag 60–1200 Hz) with a guard that
+prefers the smallest lag within 90 % of the best. On the Majesty's longest note (E♭4, 11.7 s)
+it returned **103.4 Hz at confidence 0.84** and the harmonic profile then read
+
+```
+h:   1     2      3      4      5      6      7     8      9     10
+dB:  0  −15.6  +15.1  −12.5  −27.9  +20.4  −3.4  −35.6  +22.0  −43.5
+```
+
+— every third "harmonic" strong, the rest 15–40 dB down. That is a comb at **3 × 103.4 =
+310 Hz (E♭4)** read through a period three times too long (the autocorrelation locked on the
+common period of the note and its ringing lower fifth). Reported as "odd-leaning −2.3 dB" it
+is nonsense: the note's own fundamental was being counted as an odd harmonic. Across all
+pitched notes in the three takes the same test moved the pitch on 17 % (LP), 9 % (SG) and
+57 % (Majesty) of notes, always upward, by ×2 or ×3. A confidence number from the
+autocorrelation cannot catch this — the correlation at the sub-period is *genuinely* high.
+The check that does catch it is the comb itself: at the true f₀, teeth 1…6 are all present
+(each ≥ 10 dB above the floor between it and the next); at f₀/3, two of every three are
+missing. The rule the panel will use: *try ×1, ×2, ×3; keep the lowest hypothesis whose first
+six teeth are present; never go below the autocorrelation's own pick (its errors are
+sub-harmonic); if none passes, print no harmonic-indexed number and say why.*
+
+### 7.4 · Confounder table
+
+Spread is one SD; "oct" is log₂ units. *Level*: pure gain leaves every descriptor unchanged
+(all are ratios); the noise-floor row shows what a −60 dBFS floor does at −12 dB. *Register*:
+the +7 st resampling. *Between/within*: three guitars same riff ÷ four quarters of one take.
+Verdict codes: **I** instrument (invariant to level, reasonably invariant to technique),
+**V** voicing/technique (real, but the player, the pick, or the material), **T** take/recording.
+
+| Descriptor | Between / within | Pluck position | Pickup position | Register (+7 st) | Noise floor −60 dBFS | Other | Verdict |
+|---|---|---|---|---|---|---|---|
+| Brightness (centroid) | 0.33 / 0.55 oct = **0.6** | 0.37 oct | 0.46 oct | tracks pitch 1:1 (423 → 634 Hz) | +0.05 oct | r = 0.80 with tilt (n = 15) | **V** — content + pick + pickup; instrument-level counterpart is the pickup resonance (§7.5) |
+| Warmth (200–500 Hz share) | 5.6 / 17.6 pts = **0.3** | ~3 pts | ~3 pts | ±2 pts here; band fixed while notes move | none | identical to the Band Energy row | **V** — content-dependent, fixed band |
+| Fullness (60–200 Hz share) | 9.0 / 9.8 pts = **0.9** | 10 pts | 14 pts | 25.7 → 4.5 % | none | | **V** — content-dependent, fixed band |
+| Spectral tilt | 0.74 / 2.30 dB/oct = **0.3** | 1.2 dB/oct | 1.6 dB/oct | −10.1 → −7.5 | **+2.0 dB/oct** | r = 0.80 with centroid | **V**, folded under Brightness — one fact, not two |
+| Harmonic richness | 10 / 5.2 dB = 1.9 (but see →) | **15 dB** | 4 dB | ±1 dB | blanks (f₀ lost) | single-note statistic: same LP file cut at 30 s reads 12.9 dB, whole file 5.0 dB | **V** — pluck position, and which note happened to be longest |
+| Even/odd balance | 2.4 / 1.6 dB = 1.5 (but see →) | **+5 → +21 → −90 dB** | +4 → +10 dB | ±1 dB | blanks | inverts under a sub-harmonic f₀ (§7.3) | **V** — pluck position; needs the comb-checked f₀ |
+| Attack (10→90 % rise) | 0.11 / 2.1 oct = **0.05** | model: 3–5 ms | — | 26 → 18 ms | +4 ms | quarter with 3 onsets reads 1 ms | **V** — the pick and the hand |
+| Tightness (60–200 Hz T20) | 0.26 / 0.31 oct = 0.85 | — | — | 1350 → 754 ms | +160 ms | band fixed while notes move; median over onsets | **V** — phrase median; per-string decay replaces it (§7.6) |
+| Sustain (200–1200 Hz T20) | 0.36 / 0.32 oct = 1.1 | — | — | 1524 → 1193 ms | none | same | **V** — same; per-string decay replaces it |
+| Dynamic range (P95−P10) | 0.93 / 7.3 dB = **0.13** | — | — | none | **−4.7 dB** | | **V** — performance; and a take-quality flag |
+| f₀ confidence, onsets, noise floor, SNR, clipping | — | — | — | — | — | already computed, never shown together | **T** — make quality visible |
+
+Reading the table: **no shipped descriptor passes the instrument test.** Richness and even/odd
+have a between/within ratio above 1 only because one guitar's value was a sub-harmonic error
+(§7.3) and because each is a single-note statistic — the same Les Paul file reads 5.0 dB or
+12.9 dB depending on where it is cut. Everything else moves more with the phrase than with
+the guitar.
+
+### 7.5 · What did separate the three guitars (feasibility, same takes)
+
+Probed on the six open-string plucks with the comb-checked f₀ (`tests/audit_tone.js` §I–J):
+
+- **Inharmonicity B** (f_n = n·f₀·√(1 + B·n²), fitted with f₀ free over 12–14 partials,
+  residual 0.2–2.6 ¢): per string, ×10⁻⁴ —
+  E♭2 1.96 / 1.87 / 1.66 · A♭2 0.89 / 1.06 / 0.70 · D♭3 0.92 / — / 0.61 · G♭3 1.77 / 1.59 / 1.39 ·
+  B♭3 0.53 / 0.78 / 0.48 · E♭4 0.28 / 0.41 / 0.19 (LP / SG / Majesty). The two guitars with
+  the same strings and scale agree within ~15 % on every string; the longer-scale guitar
+  reads lower on every string, as B ∝ 1/L² predicts. The plain G is the stiffest plain string
+  — the well-known reason it is the hardest to intonate.
+- **Per-partial decay** (T20 of partials 1–8 tracked by Goertzel, 4096/512): e.g. G♭3 —
+  LP 2.9 / 5.4 / 5.5 / 4.6 / 3.4 / 2.5 / 2.2 / 2.3 s, SG 2.0 / 3.6 / 4.2 / 3.5 / 2.3 / 1.3 /
+  1.0 / 0.8 s, Majesty 4.9 / 3.2 / 6.1 / 3.7 / 2.6 / 2.7 / 1.7 / 1.9 s. Which partials die first
+  differs by guitar on the same note.
+- **Pickup resonance** (LTAS hump over the local 800 Hz–8 kHz trend): LP 3.02 kHz, +4.8 dB,
+  Q ≈ 2.2; SG 2.77 kHz, +6.8 dB, Q ≈ 2.0; Majesty 2.08 kHz, +6.7 dB, Q ≈ 3.9. The two guitars
+  sharing pickups land within 9 % of each other at the same Q; the third is a different pickup.
+- **Two-stage decay** (piecewise-linear dB fit with a knee): present on most notes, but the
+  knee time varies 0.1–3.2 s across notes of one guitar and the fit's gain over one line
+  ranges 0.07–0.87 — it needs a fit-quality gate and the repeatability mode before it can
+  carry a verdict.
+- **Attack-transient spectrum** (centroid of the first 10 ms vs 300–500 ms later): varies as
+  much between strings of one guitar (LP 259–454 Hz) as between guitars on one string
+  (G♭3: 259 / 182 / 433 Hz). On this evidence it is a pick descriptor, not a guitar one.
+
+One take per guitar cannot say how much any of these moves between two takes of the *same*
+guitar. That number — the reliability band — is what the repeatability mode exists to measure.
+
+### 7.6 · Derivations for the new descriptors
+
+*(to be added with each descriptor before it appears in the UI — inharmonicity, per-partial
+and two-stage decay, pickup RLC resonance, Helmholtz f and Q, dead spots, the comparability
+check and the reliability band)*
+
 ---
 
 ## Appendix A · Rameau, the physicist of harmony (added 2026-08-22)
