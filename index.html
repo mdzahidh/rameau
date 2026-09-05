@@ -5408,7 +5408,7 @@ async function finishSlotFromBuffer(i,audioBuf,meta,seq){
     info:{ container:meta.container,
            sampleRate:meta.sampleRate!=null?meta.sampleRate:audioBuf.sampleRate,
            channels:meta.channels!=null?meta.channels:audioBuf.numberOfChannels,
-           bitDepth:meta.bitDepth },
+           bitDepth:meta.bitDepth, processing:meta.processing||null },
     duration:audioBuf.duration, samples:null, audioBuf,
     channelMode:meta.channelMode||"mid", metrics:{}
   };
@@ -7716,6 +7716,8 @@ function renderCard(i){
     parts.push(s.duration>=10?Math.round(s.duration)+" s":s.duration.toFixed(1)+" s");
   const chips=[];
   if(s.kind==="demo") chips.push('<span class="chip"><span class="k">synthetic</span>Karplus–Strong demo</span>');
+  if(info.processing&&(info.processing.ec||info.processing.ns||info.processing.agc))
+    chips.push('<span class="chip warn">browser processing was on — '+[info.processing.ec&&"echo cancellation",info.processing.ns&&"noise suppression",info.processing.agc&&"auto gain"].filter(Boolean).join(", ")+' — treat this take\'s spectrum with care</span>');
   if(s.kind==="snapshot") chips.push('<span class="chip"><span class="k">snapshot</span>stored curve — audio not included</span>');
   if(m.noiseFloor!=null&&isFinite(m.noiseFloor))
     chips.push('<span class="chip"><span class="k">'+termHtml("noise-floor","floor")+'</span>'+m.noiseFloor.toFixed(0)+' dB</span>');
@@ -7815,8 +7817,13 @@ async function recOpen(deviceId){
 function recTrackInfo(stream){
   const t=stream.getAudioTracks()[0]||null;
   const set=(t&&t.getSettings)?(t.getSettings()||{}):{};
+  // What landed, not what was asked: the three processors are requested off, and a
+  // browser may ignore an unsupported constraint in silence. Recorded on the take so a
+  // bandlimited or pumping capture can be told apart from a bandlimited source.
+  const proc={ec:set.echoCancellation===true, ns:set.noiseSuppression===true, agc:set.autoGainControl===true,
+              known:("echoCancellation" in set)||("noiseSuppression" in set)||("autoGainControl" in set)};
   return {track:t, rate:(set.sampleRate>0?set.sampleRate:0),
-          claimed:Math.max(set.channelCount|0,1)};
+          claimed:Math.max(set.channelCount|0,1), proc:proc};
 }
 function recCtxFor(rate){
   const AC=recAC();
@@ -8145,7 +8152,7 @@ async function _startCapture(i,deviceId,sel,prev){
   const cap={ i:i, prev:prev, sel:use, nch:nch, keep:(use>0?1:(nch<=2?nch:1)),
               stream:stream, ctx:ctx, src:src, sp:sp, sink:sink,
               chunks:[], total:0, t0:Date.now(), timer:null, stopping:false, heard:false,
-              mPk:0, mSq:0, mN:0, pkHold:-100, pkHoldT:0 };
+              mPk:0, mSq:0, mN:0, pkHold:-100, pkHoldT:0, proc:inf.proc };
   // Reduce online, so a long take stays bounded: 10 ch x 48 kHz x 4 B is 1.9 MB/s.
   // With <=2 channels and no channel picked we keep both, so the Mid/L/R segment
   // behaves exactly as it does for a dropped stereo file.
@@ -8226,9 +8233,9 @@ function stopCapture(save){
       : "Nothing was captured — the input stayed silent.",true);
     return;
   }
-  landRecording(i,buf);
+  landRecording(i,buf,cap.proc);
 }
-async function landRecording(i,buf){
+async function landRecording(i,buf,proc){
   const seq=++loadSeq[i];
   const name=recTakeName();
   if(!(buf.sampleRate>=8000&&buf.sampleRate<=384000)){
@@ -8242,7 +8249,7 @@ async function landRecording(i,buf){
   try{
     await finishSlotFromBuffer(i,buf,{ name:name, kind:"recording", container:"Live input",
       sampleRate:buf.sampleRate, channels:buf.numberOfChannels,
-      bitDepth:"32-bit float", channelMode:"mid" },seq);
+      bitDepth:"32-bit float", channelMode:"mid", processing:proc||null },seq);
   }catch(err){
     if(seq!==loadSeq[i]) return;
     slotLoadError(i,name,err,"The take could not be measured.","Try recording again.");
@@ -10465,6 +10472,18 @@ function boot(){
   requestDraw();
   const dm=location.search.match(/[?&]demo(?:=(a|b))?(?:&|$)/i);
   if(dm) loadDemo(dm[1]&&dm[1].toLowerCase());
+  // ?load=<path>[,<path>] — a gate hook, live only with ?debug: fetches one or two audio
+  // files by a path relative to index.html and lands them through loadFileIntoSlot(), so
+  // a headless run can render the real audit takes. From file:// this needs Chrome's
+  // --allow-file-access-from-files; a fetch that fails lands nothing and says so.
+  const ld=location.search.match(/[?&]load=([^&]+)(?:&|$)/i);
+  if(ld&&/[?&]debug(?:=1)?(?:&|$)/i.test(location.search)){
+    const paths=decodeURIComponent(ld[1]).split(",").slice(0,2);
+    paths.forEach((rel,i)=>{ if(!rel||/^[a-z]+:/i.test(rel)||rel.indexOf("..")>=0) return;
+      fetch(rel).then(r=>{ if(!r.ok) throw new Error(r.status+""); return r.blob(); })
+        .then(b=>loadFileIntoSlot(i,new File([b],rel.split("/").pop(),{type:b.type||"audio/wav"})))
+        .catch(err=>toast("?load: "+rel+" — "+(err&&err.message||"could not be read"),true)); });
+  }
   const al=location.search.match(/[?&]sgalign=(file|onset)(?:&|$)/i);   // test hook
   if(al) setSgAlign(al[1].toLowerCase());
   if(/[?&]guide(?:&|$)/i.test(location.search)) guideModal.classList.add("open");   // test hook
