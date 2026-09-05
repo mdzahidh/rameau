@@ -2577,4 +2577,8 @@ calls, then built.
   the documented EQ red unchanged), Q5's contracts rewritten for the new candidate list, the
   other four suites untouched and green, and the panel rendered in real Chrome with the user's
   Les Paul and SG in both themes. No new suite, no new `verify.sh` step, no new headless launch.
+  The full gate then caught one thing the node suites could not: the taller panel pushed the
+  spectrogram card below `tests/headless.js`'s 4600 px window, so every pixel census of its
+  panes read an empty region (9 red, all "0 px differ"). `TALL` is 6000 now; steps 2–7 green,
+  step 1 the documented pre-existing red.
 

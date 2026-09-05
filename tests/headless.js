@@ -282,7 +282,10 @@ section("?pop=str3 opens one string popover, carrying its ancestry");
 // skips its model and its canvas, so it would report nothing and diff to zero.
 // Tall window because the spectrogram sits well down the page at 1440 wide.
 const SG = "demo&open=all";
-const TALL = "1440,4600";
+// 6000 since the tone-character rework (2026-09-05): its three groups run ~1000 px
+// taller than the ten-row panel, and 4600 left the spectrogram card below the frame —
+// every pixel census of its panes then read an empty region (found by the gate).
+const TALL = "1440,6000";
 
 // Pull one attribute off one element. --dump-dom carries index.html's own source
 // inline, so a bare /data-sgwin="(\d+)"/ over the whole page would happily match
