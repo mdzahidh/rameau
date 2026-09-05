@@ -6956,33 +6956,59 @@ function _fmtBand(b,def){ const v=b.oct!=null?b.oct:b.abs; return b.oct!=null?(v
 function _fmtDelta(d,def){ if(d.log) return "×"+Math.pow(2,Math.abs(d.d)).toFixed(2);
   if(def.term==="warmth"||def.term==="low-end") return (Math.abs(d.d)*100).toFixed(0)+" pts"; if(def.term==="attack-spectrum") return Math.abs(d.d).toFixed(2)+" oct"; return Math.abs(d.d).toFixed(1)+" dB"; }
 // One record per row — the renderer, the exports and the verdict strip all read this,
-// so the panel, the CSV and "At a glance" cannot disagree.
+// so the panel, the CSV and "At a glance" cannot disagree. Since E1 every record carries
+// `evidence` (per slot, from evidenceFor) and a four-valued `state` (toneRowState): 1
+// banded, 2 measured, 3 partial, 4 not measurable. The state is the honesty; a verdict
+// (`diff`/`same`) exists only through the one door below — a band measured on the
+// user's own takes. A provisional band never reaches it.
 function toneRecords(){
   const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&types[0]!==types[1];
   const compat=both?comparability(state.slots[0].metrics||{},state.slots[1].metrics||{}):[];
   const blocked={}; for(const c of compat) if(!c.ok) for(const r of c.rows) (blocked[r]=blocked[r]||[]).push(c.label);
+  const openMidis=tuningMidi(state.tuning,state.customOffset);
+  const evs=[0,1].map(i=>{ const s=state.slots[i]; if(!s||!s.metrics) return null; const o=state.slots[1-i];
+    return toneEvidenceOf(s.metrics, openMidis, state.a4, (o&&o.metrics)?o.metrics:null); });
+  const loadedTypes=[0,1].filter(i=>state.slots[i]).map(i=>types[i]);
   const out=[];
   for(const def of toneRowDefs()){
-    const rec={group:def.g, key:def.term, name:def.name, unit:def.unit, def, a:null, b:null, aText:"", bText:"", reason:["",""], band:null, verdict:null, blocked:blocked[def.term]||null};
+    // A row bound to one kind of guitar is hidden — not a pointer — when no loaded slot is that kind.
+    if(def.type&&!loadedTypes.includes(def.type)) continue;
+    const rec={group:def.g, key:def.term, name:def.name, unit:def.unit, def, a:null, b:null, aText:"", bText:"", detail:["",""],
+               reason:["",""], band:null, verdict:null, blocked:blocked[def.term]||null, evidence:[null,null], state:4, missing:[]};
     for(let i=0;i<2;i++){
       const s=state.slots[i]; if(!s||!s.metrics) continue;
-      if(def.type&&def.type!==types[i]){ rec.reason[i]=def.type==="solid"?"hollow body — see Body voice":"solidbody — see Pickup voice"; continue; }
+      if(def.type&&def.type!==types[i]) continue; // the other kind: this side stays empty
       let v=null; try{ v=def.val(s); }catch(_e){}
-      if(def.text){ rec[i?"bText":"aText"]=v||""; continue; }
-      if(v==null||!isFinite(v)||(def.log&&v<=0)){ rec.reason[i]=(def.reason?def.reason(s):"")||"not measurable on this take"; continue; }
+      if(def.text){ rec[i?"bText":"aText"]=v||""; rec.evidence[i]={state:v?2:4, have:{}, need:{}, missing:v?[]:[{what:"value", reason:"nothing to report"}]}; continue; }
+      const ev=evidenceFor(def.term, evs[i]);
+      if(v==null||!isFinite(v)||(def.log&&v<=0)){
+        rec.reason[i]=(def.reason?def.reason(s):"")||"not measurable on this take";
+        // The manifest may be satisfied and the value still absent (a hump at the window's
+        // edge, a fit that found one slope): that is not measurable, with the reason as the item.
+        rec.evidence[i]={state:4, have:ev.have, need:ev.need, missing:ev.missing.length?ev.missing:[{what:"value", reason:rec.reason[i]}]};
+        continue;
+      }
+      rec.evidence[i]=ev;
       rec[i?"b":"a"]=v; rec[i?"bText":"aText"]=def.fmt(v,s);
+      try{ rec.detail[i]=def.detail?def.detail(v,s):""; }catch(_e){ rec.detail[i]=""; }
     }
     if(!def.text&&!def.noband) rec.band=toneBandFor(def.term);
+    let d=null;
+    if(rec.a!=null&&rec.b!=null) d=rec.band?bandVerdict(rec.a,rec.b,rec.band):(def.log?{d:Math.log2(rec.a/rec.b),log:true}:{d:rec.a-rec.b,log:false});
+    const rs=toneRowState(rec.evidence.map(e=>e?e.state:null), rec.band, d);
+    rec.state=rs.state; rec.missing=rs.missing;
     if(both&&!def.text){
       if(def.type&&typesDiffer) rec.verdict={kind:"types", text:"not compared across instrument types"};
       else if(rec.blocked&&rec.a!=null&&rec.b!=null) rec.verdict={kind:"blocked", text:"not comparable · "+rec.blocked.join(", ")};
-      else if(rec.a!=null&&rec.b!=null){
-        const d=rec.band?bandVerdict(rec.a,rec.b,rec.band):(def.log?{d:Math.log2(rec.a/rec.b),log:true}:{d:rec.a-rec.b,log:false});
-        if(!d||!isFinite(d.d)) rec.verdict={kind:"noband", text:"these two values cannot be compared"};
+      else if(rec.a!=null&&rec.b!=null&&d){
+        if(!isFinite(d.d)) rec.verdict={kind:"noband", text:"these two values cannot be compared"};
         else if(state.toneRepeat) rec.verdict={kind:"repeat", d, text:"spread "+_fmtDelta(d,def)};
-        else if(!rec.band) rec.verdict={kind:"noband", d, text:"no band for this row yet"};
-        else if(!d.distinguishable) rec.verdict={kind:"same", d, text:"not distinguishable"};
-        else rec.verdict={kind:"diff", d, hi:d.d>0?0:1, text:slotLabel(d.d>0?0:1)+" "+(def.more||"higher")+" by "+_fmtDelta(d,def)};
+        else if(rs.verdict&&rec.band&&rec.band.measured){
+          // The only door to a verdict: the band was measured on the user's own takes.
+          if(!d.distinguishable) rec.verdict={kind:"same", d, text:def.plain?"same strings and scale":"not distinguishable"};
+          else rec.verdict={kind:"diff", d, hi:d.d>0?0:1, text:def.plain?"different strings or scale":(slotLabel(d.d>0?0:1)+" "+(def.more||"higher")+" by "+_fmtDelta(d,def))};
+        }
+        // else: no verdict. The dots' state says what the numbers can and cannot claim.
       }
     }
     out.push(rec);

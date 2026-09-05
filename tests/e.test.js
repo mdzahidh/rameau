@@ -108,5 +108,31 @@ section("E1.4 — toneRowState: a verdict only from a measured band");
   ok(D.toneRowState([2, null], prov, null).state === 2 && D.toneRowState([3], null, null).state === 3, "a single take is its own state, no band involved");
 }
 
+section("E1.4 — toneRecords: evidence and state on every record, one door to a verdict");
+{
+  const tr = body("toneRecords");
+  ok(tr.length > 200, "toneRecords found");
+  ok(/evidence:\[null,null\], state:4, missing:\[\]/.test(tr), "every record starts with evidence, a four-valued state and missing");
+  ok(/const rs=toneRowState\(rec\.evidence\.map\(e=>e\?e\.state:null\), rec\.band, d\);/.test(tr) && /rec\.state=rs\.state;/.test(tr),
+    "the row's state comes from block 0's toneRowState, never decided in the renderer");
+  // The door: `kind:"diff"` and `kind:"same"` are assigned only inside the measured guard.
+  const guardAt = tr.indexOf("else if(rs.verdict&&rec.band&&rec.band.measured){");
+  ok(guardAt > 0, "the measured-band guard exists");
+  const guardBody = (() => { let d = 0, k = tr.indexOf("{", guardAt); const st = k; for (; k < tr.length; k++) { if (tr[k] === "{") d++; else if (tr[k] === "}" && --d === 0) { k++; break; } } return tr.slice(st, k); })();
+  const diffs = (tr.match(/kind:"diff"/g) || []).length, sames = (tr.match(/kind:"same"/g) || []).length;
+  ok(diffs === 1 && sames === 1 && /kind:"diff"/.test(guardBody) && /kind:"same"/.test(guardBody),
+    "INVERTED: diff and same are each assigned once, and only inside the measured guard — no verdict from a provisional band");
+  ok(!/provisional/.test(guardBody), "the guard body never mentions a provisional band");
+  ok(/def\.type&&!loadedTypes\.includes\(def\.type\)\) continue;/.test(tr), "a type-bound row is hidden, not a pointer, when no loaded slot is that kind");
+  ok(/def\.plain\?"same strings and scale":"not distinguishable"/.test(tr) && /def\.plain\?"different strings or scale"/.test(tr),
+    "String stiffness gets the two plain words and nothing else");
+  const defs = body("toneRowDefs");
+  for (const k of ["warmth", "low-end", "tightness", '"sustain"', 'term:"attack"']) ok(!defs.includes(k === '"sustain"' ? 'term:"sustain"' : k), "row gone from the panel: " + k.replace(/"/g, ""));
+  ok(/term:"f0-decay"/.test(defs) && /term:"dynamic-range"/.test(defs) && /g:"take", term:"dynamic-range"/.test(defs), "Fundamental decay is a row; Dynamic range is a Take row");
+  ok(/term:"inharmonicity", name:"String stiffness", plain:true/.test(defs) && /val:s=>slotStiffnessEA\(s\.metrics\)/.test(defs), "String stiffness reads open E and A only");
+  const cc = html.slice(html.indexOf("const COMPAT_CHECKS=["), html.indexOf("function comparability("));
+  ok(!/"warmth"|"low-end"|"tightness"|"sustain"|"attack"/.test(cc) && /"f0-decay"/.test(cc), "comparability rows name no dead row and gate Fundamental decay on register");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
