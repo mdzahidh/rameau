@@ -124,7 +124,8 @@ section("E1.4 — toneRecords: evidence and state on every record, one door to a
   ok(diffs === 1 && sames === 1 && /kind:"diff"/.test(guardBody) && /kind:"same"/.test(guardBody),
     "INVERTED: diff and same are each assigned once, and only inside the measured guard — no verdict from a provisional band");
   ok(!/provisional/.test(guardBody), "the guard body never mentions a provisional band");
-  ok(/def\.type&&!loadedTypes\.includes\(def\.type\)\) continue;/.test(tr), "a type-bound row is hidden, not a pointer, when no loaded slot is that kind");
+  // E6.1 (2026-09-05): the type became three-valued and a row lists the types it applies to.
+  ok(/if\(def\.types&&!\[0,1\]\.some\(i=>state\.slots\[i\]&&applies\(def,i\)\)\) continue;/.test(tr), "a type-bound row is hidden, not a pointer, when no loaded slot is a kind it applies to");
   ok(/def\.plain\?"same strings and scale":"not distinguishable"/.test(tr) && /def\.plain\?"different strings or scale"/.test(tr),
     "String stiffness gets the two plain words and nothing else");
   const defs = body("toneRowDefs");
@@ -214,7 +215,7 @@ section("E2.1 — a slot holds takes: one door, one array, no cycle in the seria
   ok(/async function analyzeSlot\(i,slot,seq,append\)/.test(b4) && /if\(append&&state\.slots\[i\]\) attachTake\(i,slot\);/.test(b4), "analyzeSlot has an append path that attaches instead of replacing");
   ok(/if\(!slot\.takes\) _bindTakes\(\[slot\]\);/.test(b4), "…and a re-analysis of the primary keeps its sibling takes");
   ok(/loadFileIntoSlot\(i,audio\[0\],\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take");
-  ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]="solid"; \}/.test(b4), "the name stays on the slot when a take is added, and drops when the slot is replaced");
+  ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]="solid"; state\.slotPaths\[i\]=null; \}/.test(b4), "the name, the type and the path override stay on the slot when a take is added, and drop when the slot is replaced");
   const lr = body("landRecording");
   ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null, protocol:protocol\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
   const rt = body("removeTake");
@@ -321,6 +322,36 @@ section("E4 — the Band Energy fold: one builder, two strips, a step line, the 
   ok(/id="bandsCsvBtn"/.test(html.slice(html.indexOf('id="freqSpec"'), html.indexOf('id="freqDiff"'))), "the Bands CSV/JSON buttons live under the Spectrum exports");
   ok(/PLOT\.mT=laneTwoRows\(\)\?LANE_TWO:LANE_ONE;/.test(body("syncLaneHeight")) && /const LANE_TOP=18, LANE_ROW=30, LANE_ONE=LANE_TOP\+40, LANE_TWO=LANE_TOP\+70;/.test(b3) && /#specCanvas\{ height:474px; \}/.test(html) && /#diffCanvas\{ height:250px; \}/.test(html),
     "the lane is a chip row plus three text lines per region row: 58 px, or 88 for two rows — None keeps 58, and both canvases grew by the chip row so the plot rect did not shrink");
+}
+
+section("E6 — the copy is frozen, the type has three values, the rows and the vocabulary follow it");
+{
+  const crypto = require("crypto");
+  const S = "// ---------- hollow and acoustic copy (E6) ----------", E = "// ---------- end hollow and acoustic copy ----------";
+  const i = html.indexOf(S), j = html.indexOf(E);
+  ok(i > 0 && j > i, "both E6 copy sentinels are present");
+  const block = html.slice(i, j + E.length) + "\n";
+  const sha = crypto.createHash("sha256").update(block).digest("hex");
+  ok(sha === "ef7e6780cbdc34fdba62252fb3ba7bfba8370efd196524d452bed73e19350f6c", "the E6 copy block is byte-identical to the reviewed text", sha.slice(0, 16));
+  const copyText = block.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  ok(!/§|\.md\b|THEORY|ROADMAP/.test(copyText), "…and the prose never cites a document at the user");
+  const b4 = blocks[4], b3 = blocks[3];
+  ok(/const SLOT_TYPES=\["solid","hollow","acoustic"\];/.test(b4) && /function slotType\(i\)\{ return normType\(state\.slotTypes\[i\]\); \}/.test(b4), "the type is three-valued through one normaliser");
+  ok(/state\.slotTypes\[i\]=normType\(st\.slotTypes\[i\]\);/.test(b4) && /state\.slotTypes\[i\]=normType\(f\.instrument\);/.test(b4), "the snapshot reader accepts acoustic on settings.slotTypes and on the file entry");
+  ok(/slotPaths:\(state\.slotPaths\|\|\[null,null\]\)\.slice\(\)/.test(b4) && /if\(Array\.isArray\(st\.slotPaths\)\)/.test(b4), "the path override rides in the snapshot, additively, and is read back");
+  ok(!/state\.slotTypes\[i\]=.*pathFor|slotTypes\[i\]=.*recordingPath/.test(b4), "INVERTED: nothing writes a detected path into the type");
+  ok(/types:\["solid","hollow"\], piezo:true/.test(b4) && /types:\["hollow","acoustic"\]/.test(b4), "Pickup voice belongs to solid + hollow (and an acoustic on a piezo); Body voice to hollow + acoustic");
+  const tr = body("toneRecords");
+  ok(/rec\.evidence\[i\]=\{state:4, have:\{\}, need:\{\}, missing:\[\{what:"type", other:types\[i\]\}\]\};/.test(tr), "a typed row with no meaning on one side of a pair collapses that side with missing {what:'type'}");
+  ok(/ROOM_ROWS\.has\(def\.term\)&&s\.metrics\.room&&s\.metrics\.room\.outlasts/.test(tr) && /const ROOM_ROWS=new Set\(\["overtone-sustain","bloom","f0-decay","neck-sustain"\]\);/.test(b4), "the four decay rows drop to partial when the room outlasts the note, with the room named");
+  ok(/s\.metrics\.path=pathFor\(i\);/.test(tr), "the resolved path rides on the metrics, so comparability and the glossary read one value");
+  ok(/m\.room=roomTail\(shortTermRms\(x,rate\),0\.025,times,m\.noiseFloor\);/.test(b4) && /m\.room\.outlasts=roomOutlastsNote\(m\.room,ref\);/.test(b4) && /if\(!ref\|\|lt>ref\) ref=lt;/.test(b4), "computeTimeMetrics reads the tail once and judges it against the slower of the fundamental's T20 and the late two-stage slope");
+  ok(/const tr=tapResonance\(db,wt\.df\);/.test(b4) && /welch\(tap,rate,TAP_WELCH_N,TAP_WELCH_N>>1,null\)/.test(b4), "the tap branch reads both modes through tapResonance at the block-0 window");
+  ok(/VOCAB_BY_ID\.anatomy\.regions=ac\?ANATOMY_ACOUSTIC:ANATOMY_ELECTRIC;/.test(body("syncVocabTuning")) && /key:"an-ac-air"/.test(b3) && /key:"an-ac-body"/.test(b3) && /key:"an-ac-strings"/.test(b3) && /key:"an-ac-sparkle"/.test(b3), "Anatomy swaps to the acoustic set (air / body / strings / sparkle) when an acoustic is loaded");
+  ok(/\(st\.when==="mic"&&mic\)/.test(body("guidedStepsFor")), "the mic-placement step lights up for a mic take");
+  ok(/"stereo, "\+\(s\.channelMode==="left"\?"left":s\.channelMode==="right"\?"right":"summed"\)/.test(body("renderCard")), "a stereo file says 'stereo, summed' (or which side was picked)");
+  ok(/data-pathsel/.test(body("openTonePop")) && /closest\("\[data-pathsel\]"\)/.test(b4) && /term:"recording-path"/.test(b4), "the Recording path row is a Take row with an override select in its popover");
+  ok(/Different kinds of guitar — /.test(body("renderVerdict")), "At a glance opens a cross-type pair by saying so");
 }
 
 section("E6 — block 0: the tap read, the room in a decay, the recording path");

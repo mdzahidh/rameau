@@ -3617,6 +3617,42 @@ function _bandVals(state, f0, f1){
   });
 }
 
+// ---------- hollow and acoustic copy (E6) ----------
+// Reviewed prose, each sentence traced to docs/THEORY.md §7.6.6 (the tap and the body's two
+// modes), §7.6.11 (the room in a decay) and §7.6.12 (the recording path); the four acoustic
+// anatomy zones name the windows those sections fix. Frozen by SHA-256 in tests/verify.sh and
+// tests/e.test.js — a change here is a red gate, not a judgement call.
+const E6_COPY={
+  room:{ name:"Room tail", hook:"what a microphone adds to a decay",
+    musician:"A microphone hears the room as well as the guitar. After the last note the sound keeps falling for as long as the room rings — and when the room rings longer than the string does, the decay rows are measuring the room.",
+    science:"A room's sound field decays exponentially after the source stops; the time to fall 60 dB is its reverberation time (Sabine: T ≈ 0.161·V/A). What a microphone records is the slower of two decays — the string's and the room's — so a decay can never read faster than the room lets it. Most rooms ring for a fraction of a second and a guitar note for seconds, so the room usually shows up between notes, not in the decays.",
+    measure:"After the last onset, the broadband RMS envelope from 10 dB under its peak down to the noise floor + 6 dB, fitted as one straight line in dB — the tail's T20. Compared with that note's own decay (the slower of its fundamental's T20 and its late two-stage slope, so bloom is never mistaken for a room); a tail more than 1.5× longer is called the room's (provisional), and Overtone ring, Bloom, Fundamental decay and Sustain across the neck read as partial. A DI take has no room, so the test stays silent." },
+  path:{ name:"Recording path", hook:"DI, microphone or piezo — detected, and yours to correct",
+    musician:"How the sound got into the file: a lead from the pickup, a microphone in front of the guitar, or the piezo under an acoustic's saddle. It decides which rows mean what — a mic'd take carries the room, a DI take carries only the string and the pickup.",
+    science:"A room tail exists only through a microphone: a pickup or a piezo hears the string and the top, never the air of the room. Two channels that differ are two microphones or a stereo pair; a DI is one signal even when it is saved twice. Between DI and piezo the audio itself is silent — a piezo's brightness is a tendency, not a test.",
+    measure:"Microphone when the room tail outlasts the last note, or when the two channels differ by more than −20 dB (L − R against the mid); otherwise piezo for a guitar declared acoustic and DI for an electric; unknown before analysis. Printed as detected; the override in this popover is stored with the take and never changes the guitar's type." },
+  tap:{ detail:"Both modes come from one knock: the air mode is the most prominent peak in 70–130 Hz, the first top mode in 140–260 Hz, Q from the −3 dB width of the same smoothed curve. A Q at its ceiling means at least this — the window and the smoothing cannot resolve a narrower peak." },
+  zones:{
+    air:{ label:"AIR RESONANCE", name:"Air resonance", f0:70, f1:130, hook:"Acoustic anatomy: ≈70–130 Hz",
+      musician:"The breath of the box — the note the body hums at when you tap it, and the source of an acoustic's low bloom.",
+      science:"The Helmholtz air mode, f = (c/2π)·√(A ⁄ (V·L′)) — soundhole area, body volume and the air plug's effective length — 90–120 Hz on steel-strings, pulled down by the flexible top.",
+      measure:"Share of energy between 70 and 130 Hz, the window the tap test searches for the air mode. The tap gives the mode itself; this zone is how much of the take lives there." },
+    body:{ label:"TOP & BACK", name:"Top and back", f0:140, f1:260, hook:"Acoustic anatomy: ≈140–260 Hz",
+      musician:"The wood's own voice — where the top plate's first mode sits; part of what makes one flat-top boxy and another open.",
+      science:"The first top-plate mode, 140–260 Hz on steel-strings, just above the air mode; the two together are the body's low resonant signature.",
+      measure:"Share of energy between 140 and 260 Hz, the tap test's second window." },
+    strings:{ label:"STRINGS", name:"Strings", f0:"lowF", f1:"fretTopF", hook:"Acoustic anatomy: the fundamentals (follows the tuning)",
+      musician:"Where the notes themselves are — every open and fretted fundamental of the selected tuning.",
+      science:"From the lowest open string to the highest 24th-fret fundamental; the bounds follow the tuning selector.",
+      measure:"Share of energy between the lowest open-string fundamental and the highest fretted fundamental." },
+    sparkle:{ label:"SPARKLE", name:"Sparkle", f0:5000, f1:20000, hook:"Acoustic anatomy: ≈5–20 kHz",
+      musician:"String zing and air — pick contact, the sheen of new strings, the top's breath above the notes.",
+      science:"Above 5 kHz there are only high harmonics and noise: the pick meeting the string, string squeak, and what the top and the room radiate up there.",
+      measure:"Share of energy between 5 and 20 kHz." },
+  },
+};
+// ---------- end hollow and acoustic copy ----------
+
 const GLOSSARY=[
   // ------------ frequency regions ------------
   { key:"low-end", name:"Low end", cat:"Frequency regions", hook:"60–200 Hz — weight and foundation",
@@ -3740,6 +3776,12 @@ const GLOSSARY=[
     science:"Guitar-cab speakers are typically 20+ dB down before 10 kHz; acoustic guitars keep some genuine string and room noise in this zone.",
     measure:"Annotation only — an instrument fact marked on the frequency axis, not an app metric. The share below is measured live over 10–20 kHz for reference.",
     values(state){ return _bandVals(state, 10000, 20000); } },
+
+  // E6.6: the acoustic anatomy set (copy frozen in E6_COPY above); syncVocabTuning() swaps
+  // it in when a loaded guitar is acoustic.
+  ...["air","body","strings","sparkle"].map(k=>{ const z=E6_COPY.zones[k]; return { key:"an-ac-"+k, name:z.name, cat:"Guitar anatomy", hook:z.hook,
+    musician:z.musician, science:z.science, measure:z.measure,
+    values(state){ const T=typeof VOCAB_TUNING!=="undefined"?VOCAB_TUNING:{lowF:82,fretTopF:1319}; const f=v=>typeof v==="number"?v:T[v]; return _bandVals(state, f(z.f0), f(z.f1)); } }; }),
 
   // ------------ solo EQ words (vocabulary lane — tone-shaping folklore, annotation only) ------------
   { key:"so-rumble", name:"Rumble", cat:"Solo EQ words", hook:"Solo EQ: ≈60–100 Hz",
@@ -3964,6 +4006,12 @@ const GLOSSARY=[
     measure:"RMS in 50 ms frames, 25 ms hop; for every gap of at least 0.3 s, the gap's minimum minus the note's peak in dB; the median over gaps.",
     values(state){ return _vals(state, s=>s.metrics.residual!=null ? Math.abs(s.metrics.residual).toFixed(0)+" dB below the note" : null); } },
 
+  { key:"room-tail", name:E6_COPY.room.name, cat:"Tone descriptors", hook:E6_COPY.room.hook,
+    musician:E6_COPY.room.musician, science:E6_COPY.room.science, measure:E6_COPY.room.measure,
+    values(state){ return _vals(state, s=>{ const r=s.metrics.room; if(!r) return "no tail to read"; return "tail T20 "+r.t20.toFixed(2)+" s"+(r.noteT20?" · note "+r.noteT20.toFixed(2)+" s":"")+(r.outlasts?" · the room's":" · the string's"); }); } },
+  { key:"recording-path", name:E6_COPY.path.name, cat:"Method", hook:E6_COPY.path.hook,
+    musician:E6_COPY.path.musician, science:E6_COPY.path.science, measure:E6_COPY.path.measure,
+    values(state){ return _vals(state, (s,i)=>{ const p=s.metrics.path; return p?(({di:"direct (DI)",mic:"microphone",piezo:"piezo pickup",unknown:"not known"})[p]||p)+(s.metrics.pathSet?" · set by you":" · detected"):null; }); } },
   { key:"comparability", name:"Comparability", cat:"Method", hook:"what level-match cannot fix",
     musician:"Level-matching makes two takes equally loud. It cannot make a riff played high match one played low, or a busy take match a sparse one. When the two takes differ in what was played, the rows that depend on it show no delta and the panel says why.",
     science:"The audit (THEORY §7.4) found register moves the fixed-band shares and the centroid one-for-one, note density moves attack and decay medians, and the noise floor moves tilt and dynamic range. A difference in those is a difference in the takes, not the guitars.",
@@ -4369,7 +4417,7 @@ const VOCABS=[
     { key:"eq-highs",      label:"HIGHS",      f0:5000,  f1:10000, row:0 },
     { key:"eq-air",        label:"AIR",        f0:10000, f1:20000, row:0 },
   ]},
-  { id:"anatomy", label:"Anatomy", regions:[
+  { id:"anatomy", label:"Anatomy", regions:[ // swapped for ANATOMY_ACOUSTIC by syncVocabTuning() (E6.6)
     { key:"an-open-strings", label:"OPEN STRINGS",         f0:"lowF",     f1:"highF",    row:0 },
     { key:"an-fretted",      label:"FRETTED FUNDAMENTALS", f0:"highF",    f1:"fretTopF", row:0 },
     { key:"an-attack",       label:"PICK ATTACK",          f0:2000,       f1:5000,       row:0 },
@@ -4402,6 +4450,16 @@ const VOCABS=[
   { id:"none", label:"None", regions:[] },
 ];
 const VOCAB_BY_ID={}; for(const v of VOCABS) VOCAB_BY_ID[v.id]=v;
+// E6.6: Anatomy has two row sets — the electric one stocked above, and the acoustic one
+// built from the frozen E6 copy (air / top & back on row 1, strings / sparkle on row 0).
+// Block 4's syncVocabTuning() picks by the loaded guitars' types.
+const ANATOMY_ELECTRIC=VOCAB_BY_ID.anatomy.regions;
+const ANATOMY_ACOUSTIC=[
+  { key:"an-ac-strings", label:E6_COPY.zones.strings.label, f0:"lowF", f1:"fretTopF", row:0 },
+  { key:"an-ac-sparkle", label:E6_COPY.zones.sparkle.label, f0:5000,  f1:20000,     row:0 },
+  { key:"an-ac-air",     label:E6_COPY.zones.air.label,     f0:70,    f1:130,       row:1 },
+  { key:"an-ac-body",    label:E6_COPY.zones.body.label,    f0:140,   f1:260,       row:1 },
+];
 let VOCAB_ACTIVE="mix"; // set by block 4 (selector / snapshot / ?vocab=)
 // One-liners for the Band Energy group header.
 const VOCAB_DESC={
@@ -5420,9 +5478,29 @@ function slotLabel(i){ return slotName(i)||SLOT_LETTER[i]; }
 // Instrument type per slot (THEORY §7.6.4/7.6.6): asked, never inferred — a solidbody
 // has no radiated body resonance to measure and a hollow body's LTAS carries its
 // modes where the pickup hump would be read. Cross-type pairs are never differenced.
-function slotType(i){ return state.slotTypes[i]==="hollow"?"hollow":"solid"; }
+// E6.1: three values — solid | hollow (Hollowbody electric) | acoustic. Anything else is solid.
+const SLOT_TYPES=["solid","hollow","acoustic"];
+const TYPE_WORD={solid:"solidbody", hollow:"hollow body", acoustic:"acoustic"};
+function normType(t){ return SLOT_TYPES.includes(t)?t:"solid"; }
+function slotType(i){ return normType(state.slotTypes[i]); }
 function setSlotType(i,t){
-  state.slotTypes[i]=t==="hollow"?"hollow":"solid";
+  state.slotTypes[i]=normType(t);
+  syncVocabTuning(); // the Anatomy set follows the type (E6.6)
+  renderToneRows(); renderProse(); renderVerdict(); renderToneNote(); requestDraw();
+}
+// E6.4: the recording path of a slot — the user's override, else recordingPath() over
+// take 0's own facts and the declared type. Never written into the type.
+function pathFor(i){
+  const o=state.slotPaths&&state.slotPaths[i]; if(o) return o;
+  const s=state.slots[i]; if(!s||!s.metrics) return "unknown";
+  const m=s.metrics;
+  return recordingPath({room:m.room||null, noteT20:m.room?m.room.noteT20:null, channels:s.info?s.info.channels:null, stereoDiffDb:m.stereoDiffDb, type:slotType(i)});
+}
+const PATH_WORD={di:"Direct (DI)", mic:"Microphone", piezo:"Piezo pickup", unknown:"Not known"};
+function setSlotPath(i,v){
+  state.slotPaths=state.slotPaths||[null,null];
+  state.slotPaths[i]=(v==="di"||v==="mic"||v==="piezo")?v:null;
+  closePopover();
   renderToneRows(); renderProse(); renderVerdict(); renderToneNote();
 }
 function slotDesc(i,max){
@@ -5473,7 +5551,7 @@ const state={ slots:[null,null], tuning:"estd", customOffset:0,
               slotNames:["",""],
               // Tone panel rework (THEORY §7): instrument type is intent, per slot; the
               // reliability bands are the one thing here that persists (gsSettings v5).
-              slotTypes:["solid","solid"], toneRepeat:false, toneBands:{}, toneBandsAt:null };
+              slotTypes:["solid","solid"], slotPaths:[null,null], toneRepeat:false, toneBands:{}, toneBandsAt:null };
 // M2.7: gate hook — ?refine=0 disables the zoom refine (never persisted, no UI)
 const _refineEnabled = !/[?&]refine=0(?:&|$)/i.test(location.search);
 // A pan or a wheel writes ZOOMS and redraws on every event, so the refine waits
@@ -5620,7 +5698,7 @@ async function loadFileIntoSlot(i,file,opts){
     catch(err){ toast("Snapshot: "+(err.message||"could not be read."),true); }
     return;
   }
-  if(!append){ state.slotNames[i]=""; state.slotTypes[i]="solid"; }
+  if(!append){ state.slotNames[i]=""; state.slotTypes[i]="solid"; state.slotPaths[i]=null; }
   const seq=++loadSeq[i];
   if(append){ cardUI[i]={mode:"loaded", adding:{name:file.name,label:"Reading file…",frac:0.02}}; renderCard(i); }
   else { cardUI[i]={mode:"loading",name:file.name,label:"Reading file…",frac:0.02}; renderCard(i); }
@@ -5746,6 +5824,15 @@ async function computeTimeMetrics(slot, onProgress){
   m.attack=attackTimes(env,envRate,times);
   m.decays=bandDecays(sb.bandP,sb.frameRate,onsets);
   m.residual=betweenNoteResidual(shortTermRms(x,rate),0.025,times);
+  // E6.3/E6.4: the tail after the last onset (THEORY §7.6.11) and, for a stereo file, how far
+  // the two channels differ (§7.6.12) — both facts about the take, read once here.
+  m.room=roomTail(shortTermRms(x,rate),0.025,times,m.noiseFloor);
+  m.stereoDiffDb=null;
+  if(slot.audioBuf&&slot.audioBuf.numberOfChannels>=2){
+    const L=slot.audioBuf.getChannelData(0), R=slot.audioBuf.getChannelData(1); let sd=0, sm=0;
+    for(let k=0;k<L.length;k+=4){ const d=L[k]-R[k], mm=(L[k]+R[k])/2; sd+=d*d; sm+=mm*mm; }
+    m.stereoDiffDb=10*Math.log10(Math.max(sd,1e-30)/Math.max(sm,1e-30));
+  }
   const dec=decimateEnvelope(env,4096);
   slot.tvis={env:dec.env, envRate:envRate/dec.factor, onsets:times.slice(),
              firstOnset:times.length?times[0]:0, sg:null};
@@ -5840,13 +5927,22 @@ async function computeTimeMetrics(slot, onProgress){
     m.neckMedian=ds.median; m.neckN=ds.n; m.neckFlags=ds.flags.map(f=>({f0:f.f0,t20:f.t20,t:f.t,ref:f.ref,near:f.near}));
   }
   if(taps.length){ taps.sort((a,b)=>b.prom-a.prom); m.tap=taps[0]; m.tapCount=taps.length; }
+  // E6.3: the last note's own decay — the slower of its fundamental T20 and its late two-stage
+  // slope — is what the room tail is judged against (roomOutlastsNote, THEORY §7.6.11).
+  if(m.room){
+    const tl=times.length?times[times.length-1]:null;
+    const last=tl==null?null:m.notes.find(n=>Math.abs(n.t-tl)<1e-6);
+    let ref=last&&last.pass&&last.t20>0?last.t20:null;
+    if(last&&last.stage&&last.stage.twoStage&&last.stage.late<0){ const lt=20/(-last.stage.late); if(!ref||lt>ref) ref=lt; }
+    m.room.noteT20=ref; m.room.outlasts=roomOutlastsNote(m.room,ref);
+  }
 }
 const NOTE_MIN_GAP=0.45, NOTE_MAX_HEAVY=12;
 
 function clearSlot(i){
   loadSeq[i]++;
   state.slotNames[i]="";
-  state.slotTypes[i]="solid";
+  state.slotTypes[i]="solid"; state.slotPaths[i]=null;
   state.slots[i]=null;
   cardUI[i]={mode:"empty"};
   renderCard(i);
@@ -6036,6 +6132,10 @@ function syncVocabTuning(){
   VOCAB_TUNING.lowF=Math.min(...fs);
   VOCAB_TUNING.highF=Math.max(...fs);
   VOCAB_TUNING.fretTopF=VOCAB_TUNING.highF*Math.pow(2,24/12);
+  // E6.6: the Anatomy row set follows the loaded guitars — acoustic when any slot is one.
+  const ac=[0,1].some(i=>state.slots[i]&&slotType(i)==="acoustic");
+  VOCAB_BY_ID.anatomy.regions=ac?ANATOMY_ACOUSTIC:ANATOMY_ELECTRIC;
+  try{ syncLaneHeight(); }catch(_e){}
 }
 syncVocabTuning(); // state defaults are valid here
 // Every peak dot is a plain resonance peak. The air/top body resonances are still
@@ -7045,9 +7145,9 @@ function slotStiffnessEA(m){
 // slots of another kind; `nfam` is the family Q5's strip reads.
 function toneRowDefs(){
   const both=bothLoaded();
-  return [
+  const defs=[
     // ---- Instrument ----
-    {g:"inst", term:"pickup-resonance", name:"Pickup voice", type:"solid",
+    {g:"inst", term:"pickup-resonance", name:"Pickup voice", types:["solid","hollow"], piezo:true,
      unit:"where the pickup itself peaks — cable length and the volume pot move it too",
      lo:1000, hi:8000, log:true, ticks:["1 kHz","8 kHz"], more:"peaks higher",
      val:s=>s.metrics.hump&&!s.metrics.hump.edge?s.metrics.hump.f:null,
@@ -7055,12 +7155,14 @@ function toneRowDefs(){
      fmt:(v,s)=>fmtHz(v),
      detail:(v,s)=>fmtDb(s.metrics.hump.db,1)+" over the trend"+(s.metrics.hump.q?" · Q "+s.metrics.hump.q.toFixed(1)+" (the bar is the −3 dB width)":""),
      reason:s=>s.metrics.hump?"no clear peak in 0.8–8 kHz":"no spectrum"},
-    {g:"inst", term:"body-resonance", name:"Body voice", type:"hollow",
+    {g:"inst", term:"body-resonance", name:"Body voice", types:["hollow","acoustic"],
      unit:"the body's own low hum — from a tap on the bridge when the take has one",
      lo:70, hi:130, log:true, ticks:["70 Hz","130 Hz"], more:"hums higher",
      val:s=>{ const b=slotBodyRes(s.metrics); return b?b.f:null; },
      fmt:(v,s)=>fmtHz(v),
-     detail:(v,s)=>{ const b=slotBodyRes(s.metrics); return (b.q?"Q "+b.q.toFixed(1)+" · ":"")+(b.src==="tap"?"tap test":"from the average spectrum — a tap would be cleaner"); },
+     detail:(v,s)=>{ const b=slotBodyRes(s.metrics), t=s.metrics.tap; if(b.src!=="tap") return (b.q?"Q "+b.q.toFixed(1)+" · ":"")+"from the average spectrum — a tap would be cleaner";
+       const q=x=>x&&x.q?"Q "+x.q.toFixed(1)+(x.qMax&&x.q>=x.qMax*0.9?" (at the ceiling of "+x.qMax.toFixed(0)+" — at least this)":""):"";
+       return "tap test · air "+fmtHz(t.f)+" "+q(t)+(t.top?" · top "+fmtHz(t.top.f)+" "+q(t.top):" · no top mode found 140–260 Hz")+" · "+E6_COPY.tap.detail; },
      reason:()=>"no peak found 70–130 Hz"},
     {g:"inst", term:"inharmonicity", name:"String stiffness", plain:true,
      unit:"how far the overtones drift sharp on the two low strings — the strings and the scale, not the pick",
@@ -7162,7 +7264,18 @@ function toneRowDefs(){
      detail:(v,s)=>{ const m=s.metrics, b=[]; if(m.onsetCount!=null) b.push(m.onsetCount+" onsets"); if(m.onsetRate!=null) b.push(m.onsetRate.toFixed(1)+" per s");
        if(m.duration!=null) b.push(fmtMs(m.duration)); if(m.registerMidi!=null){ const n=noteInfo(midiToFreq(m.registerMidi,state.a4),state.a4); if(n) b.push("typical note "+n.name+" (median pitched f₀)"); }
        return b.join(" · "); }},
+    // E6.4: the path — detected from the take's own facts, or set in this row's popover.
+    {g:"take", term:"recording-path", name:"Recording path", text:true,
+     unit:"how the sound got into the file — a mic'd take carries the room, a DI take does not",
+     light:(s,i)=>pathFor(i)==="unknown"?"warn":"good",
+     val:(s,i)=>{ const p=pathFor(i); return PATH_WORD[p]+(state.slotPaths&&state.slotPaths[i]?" · set by you":" · detected"); },
+     detail:(v,s)=>{ const m=s.metrics, b=[]; if(s.info&&s.info.channels!=null) b.push(s.info.channels+(s.info.channels===1?" channel":" channels")+(m.stereoDiffDb!=null&&isFinite(m.stereoDiffDb)?" · L − R "+m.stereoDiffDb.toFixed(0)+" dB against the mid":""));
+       if(m.room) b.push("tail after the last note T20 "+m.room.t20.toFixed(2)+" s"+(m.room.noteT20?" against the note's "+m.room.noteT20.toFixed(2)+" s":"")+(m.room.outlasts?" — the room's":" — the string's")); else b.push("no tail to read after the last note");
+       return b.join(" · "); }},
   ];
+  // E6.1: Body voice is the headline row when a hollow or acoustic guitar is loaded.
+  if([0,1].some(i=>state.slots[i]&&slotType(i)!=="solid")){ const k=defs.findIndex(d=>d.term==="body-resonance"); if(k>0) defs.unshift(defs.splice(k,1)[0]); }
+  return defs;
 }
 function _pitchReason(s){ const m=s.metrics; if(!m.notes) return "analysed before the comb check existed"; return m.pitched?"":"no note passed the comb check"; }
 // E2.3: bands from the takes in the slots, live. Each row's value is taken on every
@@ -7210,28 +7323,35 @@ function _fmtDelta(d,def){ if(d.log) return "×"+Math.pow(2,Math.abs(d.d)).toFix
 // banded, 2 measured, 3 partial, 4 not measurable. The state is the honesty; a verdict
 // (`diff`/`same`) exists only through the one door below — a band measured on the
 // user's own takes. A provisional band never reaches it.
+const ROOM_ROWS=new Set(["overtone-sustain","bloom","f0-decay","neck-sustain"]);
 function toneRecords(){
   _liveBands=null;
   const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&types[0]!==types[1];
+  // E6.4: the resolved path rides on the metrics so comparability and the glossary read one value.
+  for(let i=0;i<2;i++){ const s=state.slots[i]; if(s&&s.metrics){ s.metrics.path=pathFor(i); s.metrics.pathSet=!!(state.slotPaths&&state.slotPaths[i]); } }
   const compat=both?comparability(state.slots[0].metrics||{},state.slots[1].metrics||{}):[];
+  // E6.1: a typed row applies to a side by its type — Pickup voice also to an acoustic on a piezo.
+  const applies=(def,i)=>!def.types||def.types.includes(types[i])||!!(def.piezo&&types[i]==="acoustic"&&pathFor(i)==="piezo");
   const blocked={}; for(const c of compat) if(!c.ok) for(const r of c.rows) (blocked[r]=blocked[r]||[]).push(c.label);
   const openMidis=tuningMidi(state.tuning,state.customOffset);
   const evs=[0,1].map(i=>{ const s=state.slots[i]; if(!s||!s.metrics) return null; const o=state.slots[1-i];
     return toneEvidenceOf(s.metrics, openMidis, state.a4, (o&&o.metrics)?o.metrics:null); });
-  const loadedTypes=[0,1].filter(i=>state.slots[i]).map(i=>types[i]);
   const out=[];
   for(const def of toneRowDefs()){
-    // A row bound to one kind of guitar is hidden — not a pointer — when no loaded slot is that kind.
-    if(def.type&&!loadedTypes.includes(def.type)) continue;
+    // A row bound to some kinds of guitar is hidden — not a pointer — when no loaded slot is one of them.
+    if(def.types&&![0,1].some(i=>state.slots[i]&&applies(def,i))) continue;
     const rec={group:def.g, key:def.term, name:def.name, unit:def.unit, def, a:null, b:null, aText:"", bText:"", detail:["",""],
                reason:["",""], light:[null,null], band:null, verdict:null, blocked:blocked[def.term]||null, evidence:[null,null], state:4, missing:[]};
     for(let i=0;i<2;i++){
       const s=state.slots[i]; if(!s||!s.metrics) continue;
-      if(def.type&&def.type!==types[i]) continue; // the other kind: this side stays empty
-      let v=null; try{ v=def.val(s); }catch(_e){}
+      if(def.types&&!applies(def,i)){ // the other kind: no shared meaning on this side (E6.6)
+        if(both) rec.evidence[i]={state:4, have:{}, need:{}, missing:[{what:"type", other:types[i]}]};
+        continue;
+      }
+      let v=null; try{ v=def.val(s,i); }catch(_e){}
       if(def.text){ rec[i?"bText":"aText"]=v||""; rec.evidence[i]={state:v?2:4, have:{}, need:{}, missing:v?[]:[{what:"value", reason:"nothing to report"}]};
         try{ rec.detail[i]=def.detail?def.detail(v,s):""; }catch(_e){ rec.detail[i]=""; }
-        try{ rec.light[i]=def.light?def.light(s):null; }catch(_e){ rec.light[i]=null; } continue; }
+        try{ rec.light[i]=def.light?def.light(s,i):null; }catch(_e){ rec.light[i]=null; } continue; }
       const ev=evidenceFor(def.term, evs[i]);
       if(v==null||!isFinite(v)||(def.log&&v<=0)){
         rec.reason[i]=(def.reason?def.reason(s):"")||"not measurable on this take";
@@ -7240,17 +7360,20 @@ function toneRecords(){
         rec.evidence[i]={state:4, have:ev.have, need:ev.need, missing:ev.missing.length?ev.missing:[{what:"value", reason:rec.reason[i]}]};
         continue;
       }
+      // E6.3: a decay measured through a room that outlasts the note is the room's — partial.
+      if(ROOM_ROWS.has(def.term)&&s.metrics.room&&s.metrics.room.outlasts){ ev.state=Math.max(ev.state,3); ev.missing=ev.missing.concat([{what:"room", tail:s.metrics.room.t20, note:s.metrics.room.noteT20}]); }
       rec.evidence[i]=ev;
       rec[i?"b":"a"]=v; rec[i?"bText":"aText"]=def.fmt(v,s);
       try{ rec.detail[i]=def.detail?def.detail(v,s):""; }catch(_e){ rec.detail[i]=""; }
     }
+    if(def.piezo&&[0,1].some(i=>state.slots[i]&&types[i]==="acoustic"&&applies(def,i))) rec.name="Pickup voice (piezo)";
     if(!def.text&&!def.noband) rec.band=toneBandFor(def.term);
     let d=null;
     if(rec.a!=null&&rec.b!=null) d=rec.band?bandVerdict(rec.a,rec.b,rec.band):(def.log?{d:Math.log2(rec.a/rec.b),log:true}:{d:rec.a-rec.b,log:false});
     const rs=toneRowState(rec.evidence.map(e=>e?e.state:null), rec.band, d);
     rec.state=rs.state; rec.missing=rs.missing;
     if(both&&!def.text){
-      if(def.type&&typesDiffer) rec.verdict={kind:"types", text:"not compared across instrument types"};
+      if(def.types&&typesDiffer&&rec.a!=null&&rec.b!=null) rec.verdict={kind:"types", text:"not compared across instrument types"};
       else if(rec.blocked&&rec.a!=null&&rec.b!=null) rec.verdict={kind:"blocked", text:"not comparable · "+rec.blocked.join(", ")};
       else if(rec.a!=null&&rec.b!=null&&d){
         if(!isFinite(d.d)) rec.verdict={kind:"noband", text:"these two values cannot be compared"};
@@ -7285,6 +7408,8 @@ function missingPhrase(x, def){
     case "attacks": return "needs "+x.need+" clean note attacks — "+n(x.have)+" here";
     case "band": return "the gap is inside the audit's own spread ("+_fmtBand(x.log?{oct:x.need}:{abs:x.need},def||{})+") — a second take of either guitar would settle it";
     case "analysis": return "re-analyse the take — it was measured before this row existed";
+    case "room": return "the room outlasts the note here (tail "+(x.tail||0).toFixed(1)+" s against "+(x.note||0).toFixed(1)+" s) — this decay is the room's, not the string's";
+    case "type": return "not shared — "+(x.other==="solid"?"a solidbody":"a "+(TYPE_WORD[x.other]||x.other))+" has no "+(def?def.name.toLowerCase():"such row")+" to compare";
     case "value": return x.reason||"not measurable on this take";
     default: return "needs "+x.what;
   }
@@ -7297,7 +7422,7 @@ const TONE_STATE_WORD={1:"measured, with a band", 2:"measured", 3:"partial — t
 // detail lives in the readout popover (click a value).
 function toneRowHtml(rec){
   const d=rec.def, both=bothLoaded();
-  const name='<div class="tonename">'+termHtml(d.term,d.name)+'<small>'+esc(d.unit)+'</small></div>';
+  const name='<div class="tonename">'+termHtml(d.term,rec.name||d.name)+'<small>'+esc(d.unit)+'</small></div>';
   const attrs=' data-key="'+d.term+'" data-group="'+d.g+'" data-state="'+rec.state+'"';
   if(rec.state===4&&!d.text){
     // Collapsed: title plus one line naming what was missing (per side when the sides differ).
@@ -7368,6 +7493,11 @@ function openTonePop(key,i,anchor){
   if(rec.band) html+=sec("The band",p(rec.band.measured?"Measured on your own takes: ±"+esc(_fmtBand(rec.band,d))+" — a gap inside it is not distinguishable, a gap outside it is a verdict."
     :"No band measured yet. The audit's provisional spread is "+esc(_fmtBand(rec.band,d))+"; it only decides whether a gap counts as thin, never a verdict. Two takes of one guitar measure yours."));
   if(rec.verdict) html+=sec("Verdict",p(esc(rec.verdict.text)));
+  if(d.term==="recording-path"){ // E6.4: the override — the user's fact, stored with the take
+    const cur=(state.slotPaths&&state.slotPaths[i])||"auto";
+    html+=sec("Override",'<p>If the detection is wrong, say so here — it is stored with the take and never changes the guitar\u2019s type.</p><select data-pathsel="'+i+'">'+
+      [["auto","Detected ("+PATH_WORD[recordingPath({room:s.metrics.room||null, noteT20:s.metrics.room?s.metrics.room.noteT20:null, channels:s.info?s.info.channels:null, stereoDiffDb:s.metrics.stereoDiffDb, type:slotType(i)})]+")"],["di","Direct (DI)"],["mic","Microphone"],["piezo","Piezo pickup"]].map(([v,l])=>'<option value="'+v+'"'+(v===cur?" selected":"")+'>'+l+'</option>').join("")+'</select>');
+  }
   html+=sec("Method",p(termHtml(d.term,"The full measurement")+" — musician’s ear, the physics, and how it is computed."));
   stopPlayback();
   popover.innerHTML=html;
@@ -7382,7 +7512,7 @@ function _needPhrase(what,need,have){
 }
 function renderToneRows(){
   if(!anyLoaded()) return;
-  const {records,compat,typesDiffer}=toneRecords();
+  const {records,compat,typesDiffer}=toneRecords(); const types=[slotType(0),slotType(1)];
   toneRows.innerHTML=TONE_GROUPS.map(g=>'<div class="tonegroup" data-group="'+g.id+'"><div class="ghead"><span class="gname">'+g.name+'</span><span class="ghint">'+esc(g.hint)+'</span></div>'+
     records.filter(r=>r.group===g.id).map(toneRowHtml).join("")+'</div>').join("");
   // Comparability bar (THEORY §7.6.10): everything level-matching does not fix.
@@ -7391,7 +7521,7 @@ function renderToneRows(){
     // E5.1: the labels on the surface; the measured gaps sit behind the term's tap.
     const bits=fails.map(c=>c.label);
     toneCompat.innerHTML='<b>These two takes are not directly comparable</b> — '+
-      (typesDiffer?"one is a solidbody and one a hollow body, so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
+      (typesDiffer?"one is "+(types[0]==="acoustic"?"an ":"a ")+TYPE_WORD[types[0]]+" and one "+(types[1]==="acoustic"?"an ":"a ")+TYPE_WORD[types[1]]+", so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
       (bits.length?"the "+bits.join(", ")+(bits.length>1?" differ":" differs")+" too much. Rows those affect show no verdict; "+termHtml("level-match","level-match")+" cannot fix that — see "+termHtml("comparability","what a fair comparison needs")+".":"");
     toneCompat.style.display="";
   } else toneCompat.style.display="none";
@@ -7513,6 +7643,8 @@ function renderVerdict(){
     parts.push("One guitar loaded — "+slotNameHtml(i)+". "+esc(rd.head)+" — it supports "+rd.supported+" of the "+rd.total+" tone rows below.");
     parts.push("Drop a second recording of the same riff to unlock the comparison views.");
   }else{
+    // E6.6: a cross-type pair opens by saying so — the rows compare what the two share.
+    if(slotType(0)!==slotType(1)) parts.push("Different kinds of guitar — "+(slotType(0)==="acoustic"?"an ":"a ")+TYPE_WORD[slotType(0)]+" and "+(slotType(1)==="acoustic"?"an ":"a ")+TYPE_WORD[slotType(1)]+" — comparing what they share.");
     const g=state.lmOffset;
     if(g!=null&&isFinite(g)){
       if(Math.abs(g)>=0.5){
@@ -7814,6 +7946,7 @@ function afterDataChange(animate){
   if(s1) s1._dispCache=null; // lmOffset may have moved
   state._eqFit=null;  // fit depends on both slots' fixed 1/6-oct curves
   applyCompareDefaults();
+  syncVocabTuning(); // a load or clear resets the type, and Anatomy follows it (E6.6)
   updateVisibility();
   updateCurves(animate);
   renderAnalysis();
@@ -7939,7 +8072,8 @@ function renderCard(i){
   const parts=[esc(String(info.container))];
   parts.push(termHtml("sample-rate",rateK(info.sampleRate)));
   if(info.bitDepth!=null) parts.push(esc(typeof info.bitDepth==="number"?info.bitDepth+"-bit":String(info.bitDepth)));
-  if(info.channels!=null) parts.push(info.channels===1?"mono":(info.channels===2?"stereo":info.channels+" ch"));
+  // E6.5: the analysed mix is (L+R)/2 unless one side was picked — the card says which.
+  if(info.channels!=null) parts.push(info.channels===1?"mono":(info.channels===2?"stereo, "+(s.channelMode==="left"?"left":s.channelMode==="right"?"right":"summed"):info.channels+" ch, "+(s.channelMode==="left"?"left":s.channelMode==="right"?"right":"summed")));
   const chips=[];
   if(s.kind==="demo") chips.push('<span class="chip"><span class="k">synthetic</span>Karplus–Strong demo</span>');
   if(info.processing&&(info.processing.ec||info.processing.ns||info.processing.agc))
@@ -7979,7 +8113,8 @@ function renderCard(i){
     '<span class="fileacts">'+
     '<label class="typelbl">Type <select class="slottype" title="What kind of guitar this is — sets which resonance the Tone character panel measures">'+
     '<option value="solid"'+(slotType(i)==="solid"?" selected":"")+'>Solidbody electric</option>'+
-    '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollowbody electric</option></select></label>'+
+    '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollowbody electric</option>'+
+    '<option value="acoustic"'+(slotType(i)==="acoustic"?" selected":"")+'>Acoustic</option></select></label>'+
     '<button class="iconbtn" data-act="replace" data-take="0" title="Replace with another file">⟳ Replace</button>'+
     (recSupported()?'<button class="iconbtn" data-act="record" title="Record a take into this slot">● Record</button>':"")+
     '<button class="iconbtn" data-act="clear" title="Clear this slot">✕ Clear</button></span></div>'+
@@ -8070,7 +8205,10 @@ const REC_GUIDE_SNR_MIN=40;   // dB above the measured floor the open strings mu
 state.recGuided=true;         // the Guided switch; remembered in gsSettings (additive key)
 function guidedStepsFor(i){
   const t=slotType(i);
-  return REC_PROTOCOL.filter(st=>st.when==="always"||(st.when==="hollow"&&t!=="solid"));
+  // E6.7: the mic-placement step lights up for a take that will go through a microphone —
+  // an acoustic (unless its existing take reads as piezo), or a slot whose take already reads as mic.
+  const mic=pathFor(i)==="mic"||(t==="acoustic"&&pathFor(i)!=="piezo");
+  return REC_PROTOCOL.filter(st=>st.when==="always"||(st.when==="hollow"&&t!=="solid")||(st.when==="mic"&&mic));
 }
 function _guideProgressText(g){
   const st=g.steps[g.idx]; if(!st) return "All steps done — stop when you're ready, or keep playing.";
@@ -9892,7 +10030,7 @@ function exportJSON(){
       for(let k=0;k<tp.length;k++) tdb[k]=Math.round(powerToDb(tp[k])*100)/100;
       return { name:t.name, kind:t.kind, info:t.info, duration:t.duration, channelMode:t.channelMode,
                welch:{df:t.welch.df, frames:t.welch.frames, powerDb:tdb}, metrics:sanitizeMetrics(t.metrics) }; });
-    files.push({ slot:i, name:s.name, label:slotName(i), instrument:slotType(i), kind:s.kind, info:s.info, duration:s.duration,
+    files.push({ slot:i, name:s.name, label:slotName(i), instrument:slotType(i), path:(state.slotPaths&&state.slotPaths[i])||undefined, kind:s.kind, info:s.info, duration:s.duration,
       channelMode:s.channelMode,
       welch:{df:s.welch.df, frames:s.welch.frames, powerDb:db},
       metrics:sanitizeMetrics(s.metrics), ...(takes.length?{takes}:{}) });
@@ -9902,7 +10040,7 @@ function exportJSON(){
     settings:{ tuning:state.tuning, customOffset:state.customOffset,
                a4:state.a4, smooth:state.smooth, lm:state.lm,
                eqDir:state.eqDir, eqDevice:state.eqDevice, vocab:state.vocab,
-               slotNames:state.slotNames.slice(), slotTypes:state.slotTypes.slice() },
+               slotNames:state.slotNames.slice(), slotTypes:state.slotTypes.slice(), slotPaths:(state.slotPaths||[null,null]).slice() },
     files };
   download(new Blob([JSON.stringify(snap)],{type:"application/json"}),
     "rameau_"+exportBaseName()+".json");
@@ -10135,14 +10273,16 @@ function applySnapshot(snap){
   // hand-edited or partial snapshot still names its guitars) — settings first.
   state.slotNames=["",""];
   if(Array.isArray(st.slotNames)) for(let i=0;i<2;i++) state.slotNames[i]=_clip(String(st.slotNames[i]||""),SLOT_NAME_MAX);
-  state.slotTypes=["solid","solid"];
-  if(Array.isArray(st.slotTypes)) for(let i=0;i<2;i++) state.slotTypes[i]=st.slotTypes[i]==="hollow"?"hollow":"solid";
+  state.slotTypes=["solid","solid"]; state.slotPaths=[null,null];
+  if(Array.isArray(st.slotTypes)) for(let i=0;i<2;i++) state.slotTypes[i]=normType(st.slotTypes[i]);
+  if(Array.isArray(st.slotPaths)) for(let i=0;i<2;i++) state.slotPaths[i]=(["di","mic","piezo"].includes(st.slotPaths[i]))?st.slotPaths[i]:null;
   for(const f of snap.files.slice(0,2)){
     const i=f.slot===1?1:0;
     const recs=snapshotTakeRecords(f);
     if(!recs.length) continue;
     if(f.label) state.slotNames[i]=_clip(String(f.label),SLOT_NAME_MAX);
-    if(f.instrument) state.slotTypes[i]=f.instrument==="hollow"?"hollow":"solid";
+    if(f.instrument) state.slotTypes[i]=normType(f.instrument);
+    if(f.path&&["di","mic","piezo"].includes(f.path)) state.slotPaths[i]=f.path;
     _bindTakes(recs);
     state.slots[i]=recs[0];
     cardUI[i]={mode:"loaded"};
@@ -10714,6 +10854,8 @@ function boot(){
       setPopPlayUI(b);
   });
   popover.addEventListener("change",e=>{
+    const ps=e.target.closest?e.target.closest("[data-pathsel]"):null;
+    if(ps){ setSlotPath(+ps.dataset.pathsel, ps.value); return; }
     const cc=e.target.closest?e.target.closest(".string-color"):null;
     if(cc){ _setStringColor(+popover.dataset.stringSi, cc.value, true); return; }
     const tog=e.target.closest?e.target.closest(".harm-toggle"):null;
@@ -10952,6 +11094,8 @@ function boot(){
   if(zm&&(zm[1].toLowerCase() in ZOOMS))
     ZOOMS[zm[1].toLowerCase()]={x0:parseFloat(zm[2]), x1:parseFloat(zm[3]),
       y0:zm[4]!=null?parseFloat(zm[4]):null, y1:zm[5]!=null?parseFloat(zm[5]):null};
+  const ty=location.search.match(/[?&]types=([a-z]+)(?:,([a-z]+))?(?:&|$)/i);          // gate hook (E6) — session-only, never saved
+  if(ty){ state.slotTypes[0]=normType(ty[1].toLowerCase()); if(ty[2]) state.slotTypes[1]=normType(ty[2].toLowerCase()); }
   const tn=location.search.match(/[?&]tuning=(estd|eb|dstd|dropd|dadgad)(?:&|$)/i);  // gate hook — session-only, not saved
   if(tn){ state.tuning=tn[1].toLowerCase(); if(tuningSel) tuningSel.value=state.tuning; syncVocabTuning(); fillSgNoteSel(); }
   const pp=location.search.match(/[?&]pop=([a-z0-9.-]+)(?:&|$)/i);                  // test hook

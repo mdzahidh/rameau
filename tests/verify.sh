@@ -13,7 +13,7 @@
 #   5. tests/r5.test.js is green               - the R5 wiring contracts are met
 #   6. tests/e.test.js is green                - the E-phase contracts are met (2026-09-05 ->)
 #   7. tests/headless.js is green              - it really renders and opens (skipped by --node)
-#   8. the gate itself was not edited          - tests/ untouched, all three copies frozen
+#   8. the gate itself was not edited          - tests/ untouched, all four copies frozen
 #
 # (8) is what makes (1)-(7) mean anything: a builder who may edit the tests can
 # always make them pass. The frozen copy blocks are educational prose already
@@ -39,6 +39,9 @@ FROZEN_SHA=9c7a7e1aaa9d62b7e0a24893ee39a8a26c53ecb1da321bedcd11bf1606b162c0
 # builder rewriting it, not to stop the author. Recorded in SPEC.md.
 FROZEN_SHA_R4=3b482a634b12ed40bc379f60ab1f9e31423b113be71bd4bf18240fdcb6aa5883
 FROZEN_SHA_R5=1da64ae24f7201c825b0c3a7c5a4c8962e4996fb5c7af051bb31b539ba69cf7b
+# E6 (2026-09-05): the hollow/acoustic prose -- the room in a decay, the recording path, the
+# tap's two modes, the four acoustic anatomy zones -- traced to THEORY 7.6.6/7.6.11/7.6.12.
+FROZEN_SHA_E6=ef7e6780cbdc34fdba62252fb3ba7bfba8370efd196524d452bed73e19350f6c
 fail=0
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
@@ -142,6 +145,14 @@ got=$(awk '
   /---------- end collision copy ----------/ {if(on) exit}
 ' index.html | shasum -a 256 | cut -d' ' -f1)
 frozen "$got" "$FROZEN_SHA_R5" "collision copy unchanged"
+
+# E6's hollow/acoustic prose. Fourth block, same rule, awk inline for the same reason.
+got=$(awk '
+  /---------- hollow and acoustic copy \(E6\) ----------/ {on=1}
+  on {print}
+  /---------- end hollow and acoustic copy ----------/ {if(on) exit}
+' index.html | shasum -a 256 | cut -d' ' -f1)
+frozen "$got" "$FROZEN_SHA_E6" "hollow and acoustic copy unchanged"
 
 printf '\n'
 if [ "$NODE_ONLY" -eq 1 ]; then
