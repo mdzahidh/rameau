@@ -2996,7 +2996,7 @@ tomorrow — here or in a DAW — already knowing what it is.
   inverted contract that its source never names either chunk).
 - **E7.2 the filename.** `takeFileName(i, k)` → `{slug}_{YYYY-MM-DD}_take{n}.wav`,
   `wavFileSlug()` = lowercase, spaces to hyphens, `[a-z0-9-]` only, accents stripped through
-  NFD; `_a`/`_b` only when the other slot's name makes the same slug. **One deviation:** an
+  NFKD; `_a`/`_b` only when the other slot's name makes the same slug. **One deviation:** an
   unnamed slot falls back to the **existing** `rameau_<file>.wav` name (the ROADMAP said
   "today's `rameau_Take-…`", which was never a rule in the code — the shipped fallback is the
   name every other export already uses).
