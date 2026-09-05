@@ -2776,3 +2776,40 @@ plus the "verify first" item and two gate hooks.
   the one phrasing place, At a glance, `tone-3`); six mutation-checked. One both-theme screenshot
   pass: `?demo&open=all` and the Les Paul + SG audit takes in E♭ through `?load=`, plus two
   readout popovers. Full gate once at the end. Awaiting the user's visual test before E2.
+
+## 2026-09-05 — E2 built: a slot holds takes (session 34, reviewer; user asked for E2–E7 on one branch without stopping at each gate)
+
+Branch `e-phase`. Same shape as E1: one commit per task, the full gate once at the end.
+
+- **E2.1 the take model.** `state.slots[i]` stays take 0 — the record every reader sees — and
+  a slot's takes share one array held as a **non-enumerable** property on each record
+  (`slotTakes(i)` is the door), so `JSON.stringify` in the snapshot writer and
+  `sanitizeMetrics` never meet the cycle. `analyzeSlot()` gains an append path
+  (`attachTake`) whose progress shows inside the loaded card; a file dropped on a loaded
+  slot, "+ Add take", and a recorded take into a loaded slot are further takes of that
+  guitar and keep its name and type; `removeTake(i,k)` promotes take 1 or clears the slot.
+- **E2.2 snapshot.** `files[i].takes[]` is written only when there are further takes, so a
+  one-take snapshot is byte-shaped like v1; `snapshotTakeRecords(f)` is the one reader — a v1
+  entry yields exactly the record it always did — and `tests/e.test.js` drives it under node.
+- **E2.3 bands from takes.** `toneBandsFromTakes()` in block 0 (log₂ max/min for an oct band,
+  max − min for abs, nothing under two usable values). `liveToneBands()` takes every row's
+  value on every take through the same `def.val` the panel prints and, when **both** slots hold
+  two or more takes, the larger of the two spreads is the row's measured band; `toneBandFor()`
+  reads live → saved → provisional, and a live band opens E1's verdict door. "Same guitar, two
+  takes" is set by the app and disabled — no longer a control (the third reversal of T, now
+  built); Save as bands persists the live spreads (`gsSettings` v5 unchanged). The old
+  repeat-mode verdict kind is gone.
+- **E2.4–E2.6 the card.** Name as headline, file small and grey under it, `Type` label, ● Record
+  beside ⟳ Replace / ✕ Clear, a take list with ⟳ / ✕ / ⭳ Save per take and "+ Add take";
+  `takeReadiness()` reads `evidenceFor` over every row into one dot and one phrase (*Good take ·
+  supports 9 of 12 rows*; amber below 35 dB SNR or a −24 dBFS peak; red for clipping or under
+  25 dB) replacing the floor/SNR pills, the tap opening the numbers and the rows not supported;
+  a canvas waveform of the analysed mono mix (envelope, onset ticks, clipping in the meter's
+  red, playhead in the accent) replaces the range and seeks through the same `seekCard()` —
+  session 30's single stop path is untouched. One Play/Pause toggle.
+- **Gate hook:** `?load=` takes `;`-separated takes per slot.
+- *Verification:* `tests/e.test.js` 67 → **104**; one both-theme screenshot of
+  `?debug&load=samples/Les_Paul.wav;samples/SG.wav,samples/Majesty.wav;samples/Majesty.wav&tuning=eb`
+  — two takes per slot turn Pickup voice, String stiffness, Overtone ring, Even/odd, Harmonic
+  richness, Attack colour and Dynamic range into state-1 rows in place, with the shaded band
+  and a verdict; the Majesty's clipping shows red on its waveform. Full gate at the end.

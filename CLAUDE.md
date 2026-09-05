@@ -825,8 +825,17 @@ build educational copy from it, never re-derive from scratch.
   `rameau_Take-00-58-04.wav` is the source (an all-digital, cab-simulated feed), not the capture
   — the app now records `track.getSettings()`'s processing flags on the take and warns if any
   was on. Gate hooks `?load=` (debug), `?tuning=`, `?pop=tone.<row>.<slot>`. `tests/e.test.js`
-  is the E-phase suite (**67**), verify.sh step 6 of 8. **E2 next, after the user's test.**
-- **NEXT — the user’s visual test of E1; then E2.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
+  is the E-phase suite (**104** after E2), verify.sh step 6 of 8. **E2 next, after the user's test.**
+- **E2 BUILT (session 34, branch `e-phase`; the user asked for E2–E7 on one branch without
+  stopping at each gate).** A slot holds takes: `state.slots[i]` stays take 0, siblings in a
+  non-enumerable shared `takes` array (`slotTakes(i)` the door); drop/record/"+ Add take" append
+  and keep the name; snapshot `files[i].takes[]` additive with `snapshotTakeRecords()` the one
+  reader (v1 → one record); `toneBandsFromTakes()` + `liveToneBands()` make measured bands when
+  **both** slots hold ≥ 2 takes (live → saved → provisional), the "Same guitar, two takes" switch
+  is app-set and disabled; the card has the name as headline, a take list with a readiness dot
+  per take (`takeReadiness` over `evidenceFor`), one Play/Pause, a canvas waveform seeking
+  through `seekCard()`. `tests/e.test.js` **104**. E3 next on the same branch.
+- **NEXT — E3 → E7 on `e-phase`, then the user’s test of the whole branch.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
   in docs/THEORY.md.) M3/M4 remain gated on explicit user go-ahead.
@@ -839,7 +848,7 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 67**, headless 69
+- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 104**, headless 69
   (eight steps since E1; `--node` skips the headless step).
   **Step 1 is red on master and has been since `ac65835` "EQ match: fit
   each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound

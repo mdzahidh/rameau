@@ -1956,6 +1956,27 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
 - **Gate hooks:** `?load=` (debug only, relative paths, `--allow-file-access-from-files`),
   `?tuning=`, `?pop=tone.<row>.<slot>`.
 
+### E2 (session 34): a slot holds takes
+
+- **`state.slots[i]` is take 0.** Every reader keeps reading it. A slot's takes share one array
+  held as a **non-enumerable** `takes` property on each record (`_bindTakes`), so the snapshot
+  writer's `JSON.stringify` and `sanitizeMetrics` never see the cycle; `slotTakes(i)` is the one
+  door. `analyzeSlot(i,rec,seq,append)` attaches instead of replacing; a re-analysis of the
+  primary (channel pick) keeps its siblings because `_bindTakes([slot])` runs only when the
+  record has no `takes` yet. `removeTake` promotes take 1 or clears the slot.
+- **Snapshot:** `files[i].takes[]` is additive and written only when there are further takes;
+  `snapshotTakeRecords(f)` is the single reader (pure apart from `computeSpectralExtras`, so
+  node drives it). A v1 entry yields exactly one record.
+- **Live bands:** `liveToneBands()` is rebuilt per `toneRecords()` call (`_liveBands=null` at
+  its head) — it takes every row's value on every take through `def.val`, so a take record must
+  carry what a slot carries (`metrics`, `welch`, `fixed6db`); `toneBandsFromTakes()` in block 0
+  gives the spread; both slots need ≥ 2 takes; the larger spread wins. `toneBandFor()` reads
+  live → saved → provisional.
+- **Card:** the waveform is a canvas in the transport (`drawWave`, `setupCanvas`, data ink);
+  pointer events map x → the same 0–1000 value the range produced and call `seekCard()`, so
+  pause/seek/stop semantics are untouched. `takeReadiness()` reads `evidenceFor` over every
+  non-text row for the slot's type.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

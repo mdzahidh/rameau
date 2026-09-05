@@ -71,7 +71,7 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **P** | **Process fixes** — no Chrome outside a gate (CLAUDE.md house rule), the ROADMAP contradiction deleted, `verify.sh --node`, `HEADLESS_TRIES`, effort per role. | ✅ done 2026-09-05 (`P — process`) | "Verification, in proportion", "Model and effort, per role" |
 | **E0** | **E phase recorded** — three principles, decisions, row disposition, THEORY §7.7 placeholder. | ✅ done 2026-09-05 | `# E — evidence-driven readouts` |
 | **E1** | **The tone panel says how sure it is** — evidence manifests measured then frozen, four render states, verdicts only from measured bands, row disposition, schema `tone-3`. | ✅ built 2026-09-05 — **gate 8**, awaiting the user's test | `### E1 — the tone panel says how sure it is` |
-| **E2** | **A slot holds takes** — `slot.takes[]`, snapshot `files[i].takes[]`, live bands from two takes, card redesign, readiness line, waveform seek. | ⏳ next, after the user tests E1 — **gate** | `### E2 — a slot holds takes` |
+| **E2** | **A slot holds takes** — `slot.takes[]`, snapshot `files[i].takes[]`, live bands from two takes, card redesign, readiness line, waveform seek. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E2 — a slot holds takes` |
 | **E3** | **The guided take** — `REC_PROTOCOL` on M5's capture, steps labelled by the rows they unlock, `protocol` in the take's facts. | ⏸ after E2 | `### E3 — the guided take` |
 | **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ⏸ after E3 | `### E4 — the Band Energy fold` |
 | **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ⏸ after E4 (E3–E5 batch) | `### E5 — the language ladder` |
@@ -2131,7 +2131,11 @@ Anchors: `const TONE_BANDS_DEFAULT=` / `function bandVerdict(` (block 0);
 - **Done when** the demo pair renders with no verdict at all (one take each) and the panel
   still reads as an answer, not an error.
 
-### E2 — a slot holds takes (state + cards + snapshot) — **gate**
+### E2 — a slot holds takes (state + cards + snapshot) — **gate** ✅ BUILT 2026-09-05 (branch `e-phase`)
+
+*Reviewer-built in four commits (E2.1+E2.2, E2.3, E2.4–E2.6, the `?load=` hook); SPEC.md
+2026-09-05 "E2 built" has the account.*
+
 
 Anchors: `async function finishSlotFromBuffer(`, `async function loadFileIntoSlot(`,
 `function clearSlot(`, `function renderCard(`, `function applySnapshot(`, the snapshot
