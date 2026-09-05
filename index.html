@@ -381,29 +381,48 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 }
 .recnote{ font-size:11px; color:var(--faint); line-height:1.45; text-align:center; }
 .recnote.recwarn{ color:var(--mut); }
+/* The -12 dB tip sits next to the meter it is about, so it reads as instrument copy
+   rather than as another caveat: full ink, and the same box as the note above it. */
+.recnote.rectip{ color:var(--ink); }
 .recdot{ color:var(--err); }
 .rectimer{ font-variant-numeric:tabular-nums; font-size:15px; color:var(--ink); font-weight:600; }
-/* Live level meter. Same idiom as .progressbar — a --raise track with a --slot-c fill —
-   but taller, because this one is read while it moves. Width is linear in dBFS over
-   -60..0: the bar and the printed peak then say the same thing. The hot/clip zones use
-   the palette's own warning colors; there is no green token, and a level meter is not
-   the place to invent one. The thin bar riding ahead of the fill is the peak hold. */
+/* Live level meter. Same idiom as .progressbar — a --raise track — but taller, because
+   this one is read while it moves. Width is linear in dBFS over -60..0: the bar and the
+   printed peak then say the same thing. The fill carries one green→amber→red gradient
+   painted across the WHOLE track and revealed by a clip-path, the way a hardware meter
+   (and Logic Pro) colors it: the zone is a property of the level, not of how long the
+   fill happens to be, so -12 dB is the same green whatever else is happening. These three
+   hues are a meter convention, not palette tokens — like every data palette they are
+   identical in both themes. Stops read in dB on the -60..0 axis: green to -12 (80 %),
+   amber by -6 (90 %), red by -1 (98 %); the hairline at 80 % is the -12 dB target the
+   recording guide names. The thin bar riding ahead of the fill is the peak hold. */
 .levelmeter{ display:flex; align-items:center; gap:8px; width:100%; max-width:300px; }
 .levelbar{
   position:relative; flex:1; height:8px; border-radius:2px;
   background:var(--raise); border:1px solid var(--hair); overflow:hidden;
+  --meter-lo:#2f9e4f; --meter-mid:#e0b528; --meter-hi:#d5432c;
 }
-.levelbar i{ display:block; height:100%; width:0%; background:var(--slot-c); transition:width 90ms linear; }
-.levelbar.hot i{ background:var(--warn); }
-.levelbar.clip i{ background:var(--err); }
+.levelbar i{
+  display:block; position:absolute; inset:0;
+  background:linear-gradient(90deg,
+    var(--meter-lo) 0%, var(--meter-lo) 78%, var(--meter-mid) 84%,
+    var(--meter-mid) 90%, var(--meter-hi) 98%, var(--meter-hi) 100%);
+  clip-path:inset(0 calc(100% - var(--fill,0%)) 0 0);
+  transition:clip-path 90ms linear;
+}
 .levelbar b{
   position:absolute; top:0; bottom:0; left:0; width:2px;
   background:rgba(var(--ink-rgb),.5); transition:left 90ms linear;
+}
+.levelbar::after{
+  content:""; position:absolute; left:80%; top:0; bottom:0; width:1px;
+  background:rgba(var(--ink-rgb),.42);
 }
 .levelpeak{
   font-variant-numeric:tabular-nums; font-size:11px; color:var(--mut);
   flex:none; min-width:56px; text-align:right;
 }
+.levelbar.clip + .levelpeak{ color:var(--err); }
 /* Transport: the sound-making controls of one card in a single row — play/stop, pause,
    seek, record. Slot management (replace, clear) stays up in .fileacts. */
 .transport{ display:flex; align-items:center; gap:7px; margin-top:9px; flex-wrap:wrap; }
@@ -6732,6 +6751,9 @@ function afterDataChange(animate){
 function renderCard(i){
   const card=cards[i], ui=cardUI[i], letter=SLOT_LETTER[i];
   if(colorPopSlot===i) closeColorPop(); // the anchor chip is about to be replaced
+  // The pre-roll monitor holds the device open for this card's arming panel; anything else
+  // this card becomes means nobody is watching that bar any more.
+  if(recMon&&recMon.i===i&&ui.mode!=="arming") stopMonitor();
   card.classList.toggle("empty",ui.mode==="empty");
   card.classList.toggle("error",ui.mode==="error");
   if(ui.mode==="empty"){
@@ -6804,9 +6826,18 @@ function renderCard(i){
           '<button class="iconbtn" data-act="recheck" title="Listen again for the channels this device carries">↻ Re-check</button></div>'+
         '<div class="recnote">'+esc(note)+'</div>'+
         '<div class="recnote recwarn">'+esc(warn)+'</div>'+
+        '<div class="recrow"><div class="levelmeter"><div class="levelbar"><i></i><b></b></div>'+
+          '<span class="levelpeak" title="Peak level of this input, dB re full scale">—</span></div></div>'+
+        // The gain that matters is set before the take, on the amp or the interface, so the
+        // tip belongs beside the meter that measures it — the same target the recording
+        // guide's Levels section names, said once in each place.
+        '<div class="recnote rectip">Play as loud as you mean to record, then set the gain on '+
+          'your interface or amp so the meter peaks around <b>−12 dB</b> — the mark on the bar — '+
+          'with peaks safely under 0. Leave it there for the other guitar.</div>'+
         '<div class="recrow"><button class="btn" data-act="recstart">● Start recording</button></div>';
     }
     card.innerHTML=head+'<div class="recpanel">'+body+'</div>';
+    syncMonitor(i);
     return;
   }
   if(ui.mode==="recording"){
@@ -7052,6 +7083,7 @@ async function ensureRecChannels(i){
   const key=recChanKey(state.recDevice);
   if(recState.chanByDevice[key]||recState.probing){ clampRecChannel(); return; }
   recState.probing=true;
+  stopMonitor();
   if(cardUI[i].mode==="arming"){ cardUI[i].checking=true; renderCard(i); }
   try{ await probeDeviceChannels(state.recDevice); }
   catch(_err){ recState.chanByDevice[key]=1; }
@@ -7074,6 +7106,7 @@ function cancelArming(i){
 // running would keep a `● Recording` card alive over the new file and then land its take
 // on top of it when the user finally pressed stop.
 function recAbort(i){
+  if(recMon&&recMon.i===i) stopMonitor();
   if(recState.active===i) stopCapture(false);
   if(cardUI[i]&&cardUI[i].mode==="arming") cancelArming(i);
 }
@@ -7107,6 +7140,7 @@ function recChanOptions(){
 
 function startCapture(i){
   if(recState.active!=null) return;
+  stopMonitor();  // one device, one owner: the monitor lets go before the take opens it
   const ui=cardUI[i];
   const prev=(ui&&ui.mode==="arming")?ui.prev:{mode:"empty"};
   const deviceId=state.recDevice, sel=state.recChannel|0;
@@ -7125,10 +7159,13 @@ function startCapture(i){
 // not receive. Bar = RMS since the last paint; the thin tick = peak, held a second then
 // falling at 12 dB/s; the printed number is that peak. Width is linear in dB over
 // METER_FLOOR..0, so the bar and the number are saying the same thing.
-const METER_FLOOR=-60, METER_HOT=-6, METER_CLIP=-1;
+const METER_FLOOR=-60, METER_CLIP=-1;
 function meterPct(db){ return Math.max(0,Math.min(100,(db-METER_FLOOR)/-METER_FLOOR*100)); }
 function paintLevel(cap,card){
-  const t=card.querySelector(".rectimer");
+  if(!card) return;
+  // A pre-roll monitor has no clock: it meters while the panel is open, and the take
+  // has not started. Only a capture carries t0, so only a capture writes the timer.
+  const t=cap.t0?card.querySelector(".rectimer"):null;
   if(t) t.textContent=fmtElapsed(Date.now()-cap.t0);
   const bar=card.querySelector(".levelbar");
   if(!bar) return;
@@ -7141,13 +7178,99 @@ function paintLevel(cap,card){
   if(pkDb>=cap.pkHold){ cap.pkHold=pkDb; cap.pkHoldT=now; }
   else if(now-cap.pkHoldT>1000) cap.pkHold=Math.max(pkDb,cap.pkHold-12*dt);
   const fill=bar.querySelector("i"), tick=bar.querySelector("b");
-  if(fill) fill.style.width=meterPct(rmsDb).toFixed(1)+"%";
+  // The fill is a full-width gradient revealed by clip-path, so a level always wears
+  // the same color: the zone belongs to the dB, not to the length of the bar.
+  if(fill) fill.style.setProperty("--fill",meterPct(rmsDb).toFixed(1)+"%");
   if(tick) tick.style.left=meterPct(cap.pkHold).toFixed(1)+"%";
-  bar.classList.toggle("hot",cap.pkHold>=METER_HOT&&cap.pkHold<METER_CLIP);
   bar.classList.toggle("clip",cap.pkHold>=METER_CLIP);
   const out=card.querySelector(".levelpeak");
   if(out) out.textContent=cap.pkHold<=METER_FLOOR?"—":cap.pkHold.toFixed(1)+" dB";
 }
+// ---------- pre-roll level monitor ----------
+// The gain that decides a take is set before it, on the amp or the interface, so the meter
+// has to run while the arming panel is open — not only while something is being kept. The
+// monitor is _startCapture's graph with the recorder taken out: same device, same channel
+// pick, same discrete node, same silent sink, the same one-walk peak/RMS accumulation —
+// but no chunks, no total and no t0, so paintLevel meters it and writes no clock. It holds
+// the device, so exactly one of the monitor and the capture may exist at a time, and every
+// door out of the panel goes through stopMonitor().
+let recMon=null, recMonSeq=0;
+function recMonKey(i){ return i+"|"+(state.recDevice||"")+"|"+(state.recChannel|0); }
+function stopMonitor(){
+  const m=recMon; if(!m) return;
+  recMon=null; recMonSeq++; m.stopping=true;
+  if(m.timer) clearInterval(m.timer);
+  try{ m.sp.onaudioprocess=null; }catch(_e){}
+  try{ m.src.disconnect(); m.sp.disconnect(); m.sink.disconnect(); }catch(_e){}
+  try{ m.stream.getTracks().forEach(t=>{ t.onended=null; t.stop(); }); }catch(_e){}
+  try{ m.ctx.close(); }catch(_e){}
+}
+function syncMonitor(i){
+  const ui=cardUI[i];
+  // The probe owns the device while it listens, and a capture owns it afterwards.
+  const want=!!ui && ui.mode==="arming" && ui.perm==="granted" && !ui.msg &&
+             !ui.checking && !recState.probing && recState.active==null && !recCap;
+  if(!want){ stopMonitor(); return; }
+  const key=recMonKey(i);
+  if(recMon&&recMon.key===key) return;   // same device, same channel: keep metering
+  stopMonitor();
+  const seq=++recMonSeq;
+  // A monitor that cannot open is not something the panel must report: ● Start recording
+  // opens the same device and surfaces the same failure with a message.
+  _startMonitor(i,key,seq).catch(_err=>{});
+}
+async function _startMonitor(i,key,seq){
+  const deviceId=state.recDevice, sel=state.recChannel|0;
+  const stream=await recOpen(deviceId);
+  const stale=()=>seq!==recMonSeq||recState.active!=null||!!recCap||
+                  !(cardUI[i]&&cardUI[i].mode==="arming");
+  if(stale()){ try{ stream.getTracks().forEach(t=>t.stop()); }catch(_e){} return; }
+  const inf=recTrackInfo(stream);
+  const ctx=recCtxFor(inf.rate);
+  if(ctx.state==="suspended"){ try{ await ctx.resume(); }catch(_e){} }
+  if(stale()){
+    try{ stream.getTracks().forEach(t=>t.stop()); }catch(_e){}
+    try{ ctx.close(); }catch(_e){}
+    return;
+  }
+  const known=recState.chanByDevice[recChanKey(deviceId)]||0;
+  const nch=Math.max(1,Math.min(REC_MAX_CH,Math.max(known,inf.claimed,sel)));
+  const src=ctx.createMediaStreamSource(stream);
+  const sp=ctx.createScriptProcessor(4096,nch,1);
+  sp.channelInterpretation="discrete";
+  const sink=ctx.createGain(); sink.gain.value=0;
+  const mon={ i:i, key:key, sel:sel, stream:stream, ctx:ctx, src:src, sp:sp, sink:sink,
+              timer:null, stopping:false, t0:0, mPk:0, mSq:0, mN:0, pkHold:-100, pkHoldT:0 };
+  sp.onaudioprocess=e=>{
+    if(mon.stopping) return;
+    const b=e.inputBuffer, N=b.length, n=b.numberOfChannels;
+    // The same reduction the capture would make, so the bar reads the signal the take
+    // would land: the picked channel, or the mix under "All channels".
+    if(mon.sel>0){
+      const idx=mon.sel-1;
+      if(idx<n){ const d=b.getChannelData(idx);
+        for(let k=0;k<N;k++){ const v=d[k], a=v<0?-v:v; if(a>mon.mPk) mon.mPk=a; mon.mSq+=v*v; } }
+      mon.mN+=N;
+    } else {
+      for(let k=0;k<N;k++){
+        let m=0; for(let c=0;c<n;c++) m+=b.getChannelData(c)[k];
+        if(n>1) m/=n;
+        const a=m<0?-m:m; if(a>mon.mPk) mon.mPk=a; mon.mSq+=m*m;
+      }
+      mon.mN+=N;
+    }
+    const o=e.outputBuffer.getChannelData(0); for(let k=0;k<N;k++) o[k]=0;
+  };
+  src.connect(sp); sp.connect(sink); sink.connect(ctx.destination);
+  if(inf.track) inf.track.onended=()=>{ if(recMon===mon) stopMonitor(); };
+  recMon=mon;
+  mon.timer=setInterval(()=>{
+    if(recMon!==mon) return;
+    if(!(cardUI[mon.i]&&cardUI[mon.i].mode==="arming")){ stopMonitor(); return; }
+    paintLevel(mon,cards[mon.i]);
+  },100);
+}
+
 async function _startCapture(i,deviceId,sel,prev){
   const stream=await recOpen(deviceId);
   const inf=recTrackInfo(stream);
@@ -9337,7 +9460,7 @@ function boot(){
       const dv=e.target.closest("[data-recdev]");
       if(dv){ state.recDevice=dv.value||null; state.recChannel=0; saveSettings(); renderCard(i); ensureRecChannels(i); return; }
       const cn=e.target.closest("[data-recchan]");
-      if(cn){ state.recChannel=+cn.value||0; saveSettings(); return; }
+      if(cn){ state.recChannel=+cn.value||0; saveSettings(); syncMonitor(i); return; }
     });
     fileInputs[i].addEventListener("change",()=>{
       const f=fileInputs[i].files[0];
