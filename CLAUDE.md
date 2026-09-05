@@ -770,10 +770,14 @@ build educational copy from it, never re-derive from scratch.
   (card + A/B key + tables + canvases); because `renderCard` replaces the chip the popover anchors
   to *and* closes the popover for that reason, it re-opens on the new chip via the extracted
   `anchorColorPop()`, and `openColorPop` no longer reassigns the input's value when it matches
-  (caret would jump to the end each keystroke). **The printed name is a second door** (user
-  request 2026-09-05): clicking `.slotname` opens the same popover, anchored to the chip so it
-  never moves, with the name field focused and selected (`openColorPop(i,chip,focusName)`);
-  the outside-click guard exempts it like the chip. *Verification, in proportion:* `node --check` ×5,
+  (caret would jump to the end each keystroke). **Renaming is in place** (user request 2026-09-05,
+  after rejecting a popover door): the card always prints a `.slotname` — the name, or a muted
+  italic *Guitar A* placeholder (`.unset`) so an unnamed guitar has something to click — and
+  `beginRename(i)` swaps it for a `.slotname-edit` text field where it sits; Enter or blur
+  commits through `setSlotName()` (still the one writer), Esc restores the span, and `renderCard`
+  rebuilds the head either way so the editor is never torn down by hand. The chip's popover keeps
+  its name field. Its local is named `field`, not `inp` — `tests/r5.test.js` pins the *first*
+  `inp.addEventListener` in the source to the triad picker. *Verification, in proportion:* `node --check` ×5,
   the five node suites (only the documented `dsp` red), `?demo&open=all` in real Chrome with both
   guitars named, the popover in both themes, and an in-page snapshot round-trip.
 - **NEXT — the user’s visual test.** R5 is closed; Q4a and Q4b are built, so nothing stands

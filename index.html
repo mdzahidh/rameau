@@ -365,11 +365,18 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 /* a named guitar prints its name first; the file it came from stays, subdued */
 .slotname{
   font-size:13.5px; font-weight:700; color:var(--ink); flex:none; max-width:44%;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:text;
   border-bottom:1px dotted transparent;
 }
 .slotname:hover{ border-bottom-color:var(--hair2); }
-.filehead .slotname+.filename{ font-weight:500; color:var(--mut); }
+.slotname.unset{ color:var(--faint); font-weight:500; font-style:italic; }
+/* the same slot while it is being typed into — same size and weight, so nothing shifts */
+.slotname-edit{
+  font:inherit; font-size:13.5px; font-weight:700; color:var(--ink); background:var(--raise);
+  border:1px solid var(--hair2); border-radius:6px; padding:1px 6px; margin:-2px 0;
+  flex:none; width:11em; max-width:44%; min-width:0; outline:none;
+}
+.filehead .slotname:not(.unset)+.filename{ font-weight:500; color:var(--mut); }
 .filehead{ display:flex; align-items:center; gap:10px; min-width:0; }
 .filename{
   font-size:13.5px; font-weight:600; color:var(--ink);
@@ -6932,7 +6939,8 @@ function renderCard(i){
     chseg='<div class="seg" title="Channel used for analysis">'+b("mid","Mid")+b("left","L")+b("right","R")+'</div>';
   }
   card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
-    (slotName(i)?'<span class="slotname" title="Click to rename">'+esc(slotName(i))+'</span>':'')+
+    '<span class="slotname'+(slotName(i)?'':' unset')+'" title="Click to rename">'+
+    esc(slotName(i)||("Guitar "+SLOT_LETTER[i]))+'</span>'+
     '<span class="filename" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+
     '<span class="fileacts">'+
     '<button class="iconbtn" data-act="replace" title="Replace with another file">⟳ Replace</button>'+
@@ -9076,7 +9084,7 @@ function setSlotColor(i,hex,live){
   if(!live){ try{ localStorage.setItem("gsColors",JSON.stringify(userColors)); }catch(_e){} }
   applyUserColors();
 }
-function openColorPop(i,anchor,focusName){
+function openColorPop(i,anchor){
   colorPopSlot=i;
   colorPopTitle.textContent=slotLabel(i);
   // never reassign while the user is typing into it — that would drop the caret to the end
@@ -9085,7 +9093,6 @@ function openColorPop(i,anchor,focusName){
   colorPopInput.value=userColors[theme][i]||slotThemeDefault(i);
   colorPop.classList.add("open");
   anchorColorPop(anchor);
-  if(focusName){ namePopInput.focus(); namePopInput.select(); }
 }
 function anchorColorPop(anchor){
   const r=anchor.getBoundingClientRect();
@@ -9113,6 +9120,29 @@ function setSlotName(i,v){
   syncAbKeys();
   if(anyLoaded()) renderAnalysis();
   requestDraw();
+}
+// Rename in place: the printed name becomes a text field where it sits. Enter or
+// clicking away commits through setSlotName (the one writer); Esc restores the span.
+// renderCard() rebuilds the head either way, so the editor never has to be torn down.
+function beginRename(i){
+  const span=cards[i].querySelector(".slotname"); if(!span) return;
+  const field=document.createElement("input");
+  field.type="text"; field.className="slotname-edit"; field.maxLength=SLOT_NAME_MAX;
+  field.value=slotName(i); field.placeholder="Guitar "+SLOT_LETTER[i];
+  field.setAttribute("aria-label","Guitar name");
+  let done=false;
+  const finish=commit=>{
+    if(done) return; done=true;
+    if(commit&&field.value.trim()!==slotName(i)) setSlotName(i,field.value);
+    else renderCard(i);           // unchanged or cancelled: put the span back
+  };
+  field.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){ e.preventDefault(); finish(true); }
+    else if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); finish(false); }
+  });
+  field.addEventListener("blur",()=>finish(true));
+  span.replaceWith(field);
+  field.focus(); field.select();
 }
 function closeColorPop(){ colorPop.classList.remove("open"); colorPopSlot=-1; }
 function escCascade(){
@@ -9156,7 +9186,7 @@ function boot(){
   });
   document.addEventListener("click",e=>{
     if(!colorPop.classList.contains("open")) return;
-    if(e.target.closest(".colorpop")||e.target.closest(".slotchip")||e.target.closest(".slotname")) return;
+    if(e.target.closest(".colorpop")||e.target.closest(".slotchip")) return;
     closeColorPop();
   });
 
@@ -9510,15 +9540,14 @@ function boot(){
   cards.forEach((card,i)=>{
     card.addEventListener("click",e=>{
       if(e.target.closest(".term")) return;
-      // The letter chip and the name are two doors onto one popover; the name
-      // anchors to the chip too, so the popover sits in the same place either way.
-      const name=e.target.closest(".slotname");
-      const chip=e.target.closest(".slotchip")||(name&&card.querySelector(".slotchip"));
+      const chip=e.target.closest(".slotchip");
       if(chip){
-        if(colorPopSlot===i&&!name) closeColorPop();
-        else openColorPop(i,chip,!!name);
+        if(colorPopSlot===i) closeColorPop();
+        else openColorPop(i,chip);
         return;
       }
+      if(e.target.closest(".slotname-edit")) return;            // typing a name
+      if(e.target.closest(".slotname")){ beginRename(i); return; }
       if(e.target.closest("select,input[type=range]")) return;   // the record panel's own controls, the seek slider
       const act=e.target.closest("[data-act]");
       if(act){
