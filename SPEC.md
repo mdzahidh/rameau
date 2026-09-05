@@ -2582,3 +2582,138 @@ calls, then built.
   panes read an empty region (9 red, all "0 px differ"). `TALL` is 6000 now; steps 2–7 green,
   step 1 the documented pre-existing red.
 
+
+## 2026-09-05 — the E phase: evidence-driven readouts (user decisions, session 34)
+
+Decided in conversation with the user on 2026-09-05 and recorded here before any code.
+Where an item below reverses a recorded decision it says so; where it is silent, the
+recorded decision stands. Task breakdown: docs/ROADMAP.md `# E — evidence-driven readouts`.
+
+**Process, fixed first (commit `P — process`, before this entry).** The project's own rule —
+a Chrome launch costs 4–5 minutes, run the full gate once at the end — was being ignored
+because it sat in a 130 KB ROADMAP under history while an older per-task line in the same
+file's header said the opposite. P1: a CLAUDE.md house rule, verbatim — *"Never launch
+headless Chrome unless the current task names a headless assertion. `./tests/verify.sh`
+runs once per milestone, at the gate, by the reviewer. A pure-UI task ships on `node
+--check` on all five blocks and a read-through; a copy or CSS change ships on that alone.
+A small request that says 'no gate' means no Chrome and no new assertion."* P2: the
+contradiction deleted from ROADMAP. P3: `./tests/verify.sh --node` (five node suites +
+tamper guards, 1.6 s measured, prints `node suites passed · headless skipped by request`,
+never `gate passed`) and `HEADLESS_TRIES=<n>` on `tests/headless.js`. P4: model and effort
+per role, written into ROADMAP "Working discipline".
+
+### The three principles (verbatim; they bind every E milestone)
+
+**Usability.** Friction-free first, honest second, and the honesty is carried by the
+presentation of the readouts, not by prose. A guitarist may do one take today and the app
+still moves on, computes whatever that take supports, and shows the rest as absent — with
+one plain line saying exactly what was missing. Less data means fewer rows and wider
+uncertainty, and the panel's shape says so.
+
+**UX.** Intuitive, clutter-free, simple. Detail lives one tap down, never on the surface.
+Form informs function: a control sits on the thing it controls, and the visual state of a
+readout *is* its reliability. Nobody reads a manual.
+
+**Audience.** Usable by someone who knows no technical terms and by someone who understands
+the deep technicality — the same screen, read at different depths.
+
+### Decisions already made
+
+- **Every row declares its evidence requirements and renders in one of four states.** The
+  state is the honesty; no sentence explains reliability on the surface.
+  1. *Measured, banded* — solid dots, a shaded band, a verdict. Requires two takes per guitar.
+     The only state that says "A does X more than B".
+  2. *Measured, unbanded* — solid dots, no band, no verdict. One take each. Numbers are real;
+     whether the gap matters is unknown, and the missing band says so.
+  3. *Partial* — hollow dots. The row computed on thin evidence; the tap says what was thin.
+  4. *Not measurable* — the row collapses to its title plus one line naming what was missing,
+     which is also the instruction for next time.
+- **Provisional bands no longer produce verdicts.** `TONE_BANDS_DEFAULT` stays in block 0 as
+  the *partial* threshold (state 3 vs 2) but never as the basis of a delta sentence. A verdict
+  exists only from a band measured on the user's own takes. **Reversal** of T's "provisional
+  bands apply until measured".
+- **Rows are dropped or moved.** **Reversal** of T's "nothing was dropped". Disposition table
+  below; each moved or dropped row keeps a glossary entry saying where it went and why.
+- **A slot holds takes, not a file.** Two takes of one guitar in one slot compute that
+  guitar's band live; the "Same guitar, two takes" toggle becomes implicit. **Reversal** of
+  T's toggle as a user control. "Save as bands" survives as the way to persist a measured
+  band across sessions (`gsSettings` v5, unchanged).
+- **Guitar type stays asked, never inferred.** The house rule holds. What *is* detected is
+  the recording **path** (DI / mic / piezo) — a Take-tier fact, overridable, never a type.
+- **Type becomes three-valued:** Solidbody electric / Hollowbody electric / Acoustic.
+  Additive on `settings.slotTypes`; `"hollow"` still loads and maps to Hollowbody electric.
+- **Band Energy folds into the two frequency plots.** Shares under the region labels on the
+  Spectrum strip; band-mean Δ as a step line on the Difference plot; the table becomes the
+  region popover. Q3's one-predicate floor rule survives the fold unchanged.
+- **The Regions control lives in the strip it changes,** on both plots, driving one state;
+  it leaves the card header. The menu gains `None`.
+- **The language ladder has three rungs, in the same order everywhere:** plain words → the
+  number and the term → the measurement. Nothing from rung 2 or 3 appears on the surface.
+- **The guided recording is optional and additive.** Drop a file → whatever it supports.
+  Record → prompts that advance on onset, each labelled by the rows it unlocks. Second take →
+  rows upgrade in place. No mode switch.
+- **The user-set guitar name is written into saved audio** — filename and metadata — not
+  only into snapshots.
+
+### Row disposition (E1 builds this)
+
+| Row | Today | Decision | Evidence to be state 2 (starting values — measured before freezing, E1.1) |
+|---|---|---|---|
+| Pickup voice | Instrument | keep | ≥ 20 comb-checked notes spanning ≥ 12 st; SNR ≥ 40 dB; render as a range, not a point + Q to one decimal |
+| Body voice | Instrument | keep for hollow/acoustic; **hidden** (not a pointer) for solidbody | tap test present (E3); from played notes only → state 3 |
+| String stiffness | Instrument | **demote**: open E and A only, never in At a glance; plain-word verdict limited to "same strings and scale" / "different" | both open wound strings, ≥ 12 accepted partials each |
+| Overtone ring | Instrument | keep; pair A/B by string and fret | ≥ 6 matched notes, each ringing ≥ 1.5 s |
+| Bloom | Instrument | keep; the knee values render only in states 1–3 | ≥ 10 notes accepted by the existing two-stage fit gate |
+| Sustain across the neck | Instrument | keep | ≥ 18 notes over ≥ 4 strings (the neck walk) |
+| **Fundamental decay** (new) | — | **add** to Instrument: T20 of f₀ per note, matched by note; replaces Tightness and Sustain (band) | ≥ 6 matched notes |
+| Brightness (+ tilt) | Voicing | keep; compute inside comb-checked note bodies above the floor, which retires the "not comparable · noise floor" flag on this row | ≥ 6 notes |
+| Even/odd, Harmonic richness | Voicing | keep | ≥ 6 comb-checked notes |
+| Attack colour | Voicing | keep; **Attack (rise time)** folds into its popover | ≥ 6 onsets |
+| Warmth, Fullness | Voicing | **remove** — Band Energy owns them; glossary points there | — |
+| Tightness, Sustain (band) | Voicing | **remove** — replaced by Fundamental decay | — |
+| Dynamic range | Voicing | **move** to Take/recording as a comparability fact | — |
+| Pitch check, Level and floor, Between notes, Material | Take | keep; surface becomes a readiness line (E5), numbers one tap down | — |
+| Path (DI / mic / piezo) | — | **add** to Take (E6) | — |
+
+At a glance reads state-1 Instrument rows only. With no state-1 row it says, in rung-1
+words, what it can and what would change that ("record a second take of either guitar").
+
+### The three reversals, named
+
+1. **Provisional-band verdicts.** T (2026-09-05, above) said "provisional bands apply until
+   measured" and let a Δ outside a provisional band print as a verdict. From E1 a verdict
+   exists only from a band measured on the user's own takes; the provisional band decides
+   state 2 vs 3 and nothing else.
+2. **"Nothing was dropped."** T kept all ten old rows. E1 removes Warmth, Fullness, Tightness
+   and Sustain (band), folds Attack into Attack colour's popover, moves Dynamic range to the
+   Take group, and adds Fundamental decay and Path. Each removed or moved row keeps a glossary
+   entry saying where it went and why.
+3. **"Same guitar, two takes" as a toggle.** T made repeatability a user switch. From E2 a slot
+   holds takes; two takes in one slot compute the band live and the switch is set by the app,
+   no longer a user control. `Save as bands` and `gsSettings` v5 are unchanged.
+
+### Milestones and gates
+
+E0 record (this entry) → **E1** the tone panel says how sure it is (block 0 + THEORY §7.7 +
+renderer; **gate**) → **E2** a slot holds takes (state + cards + snapshot; **gate**) → E3 the
+guided take (on M5's capture) → E4 the Band Energy fold → E5 the language ladder (E3–E5
+batch) → **E6** hollow and acoustic (block 0 + physics copy; **gate**) → **E7** the name in
+the file (WAV writer; **gate**). Same delegate-and-review shape as R3/R4/M2.7: physics copy
+and block-0 thresholds are the reviewer's; plumbing may go to the builder; `tests/` stays
+read-only for the builder. Thresholds are **measured on the audit takes and the demo pair
+before they become constants** (E1.1, the `TONE_BANDS_DEFAULT` discipline), recorded in
+THEORY §7.7 with provenance.
+
+**Found, verify first (before E1):** the take `rameau_Take-00-58-04.wav` looks bandlimited
+(LTAS off a cliff at ~2.5 kHz, on the floor by 6 kHz, +15.9 dB of level-match, 14.8 % of its
+energy below 100 Hz against the Les Paul's 2.9 %) — the signature of voice processing or an
+AGC'd mic path. M5.2 turns the three processors off, so either the device route was not what
+the panel claimed or something upstream applied it. If it is a capture defect it is an M5 bug,
+fixed before E3 builds on the same graph; if it was the source, it is recorded in the M5 notes
+as a known trap. The `tests/dsp.test.js` EQ red at line 547 stays the documented pre-existing
+red; nothing here touches it.
+
+**Open taste calls (presented, not decided):** the default region vocabulary for a new user
+(E5.4); whether String stiffness stays as a demoted row or goes to the Pickup voice popover;
+whether `Save as bands` stays a button or happens on export; whether `Guided` defaults on for
+a slot that already has a take.

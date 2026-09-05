@@ -798,7 +798,18 @@ build educational copy from it, never re-derive from scratch.
   it now selects what is measured; cross-type pairs are never differenced). Centroids carry no
   note name. Exports are schema `tone-2` (additive). Details: SPEC.md 2026-09-05, ARCHITECTURE
   "Tone character rework", THEORY §7.6 for every derivation. Awaiting the user's visual test.
-- **NEXT — the user’s visual test.** R5 is closed; Q4a and Q4b are built, so nothing stands
+- **E phase — evidence-driven readouts — STARTED (session 34, 2026-09-05).** Process fixes
+  committed first (`P — process`: the no-Chrome-outside-a-gate house rule above,
+  `./tests/verify.sh --node`, `HEADLESS_TRIES`, effort per role), then **E0 recorded**: the
+  three principles (usability / UX / audience), the decisions (four render states per row,
+  verdicts only from measured bands, rows dropped or moved, a slot holds takes, three-valued
+  type, Band Energy folded into the plots, Regions control in the strip, the three-rung
+  language ladder, optional guided recording, the name written into saved audio) and the row
+  disposition table — SPEC.md 2026-09-05 (E phase) and docs/ROADMAP.md `# E — evidence-driven
+  readouts`; THEORY §7.7 is a placeholder E1.1 fills with measured numbers. Three reversals
+  of T are named there. **E1 next** (gate), then E2 (gate), E3–E5 (batch), E6 (gate), E7
+  (gate). Stop at each gate for the user's test.
+- **NEXT — E1, then the user’s visual test of each gate.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
   in docs/THEORY.md.) M3/M4 remain gated on explicit user go-ahead.

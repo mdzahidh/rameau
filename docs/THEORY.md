@@ -487,6 +487,16 @@ row); until measured, provisional bands from §7.4 apply and are labelled so: ce
 attack ±1 oct, attack colour ±0.5 oct (already a log quantity, so an absolute band),
 band decays ±0.3 oct, overtone sustain ±0.3 oct, neck sustain ±0.3 oct, dynamic range ±5 dB.
 
+### 7.7 · Evidence requirements (placeholder, added 2026-09-05 — E1.1 fills it)
+
+Per tone-panel row: the evidence a take must supply before the row renders as *measured*
+(state 2), what thinner evidence renders as *partial* (state 3), and below what the row
+collapses (state 4). The starting values are in SPEC.md (2026-09-05, E phase, "Row
+disposition"); the final table is written here **only after** each threshold has been run
+against the three audit takes and the demo pair, with the note counts each take actually
+supplied and the reason for any adjustment — the same discipline as the reliability bands
+in §7.6.10. Until then this section states no numbers.
+
 ---
 
 ## Appendix A · Rameau, the physicist of harmony (added 2026-08-22)

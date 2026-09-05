@@ -68,6 +68,15 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **Q4a** | The **expanded view, truly expanded** (1/2) — collision-mark clicks and Hold-Fade work in the magnify overlay. | ✅ done | `#### Q4a — the two interactions` |
 | **Q4b** | The **expanded view, truly expanded** (2/2) — the overlay carries the sgram card head's Overlay / Colors / Legibility controls. | ✅ done | `#### Q4b — the controls in the expanded view` |
 | **M5** | **Record directly into a slot** — capture a take per guitar through a device picker, landed through the existing pipeline; no realtime analysis. | ✅ built 2026-09-04 (raw-PCM rewrite of the reverted MediaRecorder attempt) | `# M5 — Record directly into a slot` |
+| **P** | **Process fixes** — no Chrome outside a gate (CLAUDE.md house rule), the ROADMAP contradiction deleted, `verify.sh --node`, `HEADLESS_TRIES`, effort per role. | ✅ done 2026-09-05 (`P — process`) | "Verification, in proportion", "Model and effort, per role" |
+| **E0** | **E phase recorded** — three principles, decisions, row disposition, THEORY §7.7 placeholder. | ✅ done 2026-09-05 | `# E — evidence-driven readouts` |
+| **E1** | **The tone panel says how sure it is** — evidence manifests measured then frozen, four render states, verdicts only from measured bands, row disposition, schema `tone-3`. | ⏳ next — **gate** | `### E1 — the tone panel says how sure it is` |
+| **E2** | **A slot holds takes** — `slot.takes[]`, snapshot `files[i].takes[]`, live bands from two takes, card redesign, readiness line, waveform seek. | ⏸ after E1 — **gate** | `### E2 — a slot holds takes` |
+| **E3** | **The guided take** — `REC_PROTOCOL` on M5's capture, steps labelled by the rows they unlock, `protocol` in the take's facts. | ⏸ after E2 | `### E3 — the guided take` |
+| **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ⏸ after E3 | `### E4 — the Band Energy fold` |
+| **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ⏸ after E4 (E3–E5 batch) | `### E5 — the language ladder` |
+| **E6** | **Hollow and acoustic** — three-valued type, `tapResonance()`, `roomTail()`, `recordingPath()`, acoustic Anatomy rows. | ⏸ after E5 — **gate** | `### E6 — hollow and acoustic` |
+| **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ⏸ after E6 — **gate** | `### E7 — the name in the file` |
 | **R6** | **Interval consonance explainer** — joint period, comb alignment, Plomp–Levelt/Sethares roughness. Now also carries **R6.4**, the overlay's time bound (was R5.4). | ⏸ blocked: two `docs/THEORY.md` §2.5 numeric caveats are unresolved (R6.4 is not blocked) | `# R6 — Interval consonance explainer` |
 | **Warped sgram difference** | Replace the removed pixel-wise spectrogram difference with an onset-warped / DTW one. | ⏸ deferred until after R6 | `### Deferred — warped spectrogram difference` |
 | **M3** | Live input; still owes the task-based entry points deferred from M2. | 🚫 gated on explicit user go-ahead | `# Gated` |
@@ -1957,6 +1966,342 @@ to answer wrongly — arrange for the answer to be observable.** The zero-fill p
 arrangement.
 
 The reverted work is recoverable at `refs/tbh/recovery/before-discard/20260904T011041Z-45812`.
+
+---
+
+# E — evidence-driven readouts
+
+*Recorded 2026-09-05 (E0) from the user's decisions of the same day; the SPEC.md entry of
+that date carries the three principles verbatim. Reviewer builds E1 → E7 in order, one
+milestone per branch, gates after E1, E2, E6 and E7; E3–E5 batch. Physics copy and block-0
+thresholds are the reviewer's; plumbing may go to the builder; `tests/` stays read-only for
+the builder. Anchors re-grepped against `index.html` at `9ac4545`.*
+
+## The three principles
+
+**Usability.** Friction-free first, honest second, and the honesty is carried by the
+presentation of the readouts, not by prose. A guitarist may do one take today and the app
+still moves on, computes whatever that take supports, and shows the rest as absent — with
+one plain line saying exactly what was missing. Less data means fewer rows and wider
+uncertainty, and the panel's shape says so.
+
+**UX.** Intuitive, clutter-free, simple. Detail lives one tap down, never on the surface.
+Form informs function: a control sits on the thing it controls, and the visual state of a
+readout *is* its reliability. Nobody reads a manual.
+
+**Audience.** Usable by someone who knows no technical terms and by someone who understands
+the deep technicality — the same screen, read at different depths.
+
+## Decisions already made (E phase — do not re-litigate)
+
+- **Every row declares its evidence requirements and renders in one of four states.** The
+  state is the honesty; no sentence explains reliability on the surface.
+  1. *Measured, banded* — solid dots, a shaded band, a verdict. Requires two takes per guitar.
+     The only state that says "A does X more than B".
+  2. *Measured, unbanded* — solid dots, no band, no verdict. One take each. Numbers are real;
+     whether the gap matters is unknown, and the missing band says so.
+  3. *Partial* — hollow dots. The row computed on thin evidence; the tap says what was thin.
+  4. *Not measurable* — the row collapses to its title plus one line naming what was missing,
+     which is also the instruction for next time.
+- **Provisional bands no longer produce verdicts.** `TONE_BANDS_DEFAULT` stays in block 0 as
+  the *partial* threshold (state 3 vs 2) but never as the basis of a delta sentence. A verdict
+  exists only from a band measured on the user's own takes. **Reversal** of T's "provisional
+  bands apply until measured".
+- **Rows are dropped or moved.** **Reversal** of T's "nothing was dropped". Disposition table
+  below; each moved or dropped row keeps a glossary entry saying where it went and why.
+- **A slot holds takes, not a file.** Two takes of one guitar in one slot compute that
+  guitar's band live; the "Same guitar, two takes" toggle becomes implicit. **Reversal** of
+  T's toggle as a user control. "Save as bands" survives as the way to persist a measured
+  band across sessions (`gsSettings` v5, unchanged).
+- **Guitar type stays asked, never inferred.** The house rule holds. What *is* detected is
+  the recording **path** (DI / mic / piezo) — a Take-tier fact, overridable, never a type.
+- **Type becomes three-valued:** Solidbody electric / Hollowbody electric / Acoustic.
+  Additive on `settings.slotTypes`; `"hollow"` still loads and maps to Hollowbody electric.
+- **Band Energy folds into the two frequency plots.** Shares under the region labels on the
+  Spectrum strip; band-mean Δ as a step line on the Difference plot; the table becomes the
+  region popover. Q3's one-predicate floor rule survives the fold unchanged.
+- **The Regions control lives in the strip it changes,** on both plots, driving one state;
+  it leaves the card header. The menu gains `None`.
+- **The language ladder has three rungs, in the same order everywhere:** plain words → the
+  number and the term → the measurement. Nothing from rung 2 or 3 appears on the surface.
+- **The guided recording is optional and additive.** Drop a file → whatever it supports.
+  Record → prompts that advance on onset, each labelled by the rows it unlocks. Second take →
+  rows upgrade in place. No mode switch.
+- **The user-set guitar name is written into saved audio** — filename and metadata — not
+  only into snapshots.
+
+## Row disposition (E1 builds this)
+
+| Row | Today | Decision | Evidence to be state 2 (starting values — measured before freezing, E1.1) |
+|---|---|---|---|
+| Pickup voice | Instrument | keep | ≥ 20 comb-checked notes spanning ≥ 12 st; SNR ≥ 40 dB; render as a range, not a point + Q to one decimal |
+| Body voice | Instrument | keep for hollow/acoustic; **hidden** (not a pointer) for solidbody | tap test present (E3); from played notes only → state 3 |
+| String stiffness | Instrument | **demote**: open E and A only, never in At a glance; plain-word verdict limited to "same strings and scale" / "different" | both open wound strings, ≥ 12 accepted partials each |
+| Overtone ring | Instrument | keep; pair A/B by string and fret | ≥ 6 matched notes, each ringing ≥ 1.5 s |
+| Bloom | Instrument | keep; the knee values render only in states 1–3 | ≥ 10 notes accepted by the existing two-stage fit gate |
+| Sustain across the neck | Instrument | keep | ≥ 18 notes over ≥ 4 strings (the neck walk) |
+| **Fundamental decay** (new) | — | **add** to Instrument: T20 of f₀ per note, matched by note; replaces Tightness and Sustain (band) | ≥ 6 matched notes |
+| Brightness (+ tilt) | Voicing | keep; compute inside comb-checked note bodies above the floor, which retires the "not comparable · noise floor" flag on this row | ≥ 6 notes |
+| Even/odd, Harmonic richness | Voicing | keep | ≥ 6 comb-checked notes |
+| Attack colour | Voicing | keep; **Attack (rise time)** folds into its popover | ≥ 6 onsets |
+| Warmth, Fullness | Voicing | **remove** — Band Energy owns them; glossary points there | — |
+| Tightness, Sustain (band) | Voicing | **remove** — replaced by Fundamental decay | — |
+| Dynamic range | Voicing | **move** to Take/recording as a comparability fact | — |
+| Pitch check, Level and floor, Between notes, Material | Take | keep; surface becomes a readiness line (E5), numbers one tap down | — |
+| Path (DI / mic / piezo) | — | **add** to Take (E6) | — |
+
+At a glance reads state-1 Instrument rows only. With no state-1 row it says, in rung-1
+words, what it can and what would change that ("record a second take of either guitar").
+
+## Verification, in this phase
+
+"Verification, in proportion" applies throughout: node contracts for block-0 math and
+persisted formats, source-read contracts for wiring, one both-theme screenshot pass per
+milestone, no new Chrome launches unless a milestone names one. Pure-UI milestones may ship
+on `node --check` and a read-through. Between tasks `./tests/verify.sh --node`; at a gate the
+full `./tests/verify.sh` once. One commit per task, subject starting with the task id
+(`E1.2 — …`). Persisted formats (`gsSettings`, snapshot, exports, the WAV chunks) additive
+only, with a round-trip test through the shipped reader.
+
+### E0 — record the decisions (docs only) ✅ BUILT 2026-09-05
+
+- E0.1 `SPEC.md`: one entry — principles verbatim, decisions, disposition table, the three
+  reversals named. E0.2 this section, the at-a-glance rows. E0.3 `docs/THEORY.md` §7.7
+  "Evidence requirements", a placeholder E1.1 fills with measured numbers. E0.4 `CLAUDE.md`
+  status. One commit.
+
+### E1 — the tone panel says how sure it is (block 0 + THEORY + renderer) — **gate**
+
+Anchors: `const TONE_BANDS_DEFAULT=` / `function bandVerdict(` (block 0);
+`async function computeTimeMetrics(` (block 4); `function toneRowDefs(`,
+`function toneRecords(`, `function toneRowHtml(`, `function renderToneRows(`,
+`function proseCandidates(`, `function renderVerdict(`, `function renderProse(`;
+`function exportToneCSV(` / `function exportToneJSON(` (`tone-2`).
+
+- **E1.1 Measure the manifests before freezing them.** Run the three audit takes
+  (`tests/audit_tone.js`) and the demo pair against the starting values in the disposition
+  table; for each row record how many notes each take actually supplies and what the state
+  would be. Adjust thresholds only with a reason, write the final table into THEORY §7.7 with
+  provenance, and only then put it in block 0. Same discipline as `TONE_BANDS_DEFAULT`.
+- **E1.2 Block 0:** `TONE_EVIDENCE` (one manifest per row key: min notes, pitch span, f₀
+  range, min SNR, min ring, takes per guitar) and `evidenceFor(rowKey, slot)` returning
+  `{state, have, need, missing:[…]}` — pure, node-tested. `missing` entries are structured
+  (`{what:"notes", have:4, need:10}`), never sentences; the renderer phrases them.
+- **E1.3 Block 0 / block 4: the disposition.** Remove Warmth, Fullness, Tightness, Sustain
+  (band) from `toneRowDefs()`; add Fundamental decay (`m.notes[i].t20` is the fundamental's
+  T20 per note — confirm and reuse); fold Attack into Attack colour's popover data; move
+  Dynamic range to the Take group; hide Body voice for `solid`; gate String stiffness on open
+  E/A. Brightness computed inside comb-checked note bodies (a `computeTimeMetrics` change —
+  measure that the floor sensitivity actually drops on the audit takes before claiming it).
+- **E1.4** `toneRecords()` gains `evidence` and a four-valued `state`; `bandVerdict()` returns
+  a verdict only when the band came from `state.toneBands` (measured). Provisional bands
+  decide state 2 vs 3 and nothing else.
+- **E1.5 Renderer:** the four visual states (solid / solid-no-band / hollow /
+  collapsed-with-one-line). The collapsed line is the manifest's `missing`, phrased once in
+  one place. Every rung-3 annotation now beside the dots (`partials 3–8, to −20 dB`, `tilt
+  −1.6 dB/oct`, `−77 → −14 dB/s · 6 notes`) moves into the readout popover. `.tone-*` classes
+  only; no layout constants change.
+- **E1.6 At a glance:** candidates from state-1 Instrument rows only; the empty case prints
+  the rung-1 sentence naming the cheapest upgrade. Q5's family-tagging is untouched.
+- **E1.7 Exports:** schema `tone-3`, additive (`state`, `evidence` per row).
+- **Verification.** Block-0 assertions for `evidenceFor` on synthetic slots (each state
+  reachable, `missing` exact), an inverted contract that no verdict is emitted from a
+  provisional band, source-read contracts for the four state classes. One both-theme
+  screenshot of `?demo&open=all` and of the three audit takes.
+- **Done when** the demo pair renders with no verdict at all (one take each) and the panel
+  still reads as an answer, not an error.
+
+### E2 — a slot holds takes (state + cards + snapshot) — **gate**
+
+Anchors: `async function finishSlotFromBuffer(`, `async function loadFileIntoSlot(`,
+`function clearSlot(`, `function renderCard(`, `function applySnapshot(`, the snapshot
+builder near `slotNames:state.slotNames.slice(), slotTypes:`; `id="toneRepeatToggle"`,
+`id="toneSaveBandsBtn"`, `function saveToneBands(`; the card transport (`.transport`,
+`startPlayback`, `cardPlayStopped`).
+
+- **E2.1 State:** `slot.takes[]`, each the record a slot holds today (`buffer`, facts,
+  metrics, name of the source). `slot.takes[0]` is what every existing reader sees, so
+  nothing downstream changes until E2.3. `loadFileIntoSlot` / `finishSlotFromBuffer` gain an
+  `append` path; Replace and Clear act per take; the name stays on the slot.
+- **E2.2 Snapshot:** `files[i].takes[]` additive; a v1 snapshot loads as one take. Round-trip
+  test through the real reader, as at R1.3.
+- **E2.3 Bands from takes:** `toneBandsFromTakes(slot)` in block 0 — per row, the spread
+  across a slot's takes, same `oct`/`abs` semantics as `toneBandFor`. When both slots have
+  ≥ 2 takes, rows upgrade to state 1 with these bands; the "Same guitar, two takes" toggle and
+  its `Save as bands` button stay, but the toggle is set by the app when a slot has two takes
+  and is no longer a user control.
+- **E2.4 Card:** the name is the headline (bold, in-place rename as built in session 32);
+  the filename small and grey under it; the take list with a readiness dot per take and
+  `+ Add take` (open or record); one Play/Pause toggle; duration once; ● Record beside
+  ⟳ Replace, not in the transport; the type select labelled `Type` (three values, E6 wires
+  the third); "snapshot JSON" in the drop hint as its own phrase.
+- **E2.5 Readiness line** replaces the floor/SNR pills: one dot and one phrase (`Good take ·
+  supports 12 of 14 rows`; amber `Noisy background · 9 rows`), reading `evidenceFor` over
+  every row. The tap opens floor, SNR, peak, and the rows not supported with their `missing`.
+- **E2.6 Waveform** in place of the bare seek slider — the analysed mono mix, existing onset
+  ticks drawn on it, clipping in the meter's red. Seek semantics unchanged (session 30's one
+  stop path). CSS var chrome; the waveform is data ink like the meter.
+- **Verification.** Snapshot round-trip contracts (v1 → `takes[1]`; v2 → v2), block-0 tests
+  for `toneBandsFromTakes` on synthetic takes, source-read contract that no reader touches
+  `slot.buffer` directly after E2.3. One screenshot per theme with a two-take slot.
+- **Done when** dropping a second file on a loaded slot adds a take, both guitars with two
+  takes turn state-2 rows into state-1 rows in place, and a v1.0.0 snapshot still loads.
+
+### E3 — the guided take (on M5's capture, no new capture code)
+
+Anchors: `async function _startCapture(`, its `sp.onaudioprocess=`, `function startCapture(`,
+`function stopCapture(`, `function detectOnsets(` (block 0), the recording panel renderer,
+the recording guide modal.
+
+- **E3.1** `REC_PROTOCOL` in block 4: an ordered step table `{id, prompt, unlocks:[rowKeys],
+  when:"always"|"hollow"|"mic", advance:"onsets:n"|"seconds:n"|"taps:n"}`. Steps, in order:
+  silence 3 s (floor; abort the take with one sentence if SNR < 40 dB); six open strings, one
+  pluck each, ring to silence; neck walk — frets 0, 3, 5, 7, 9, 12 on every string, ~1.5 s
+  each; anchors — 5th fret on each string, three plucks each, "medium pick, over the neck
+  pickup"; tap test — three knocks on the bridge, strings muted (hollow/acoustic only); the
+  mic-placement prompt (mic takes only, one illustration, E6 supplies the detector).
+  `unlocks` is read from `TONE_EVIDENCE`, never retyped.
+- **E3.2** The recording panel gains a `Guided` switch (default on for a slot with no takes,
+  remembered in `gsSettings`, additive). Off = today's free take. On = the step prompt above
+  the meter, advancing on the existing `onaudioprocess` walk (onset count from the same
+  detector the analysis uses — one detector). The user may skip a step; a skipped step's rows
+  simply stay at whatever state the rest supports.
+- **E3.3** The landed take carries `protocol:{version, stepsDone[]}` in its facts and in the
+  snapshot (additive), so the readiness line can say "neck walk skipped" rather than "needs
+  18 notes".
+- **E3.4** The recording guide modal gets one paragraph on the guided take and loses nothing.
+- **Verification.** Source-read contracts: `unlocks` sourced from `TONE_EVIDENCE`; the step
+  advance reads the analysis onset detector. No new Chrome launch; test by hand.
+- **Done when** a guided take of a solidbody, one per guitar, puts Pickup voice, Sustain
+  across the neck, Bloom and Fundamental decay in state 2, and a second take per guitar puts
+  them in state 1.
+
+### E4 — the Band Energy fold (Frequency Analysis card)
+
+Anchors: `id="freqBands"`, the band-table renderer, `function nearFloorBands(`,
+`const VOCABS=` (block 3), `function setVocab(`, `function fmtPct(`, `drawStringAxis`,
+`syncClearHarmonicsBtn`, the Regions/Strings controls in the Frequency card head.
+
+- **E4.1 Spectrum strip:** under each region label, A's and B's share, coloured by trace,
+  `fmtPct` (Q3's `< 0.1 %` rule). Skipped rather than smeared on narrow regions (M2.6c's
+  rule); the region popover always carries them.
+- **E4.2 Difference plot:** a step line of band-mean Δ per region drawn over the continuous
+  curve; floored regions (`nearFloorBands()`, one predicate) draw the step dimmed and dashed
+  exactly as R5.5 draws the curve. `data-nearfloor-rows` moves to `diffCanvas`'s dataset; the
+  footnote sentence moves to the Difference status chip.
+- **E4.3 Region popover:** range, both shares, Δ, and the floor sentence when it applies —
+  the table's row, one tap down. Band CSV/JSON export moves under the Spectrum export buttons
+  (same data, same builders).
+- **E4.4** Remove `#freqBands` and its sub-section; `gsCollapse`/`?open=` drop the `bands`
+  key (old stored keys ignored, not migrated).
+- **E4.5 Regions control into the strip:** the strip's leading element is `BAND-MIX ZONES ▾`
+  (current set's name, chevron), a tap target on **both** plots driving `setVocab()`; `None`
+  added to `VOCABS` as an empty set (strips hidden, plots otherwise byte-identical to today —
+  headless can assert that). Remove Regions from the card header.
+- **E4.6** Show strings moves to the x-axis's left end on each line plot; Clear harmonics
+  renders only while any harmonic is on (beside the axis, not the header). Card header is
+  title and subtitle only.
+- **Verification.** Source-read contracts that shares and Δ come from the same builders the
+  table used (`bandTable` / `nearFloorBands`), that `None` yields an empty region set, and
+  one existing headless launch extended with `?vocab=none` asserting pixel-identity of the
+  plot rect against the strip-off render. `tests/r5.test.js` shrinks by the Band Energy DOM
+  contracts that no longer apply.
+- **Done when** every number the table printed is reachable in two taps and nothing on the
+  card header is a control.
+
+### E5 — the language ladder (copy and popovers, no math)
+
+- **E5.1** Audit every surface string on the Tone panel, the cards, At a glance, and the
+  Frequency card against the three rungs; move rung-2/3 text down one tap. Keep a list of
+  what moved in the SPEC entry.
+- **E5.2** Take/recording rows render as a traffic light and one phrase each on the surface
+  (`Good level, noisy background`); the numbers (`RMS −20.6 dBFS · peak −1.9 dBFS …`) are
+  the tap.
+- **E5.3** The tap gesture is the same at every depth — term, readout, verdict — through
+  `openPopover`; remove any remaining hover-only, `?`-icon, or expander affordance on these
+  cards (M2.6d's audit, applied again).
+- **E5.4 Taste call for the user, not decided here:** the default region vocabulary for a
+  new user. "Band mix" is a settled default (session 20); the ladder argues for the plainest
+  set. Present the two and stop.
+- **Verification.** Read-through; one both-theme screenshot. No assertions unless a moved
+  string was load-bearing for an existing contract (then update the contract, not the string).
+- **Done when** a first-time single-take comparison reads as a plain answer with everything
+  technical one tap away.
+
+### E6 — hollow and acoustic (block 0 + physics copy) — **gate**
+
+Anchors: `function slotType(`, `function setSlotType(`, the `.slottype` select in
+`renderCard`, `settings.slotTypes` in the snapshot builder and `applySnapshot`;
+`slotBodyRes`, the tap-candidate branch of `computeTimeMetrics` (`ts.single<-57`);
+`betweenNoteResidual` (block 0); `VOCAB_TUNING` / `syncVocabTuning()`.
+
+- **E6.1 Type select:** three values; `settings.slotTypes` accepts `solid | hollow |
+  acoustic`, `"hollow"` = Hollowbody electric. Row `type:` gains `acoustic`; Pickup voice
+  hidden for acoustic mic takes, shown as `Pickup voice (piezo)` for acoustic DI takes; Body
+  voice is the headline row for hollow and acoustic; hollow shows both.
+- **E6.2 Tap test:** `tapResonance()` in block 0 — peak-pick the three-knock spectrum for the
+  air mode and the first top mode; THEORY §7.6 gains the derivation (Helmholtz f from the tap,
+  Q from −3 dB width) **written by the reviewer, frozen by SHA** before any UI. Body voice is
+  state 2 from a tap, state 3 from notes alone.
+- **E6.3 Room tail:** `roomTail()` in block 0 — decay of the silence after the last onset,
+  from the existing "between notes" residual. Decay rows (Overtone ring, Bloom, Fundamental
+  decay, Sustain across the neck) drop to state 3 when the tail exceeds the note's own T20,
+  with `missing:{what:"room", tail, note}`. THEORY §7.6: one paragraph on why a mic'd take's
+  decay includes the room.
+- **E6.4 Path:** `recordingPath(slot)` in block 0 — `di | mic | piezo | unknown` from stereo
+  channel count, room-tail presence, and floor character; a Take-tier row showing the detected
+  value with an override select in its popover; mic-vs-DI pairs raise the same comparability
+  banner as a floor mismatch. Never writes `slotTypes`.
+- **E6.5** Stereo files sum to mono and the card says `stereo, summed`; confirm this is
+  already the analysed-mix behaviour and only the label is new.
+- **E6.6 Vocabulary:** `Anatomy` gains an acoustic row set (air / body / strings / sparkle)
+  that `syncVocabTuning()` picks by the slot type; At a glance opens with "different kinds of
+  guitar — comparing what they share" for cross-type pairs and rows without shared meaning
+  collapse (state 4, `missing:{what:"type"}`).
+- **E6.7** The mic-placement prompt in E3's protocol lights up for `mic` takes.
+- **Verification.** Block-0 tests for `tapResonance` (synthetic Helmholtz + top mode),
+  `roomTail` (synthetic note + exponential tail), `recordingPath` on the audit takes (all
+  `di`) and a synthetic mic take; frozen-copy SHA for the new THEORY-sourced sentences;
+  snapshot contract for the three-valued type.
+- **Done when** a J-45 recorded through a mic lands in a slot, Body voice reads the tap, the
+  decay rows say what the room did, and nothing on a solidbody comparison changed.
+
+### E7 — the name in the file (WAV writer) — **gate**
+
+Anchors: `function sniffAudioInfo(` (block 0 — must keep reading `fmt` and `data` only),
+`function download(`, `exportBaseName`, `sanitizeName`, `slotName`.
+
+- **E7.1** `Save take` on each take row: a 32-bit float WAV of the analysed take, built in JS
+  — header, `LIST/INFO` (`INAM` = name, `ICRD` = date, `ISFT` = `Claude Rameau <version>`,
+  `ICMT` = `take 2 · solidbody · guided v1`), then a private `rmau` chunk carrying JSON (name,
+  type, take index, protocol, capture constraints, onsets), then `data`. Block 0 gets
+  `wavWrite(buffer, meta)` and `wavReadInfo(bytes)`, node-tested round-trip; `LIST` before
+  `data`.
+- **E7.2** Filename `{slug}_{YYYY-MM-DD}_take{n}.wav`, slug = lowercase, spaces to hyphens,
+  `[a-z0-9-]` only; fallback to today's `rameau_Take-…` when the slot is unnamed; `_a`/`_b`
+  suffix only when both slots would produce the same name.
+- **E7.3** On load, `INAM` prefills the slot name and `rmau` restores type, take index and
+  protocol — settings-first, file second, as `applySnapshot` does for names. The sniffer must
+  ignore both chunks (it reads `fmt` and `data` only — confirm).
+- **E7.4** The save dialog line says the name it will use.
+- **Verification.** Block-0 round-trip (write → read → equal meta; `data` sample-exact); the
+  sniffer's rate read unchanged on a file carrying both chunks; a source-read contract that
+  the writer emits `LIST` before `data`.
+- **Done when** a take saved from a named slot reopens with its name, in Rameau and in Logic.
+
+### Found, verify first (before E1)
+
+- **The take `rameau_Take-00-58-04.wav` looks bandlimited** — see the SPEC.md entry of
+  2026-09-05 (E phase). If a capture defect: an M5 bug, fixed before E3. If the source: a
+  known trap in the M5 notes.
+- The `tests/dsp.test.js` EQ red at line 547 is the documented pre-existing red.
+
+### Open taste calls (present, do not decide)
+
+- Default region vocabulary for a new user (E5.4).
+- Whether String stiffness stays as a demoted row or goes to the Pickup voice popover.
+- Whether `Save as bands` stays a button or happens on export.
+- Whether `Guided` defaults on for a slot that already has a take.
 
 ---
 
