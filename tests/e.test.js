@@ -215,7 +215,7 @@ section("E2.1 — a slot holds takes: one door, one array, no cycle in the seria
   ok(/loadFileIntoSlot\(i,audio\[0\],\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take");
   ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]="solid"; \}/.test(b4), "the name stays on the slot when a take is added, and drops when the slot is replaced");
   const lr = body("landRecording");
-  ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
+  ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null, protocol:protocol\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
   const rt = body("removeTake");
   ok(/if\(arr\.length===1\)\{ clearSlot\(i\); return; \}/.test(rt) && /state\.slots\[i\]=arr\[0\];/.test(rt), "removing the last take clears the slot; removing take 0 promotes take 1");
 }
