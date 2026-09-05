@@ -5322,6 +5322,31 @@ const loadSeq=[0,0]; // bump to cancel a stale in-flight analysis
 
 function anyLoaded(){ return !!(state.slots[0]||state.slots[1]); }
 function bothLoaded(){ return !!(state.slots[0]&&state.slots[1]); }
+// ---- E2: a slot holds takes ----
+// state.slots[i] stays the record every reader sees — it is take 0. The slot's takes
+// live in one array shared by all of its records, held as a NON-enumerable property so
+// the snapshot serializer and sanitizeMetrics never meet the cycle. slotTakes(i) is the
+// one door onto that list.
+function slotTakes(i){ const s=state.slots[i]; return s?(s.takes||[s]):[]; }
+function _bindTakes(recs){ for(const r of recs) Object.defineProperty(r,"takes",{value:recs, enumerable:false, writable:true, configurable:true}); return recs; }
+function attachTake(i,rec){
+  const prim=state.slots[i];
+  if(!prim){ _bindTakes([rec]); state.slots[i]=rec; return; }
+  const arr=prim.takes||_bindTakes([prim]);
+  arr.push(rec); _bindTakes(arr);
+}
+// Remove take k. Removing take 0 promotes take 1; removing the last take clears the slot
+// (which drops the name — a slot with nothing in it is not that guitar).
+function removeTake(i,k){
+  const arr=slotTakes(i); if(!arr.length||k<0||k>=arr.length) return;
+  if(arr.length===1){ clearSlot(i); return; }
+  stopPlayback();
+  arr.splice(k,1); _bindTakes(arr);
+  state.slots[i]=arr[0];
+  cardPos[i]=0;
+  renderCard(i);
+  afterDataChange(true);
+}
 
 // ---------- DOM ----------
 const cards=[el("card0"),el("card1")];
@@ -5392,8 +5417,9 @@ const popover=el("popover"), dropOverlay=el("dropOverlay"), dropTitle=el("dropTi
 
 // ---------- analysis pipeline ----------
 function setCardProgress(i,label,frac){
-  if(cardUI[i].mode!=="loading") return;
-  cardUI[i].label=label; cardUI[i].frac=frac;
+  if(cardUI[i].mode==="loaded"&&cardUI[i].adding){ cardUI[i].adding.label=label; cardUI[i].adding.frac=frac; }
+  else if(cardUI[i].mode!=="loading") return;
+  else { cardUI[i].label=label; cardUI[i].frac=frac; }
   const bar=cards[i].querySelector(".progressbar i"), lb=cards[i].querySelector(".progresslabel");
   if(bar) bar.style.width=Math.round(Math.max(0,Math.min(1,frac))*100)+"%";
   if(lb) lb.textContent=label;
@@ -5402,7 +5428,7 @@ function setCardProgress(i,label,frac){
 // Shared tail for every way audio reaches a slot — a dropped file, and (M5) a take
 // recorded into it. Everything downstream (analysis, exports, playback, re-record)
 // sees one shape, so a take is indistinguishable from a file.
-async function finishSlotFromBuffer(i,audioBuf,meta,seq){
+async function finishSlotFromBuffer(i,audioBuf,meta,seq,append){
   const slot={
     name:meta.name, kind:meta.kind||"file",
     info:{ container:meta.container,
@@ -5412,7 +5438,7 @@ async function finishSlotFromBuffer(i,audioBuf,meta,seq){
     duration:audioBuf.duration, samples:null, audioBuf,
     channelMode:meta.channelMode||"mid", metrics:{}
   };
-  await analyzeSlot(i,slot,seq);
+  await analyzeSlot(i,slot,seq,append);
 }
 function slotLoadError(i,name,err,fallback,hintFallback){
   state.slots[i]=null;
@@ -5423,18 +5449,21 @@ function slotLoadError(i,name,err,fallback,hintFallback){
   afterDataChange(true);
 }
 
-async function loadFileIntoSlot(i,file){
+// opts.append: add the file as another take of the guitar already in the slot — the
+// name and type stay, because it is the same guitar. Without it the file replaces the
+// slot, and a different guitar in the slot is not the old guitar.
+async function loadFileIntoSlot(i,file,opts){
   recAbort(i);
-  state.slotNames[i]=""; // a different guitar in the slot — the old name is not its name
-  state.slotTypes[i]="solid";
+  const append=!!(opts&&opts.append&&state.slots[i]);
   if(/\.json$/i.test(file.name)||file.type==="application/json"){
     try{ await loadSnapshotFile(file); }
     catch(err){ toast("Snapshot: "+(err.message||"could not be read."),true); }
     return;
   }
+  if(!append){ state.slotNames[i]=""; state.slotTypes[i]="solid"; }
   const seq=++loadSeq[i];
-  cardUI[i]={mode:"loading",name:file.name,label:"Reading file…",frac:0.02};
-  renderCard(i);
+  if(append){ cardUI[i]={mode:"loaded", adding:{name:file.name,label:"Reading file…",frac:0.02}}; renderCard(i); }
+  else { cardUI[i]={mode:"loading",name:file.name,label:"Reading file…",frac:0.02}; renderCard(i); }
   try{
     const buf=await file.arrayBuffer();
     if(seq!==loadSeq[i]) return;
@@ -5451,17 +5480,22 @@ async function loadFileIntoSlot(i,file){
       name:file.name, kind:"file", container:sniffed.container,
       sampleRate:sniffed.sampleRate,
       channels:sniffed.channels!=null?sniffed.channels:audioBuf.numberOfChannels,
-      bitDepth:sniffed.bitDepth, channelMode:"mid" },seq);
+      bitDepth:sniffed.bitDepth, channelMode:"mid" },seq,append);
   }catch(err){
     if(seq!==loadSeq[i]) return;
+    if(append&&state.slots[i]){ cardUI[i]={mode:"loaded"}; renderCard(i); toast(file.name+": "+((err&&err.message)||"could not be decoded."),true); return; }
     slotLoadError(i,file.name,err,"This file could not be decoded.",
       "Try a different export of the same recording.");
   }
 }
 
-async function analyzeSlot(i,slot,seq){
+async function analyzeSlot(i,slot,seq,append){
   if(seq==null) seq=++loadSeq[i];
-  if(cardUI[i].mode!=="loading"){ cardUI[i]={mode:"loading",name:slot.name,label:"Analyzing…",frac:0.1}; renderCard(i); }
+  // append: a second take for a loaded slot. The card stays loaded and shows the new
+  // take's progress in its take list; the slot's primary record is untouched until the
+  // analysis lands.
+  if(append&&state.slots[i]){ cardUI[i]={mode:"loaded", adding:{name:slot.name,label:"Analyzing…",frac:0.1}}; renderCard(i); }
+  else if(cardUI[i].mode!=="loading"){ cardUI[i]={mode:"loading",name:slot.name,label:"Analyzing…",frac:0.1}; renderCard(i); }
   try{
     if(slot.audioBuf) slot.samples=mixChannel(slot.audioBuf,slot.channelMode);
     setCardProgress(i,"Averaging spectrum…",0.15);
@@ -5485,12 +5519,14 @@ async function analyzeSlot(i,slot,seq){
       slot._sgImage=null;
     }
     slot._dispCache=null;
-    state.slots[i]=slot;
+    if(append&&state.slots[i]) attachTake(i,slot);
+    else { if(!slot.takes) _bindTakes([slot]); state.slots[i]=slot; }   // a re-analysis (channel pick) keeps its sibling takes
     cardUI[i]={mode:"loaded"};
     renderCard(i);
     afterDataChange(true);
   }catch(err){
     if(seq!==loadSeq[i]) return;
+    if(append&&state.slots[i]){ cardUI[i]={mode:"loaded"}; renderCard(i); toast("The take could not be analysed: "+(err.message||"analysis failed."),true); return; }
     state.slots[i]=null;
     cardUI[i]={mode:"error",name:slot.name,
       message:err.message||"Analysis failed.",
@@ -8247,14 +8283,17 @@ async function landRecording(i,buf,proc){
       "Change the device's rate in your system audio settings and record again.");
     return;
   }
-  cardUI[i]={mode:"loading",name:name,label:"Measuring take…",frac:0.35};
+  const append=!!state.slots[i];
+  if(append) cardUI[i]={mode:"loaded", adding:{name:name,label:"Measuring take…",frac:0.35}};
+  else cardUI[i]={mode:"loading",name:name,label:"Measuring take…",frac:0.35};
   renderCard(i);
   try{
     await finishSlotFromBuffer(i,buf,{ name:name, kind:"recording", container:"Live input",
       sampleRate:buf.sampleRate, channels:buf.numberOfChannels,
-      bitDepth:"32-bit float", channelMode:"mid", processing:proc||null },seq);
+      bitDepth:"32-bit float", channelMode:"mid", processing:proc||null },seq,append);
   }catch(err){
     if(seq!==loadSeq[i]) return;
+    if(append&&state.slots[i]){ cardUI[i]={mode:"loaded"}; renderCard(i); toast("The take could not be measured.",true); return; }
     slotLoadError(i,name,err,"The take could not be measured.","Try recording again.");
   }
 }
@@ -9509,10 +9548,16 @@ function exportJSON(){
     if(!s) continue;
     const p=s.welch.power, db=new Array(p.length);
     for(let k=0;k<p.length;k++) db[k]=Math.round(powerToDb(p[k])*100)/100;
+    // E2: further takes of the same guitar ride additively as takes[] — a v1 reader
+    // ignores the key and loads take 0, which is exactly the record it always loaded.
+    const takes=slotTakes(i).slice(1).map(t=>{ const tp=t.welch.power, tdb=new Array(tp.length);
+      for(let k=0;k<tp.length;k++) tdb[k]=Math.round(powerToDb(tp[k])*100)/100;
+      return { name:t.name, kind:t.kind, info:t.info, duration:t.duration, channelMode:t.channelMode,
+               welch:{df:t.welch.df, frames:t.welch.frames, powerDb:tdb}, metrics:sanitizeMetrics(t.metrics) }; });
     files.push({ slot:i, name:s.name, label:slotName(i), instrument:slotType(i), kind:s.kind, info:s.info, duration:s.duration,
       channelMode:s.channelMode,
       welch:{df:s.welch.df, frames:s.welch.frames, powerDb:db},
-      metrics:sanitizeMetrics(s.metrics) });
+      metrics:sanitizeMetrics(s.metrics), ...(takes.length?{takes}:{}) });
   }
   const snap={ app:APP_NAME, type:"snapshot", version:1,
     created:new Date().toISOString(),
@@ -9527,6 +9572,32 @@ function exportJSON(){
 }
 
 // ---------- snapshot restore ----------
+// One file entry → its take records: the entry itself is take 0, and (E2) each entry of
+// its additive takes[] follows. A v1 snapshot has no takes[] and yields exactly one
+// record — the one it always yielded. Pure apart from computeSpectralExtras, so the
+// E-phase suite drives it under node.
+function snapshotTakeRecords(f){
+  const one=(e,name)=>{
+    if(!e||!e.welch||!Array.isArray(e.welch.powerDb)||!isFinite(e.welch.df)||e.welch.df<=0) return null;
+    const power=new Float64Array(e.welch.powerDb.length);
+    for(let k=0;k<power.length;k++){
+      const dbv=e.welch.powerDb[k];
+      power[k]=(dbv==null||!isFinite(dbv))?0:Math.pow(10,dbv/10);
+    }
+    const rec={ name:String(e.name||name||"snapshot"), kind:"snapshot",
+      info:(e.info&&typeof e.info==="object")?e.info:
+        {container:"snapshot", sampleRate:Math.round(e.welch.df*(power.length-1)*2)},
+      duration:isFinite(e.duration)?e.duration:null,
+      samples:null, audioBuf:null, channelMode:e.channelMode||"mid",
+      welch:{power, df:e.welch.df, frames:e.welch.frames|0},
+      metrics:(e.metrics&&typeof e.metrics==="object")?e.metrics:{} };
+    computeSpectralExtras(rec);
+    return rec;
+  };
+  const out=[]; const p=one(f); if(!p) return out; out.push(p);
+  if(Array.isArray(f.takes)) for(const t of f.takes){ const r=one(t,"take"); if(r) out.push(r); }
+  return out;
+}
 async function loadSnapshotFile(file){
   const txt=await file.text();
   let snap;
@@ -9705,23 +9776,12 @@ function applySnapshot(snap){
   if(Array.isArray(st.slotTypes)) for(let i=0;i<2;i++) state.slotTypes[i]=st.slotTypes[i]==="hollow"?"hollow":"solid";
   for(const f of snap.files.slice(0,2)){
     const i=f.slot===1?1:0;
-    if(!f.welch||!Array.isArray(f.welch.powerDb)||!isFinite(f.welch.df)||f.welch.df<=0) continue;
-    const power=new Float64Array(f.welch.powerDb.length);
-    for(let k=0;k<power.length;k++){
-      const dbv=f.welch.powerDb[k];
-      power[k]=(dbv==null||!isFinite(dbv))?0:Math.pow(10,dbv/10);
-    }
-    const slot={ name:String(f.name||"snapshot"), kind:"snapshot",
-      info:(f.info&&typeof f.info==="object")?f.info:
-        {container:"snapshot", sampleRate:Math.round(f.welch.df*(power.length-1)*2)},
-      duration:isFinite(f.duration)?f.duration:null,
-      samples:null, audioBuf:null, channelMode:f.channelMode||"mid",
-      welch:{power, df:f.welch.df, frames:f.welch.frames|0},
-      metrics:(f.metrics&&typeof f.metrics==="object")?f.metrics:{} };
-    computeSpectralExtras(slot);
+    const recs=snapshotTakeRecords(f);
+    if(!recs.length) continue;
     if(f.label) state.slotNames[i]=_clip(String(f.label),SLOT_NAME_MAX);
     if(f.instrument) state.slotTypes[i]=f.instrument==="hollow"?"hollow":"solid";
-    state.slots[i]=slot;
+    _bindTakes(recs);
+    state.slots[i]=recs[0];
     cardUI[i]={mode:"loaded"};
     renderCard(i);
   }
@@ -9824,7 +9884,7 @@ function handleDrop(files,x){
   const audio=files.slice(0,2);
   if(!audio.length) return;
   if(audio.length===2){ loadFileIntoSlot(0,audio[0]); loadFileIntoSlot(1,audio[1]); }
-  else loadFileIntoSlot(pickDropSlot(x),audio[0]);
+  else { const i=pickDropSlot(x); loadFileIntoSlot(i,audio[0],{append:!!state.slots[i]}); }
 }
 
 // ---------- controls ----------

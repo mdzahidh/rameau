@@ -181,5 +181,44 @@ section("E1.7 — exports: schema tone-3, additive");
   ok(/rows, rowsV2, comparability:compat, instrumentTypes/.test(js), "…and keeps every tone-2 field");
 }
 
+// ---- E2: block-4 functions that are pure apart from block 0 — extract and run them ----
+const b4src = blocks[4];
+function fnSrc(src, name) { const i = src.indexOf(name); if (i < 0) throw new Error("no " + name); let d = 0, k = src.indexOf("{", i); for (; k < src.length; k++) { if (src[k] === "{") d++; else if (src[k] === "}" && --d === 0) { k++; break; } } return src.slice(i, k); }
+const e2File = path.join(os.tmpdir(), "rameau_e2_under_test.js");
+fs.writeFileSync(e2File, dspSrc + "\n" + fnSrc(b4src, "function computeSpectralExtras(") + "\n" + fnSrc(b4src, "function snapshotTakeRecords(") + "\nmodule.exports={snapshotTakeRecords};");
+const E2 = require(e2File);
+
+section("E2.2 — the snapshot reader: v1 loads as one take, takes[] restores the rest");
+{
+  const N = 4097, df = 48000 / 8192;
+  const curve = () => { const a = new Array(N); for (let k = 0; k < N; k++) a[k] = -40 - 20 * Math.log10(1 + k / 200); return a; };
+  const v1 = { slot: 0, name: "lp.wav", welch: { df, frames: 12, powerDb: curve() }, metrics: { centroid: 1 }, duration: 10 };
+  const r1 = E2.snapshotTakeRecords(v1);
+  ok(r1.length === 1 && r1[0].name === "lp.wav" && r1[0].kind === "snapshot" && r1[0].welch.power.length === N, "a v1 entry (no takes[]) yields exactly one record");
+  ok(Math.abs(10 * Math.log10(r1[0].welch.power[0]) + 40) < 1e-6, "…with the stored dB curve back as power");
+  const v2 = Object.assign({}, v1, { takes: [{ name: "lp-2.wav", welch: { df, frames: 9, powerDb: curve() }, metrics: {}, duration: 9 }, { name: "broken" }] });
+  const r2 = E2.snapshotTakeRecords(v2);
+  ok(r2.length === 2 && r2[0].name === "lp.wav" && r2[1].name === "lp-2.wav" && r2[1].welch.frames === 9, "takes[] entries follow take 0; a malformed entry is skipped, not fatal", r2.map(r => r.name).join(","));
+  ok(E2.snapshotTakeRecords({ name: "x" }).length === 0 && E2.snapshotTakeRecords(null).length === 0, "an entry with no spectrum yields nothing");
+  const ex = body("exportJSON"), ap = body("applySnapshot");
+  ok(/slotTakes\(i\)\.slice\(1\)/.test(ex) && /\.\.\.\(takes\.length\?\{takes\}:\{\}\)/.test(ex), "the writer adds takes[] only when there are further takes — a one-take snapshot is byte-shaped like v1");
+  ok(/const recs=snapshotTakeRecords\(f\);/.test(ap) && /_bindTakes\(recs\);/.test(ap) && /state\.slots\[i\]=recs\[0\];/.test(ap), "the reader goes through the same builder and binds the takes");
+}
+
+section("E2.1 — a slot holds takes: one door, one array, no cycle in the serializer");
+{
+  const b4 = blocks[4];
+  ok(/function slotTakes\(i\)\{ const s=state\.slots\[i\]; return s\?\(s\.takes\|\|\[s\]\):\[\]; \}/.test(b4), "slotTakes() is the door");
+  ok(/Object\.defineProperty\(r,"takes",\{value:recs, enumerable:false/.test(b4), "takes is non-enumerable — JSON.stringify never meets the cycle");
+  ok(/async function analyzeSlot\(i,slot,seq,append\)/.test(b4) && /if\(append&&state\.slots\[i\]\) attachTake\(i,slot\);/.test(b4), "analyzeSlot has an append path that attaches instead of replacing");
+  ok(/if\(!slot\.takes\) _bindTakes\(\[slot\]\);/.test(b4), "…and a re-analysis of the primary keeps its sibling takes");
+  ok(/loadFileIntoSlot\(i,audio\[0\],\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take");
+  ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]="solid"; \}/.test(b4), "the name stays on the slot when a take is added, and drops when the slot is replaced");
+  const lr = body("landRecording");
+  ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
+  const rt = body("removeTake");
+  ok(/if\(arr\.length===1\)\{ clearSlot\(i\); return; \}/.test(rt) && /state\.slots\[i\]=arr\[0\];/.test(rt), "removing the last take clears the slot; removing take 0 promotes take 1");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
