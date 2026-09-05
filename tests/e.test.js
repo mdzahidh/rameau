@@ -10,7 +10,7 @@ const dspSrc = blocks[0];
 const modFile = path.join(os.tmpdir(), "rameau_e_under_test.js");
 fs.writeFileSync(modFile, dspSrc + `
 module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes,
-  tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO };
+  tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO, wavWrite, wavReadInfo, wavFileSlug, sniffAudioInfo };
 `);
 const D = require(modFile);
 
@@ -352,6 +352,43 @@ section("E6 — the copy is frozen, the type has three values, the rows and the 
   ok(/"stereo, "\+\(s\.channelMode==="left"\?"left":s\.channelMode==="right"\?"right":"summed"\)/.test(body("renderCard")), "a stereo file says 'stereo, summed' (or which side was picked)");
   ok(/data-pathsel/.test(body("openTonePop")) && /closest\("\[data-pathsel\]"\)/.test(b4) && /term:"recording-path"/.test(b4), "the Recording path row is a Take row with an override select in its popover");
   ok(/Different kinds of guitar — /.test(body("renderVerdict")), "At a glance opens a cross-type pair by saying so");
+}
+
+section("E7 — the name in the file: a WAV round trip, the sniffer unmoved, the slug, the wiring");
+{
+  const RATE = 44100, N = 1234;
+  const L = new Float32Array(N), R = new Float32Array(N);
+  for (let k = 0; k < N; k++) { L[k] = Math.sin(k * 0.05) * 0.7; R[k] = Math.cos(k * 0.031) * 0.4; }
+  const ab = { sampleRate: RATE, numberOfChannels: 2, length: N, getChannelData: c => c ? R : L };
+  const name = "Zahid’s Lés Paul (1959)"; // odd byte length, non-ASCII: exercises padding and UTF-8
+  const meta = { name, date: "2026-09-05", software: "Claude Rameau", comment: "take 2 · solidbody · guided v1",
+    rmau: { app: "Claude Rameau", name, type: "hollow", take: 1, protocol: { version: 1, stepsDone: ["silence", "open"], skipped: ["tap"], floorDb: -61.5 }, path: "mic", onsets: [0.12, 1.5] } };
+  const buf = D.wavWrite(ab, meta);
+  const wi = D.wavReadInfo(buf);
+  ok(wi && wi.sampleRate === RATE && wi.channels === 2 && wi.bitDepth === "32-bit float", "wavReadInfo reads the format back", JSON.stringify(wi && [wi.sampleRate, wi.channels, wi.bitDepth]));
+  ok(wi && wi.info.INAM === name && wi.info.ICRD === "2026-09-05" && wi.info.ISFT === "Claude Rameau" && /guided v1/.test(wi.info.ICMT), "…INAM / ICRD / ISFT / ICMT round-trip, UTF-8 and odd lengths included", JSON.stringify(wi && wi.info));
+  ok(wi && JSON.stringify(wi.rmau) === JSON.stringify(meta.rmau), "…and the rmau JSON is equal after the trip");
+  ok(wi && wi.order.indexOf("LIST") < wi.order.indexOf("data") && wi.order.indexOf("rmau") < wi.order.indexOf("data") && wi.order.indexOf("fmt ") === 0, "chunk order: fmt, LIST, rmau, then data", wi && wi.order.join(","));
+  let exact = true; if (wi) { const dv = new DataView(buf); for (let k = 0; k < N && exact; k++) { if (dv.getFloat32(wi.dataOffset + k * 8, true) !== L[k] || dv.getFloat32(wi.dataOffset + k * 8 + 4, true) !== R[k]) exact = false; } }
+  ok(wi && exact && wi.dataBytes === N * 8, "the samples are bit-exact, interleaved, 32-bit float");
+  ok(buf.byteLength % 2 === 0 && new DataView(buf).getUint32(4, true) === buf.byteLength - 8, "RIFF size and even alignment hold");
+  const sn = D.sniffAudioInfo(buf);
+  ok(sn && sn.container === "WAV" && sn.sampleRate === RATE && sn.channels === 2 && sn.bitDepth === "32-bit float", "the sniffer reads the same rate from a file carrying LIST and rmau — it stops at fmt", JSON.stringify(sn));
+  const sBody = body("sniffAudioInfo");
+  ok(!/LIST|rmau|INAM/.test(sBody), "…and its source never mentions either chunk");
+  ok(D.wavReadInfo(new Uint8Array(20)) === null && D.wavReadInfo(D.wavWrite({ sampleRate: 8000, numberOfChannels: 1, length: 0, getChannelData: () => new Float32Array(0) }, {})).info.INAM === undefined, "not a WAV → null; no name → no INAM (LIST holds only what was given)");
+  ok(D.wavFileSlug("Les Paul (1959)!") === "les-paul-1959" && D.wavFileSlug("  Zahid’s  Lés_Paul ") === "zahids-les-paul" && D.wavFileSlug("") === "" && D.wavFileSlug("日本") === "", "the slug rule: lowercase, spaces to hyphens, [a-z0-9-] only");
+  const b4 = blocks[4];
+  const tf = body("takeFileName");
+  ok(/slug\+"_"\+new Date\(\)\.toISOString\(\)\.slice\(0,10\)\+"_take"\+\(\(k\|\|0\)\+1\)\+suffix\+"\.wav"/.test(tf) && /return "rameau_"\+sanitizeName\(s\.name\)\+"\.wav";/.test(tf) && /other===slug\)\?\(i\?"_b":"_a"\):""/.test(tf),
+    "the filename is {slug}_{date}_take{n}.wav, the old rameau_ name when unnamed, _a/_b only on a clash");
+  const st = body("saveTake");
+  ok(/wavWrite\(t\.audioBuf,meta\)/.test(st) && /software:APP_NAME/.test(st) && /rmau:\{ app:APP_NAME, name:name\|\|"", type, take:\(k\|\|0\), protocol:pr\|\|null/.test(st), "saveTake writes through wavWrite with INFO and rmau");
+  ok(/toast\("Saved "\+fn\+" — "/.test(st) && /title="Save as '\+esc\(takeFileName\(i,k\)\)/.test(body("renderCard")), "the save line and the button say the name they will use");
+  ok(!/encodeWavFloat32\(/.test(st), "the old header-only writer is not the save path any more");
+  const lf = body("loadFileIntoSlot");
+  ok(/wavReadInfo\(buf\)/.test(lf) && /if\(inam&&!slotName\(i\)&&state\.slots\[i\]\) setSlotName\(i,inam\);/.test(lf), "on load INAM prefills an unnamed slot through the one name writer, and never overwrites a name");
+  ok(/if\(rm&&!append\)\{ if\(rm\.type\) state\.slotTypes\[i\]=normType\(rm\.type\);/.test(lf) && /protocol:rm&&rm\.protocol\?rm\.protocol:null/.test(lf), "…rmau restores type and path on a fresh slot only, and the protocol rides on the take");
 }
 
 section("E6 — block 0: the tap read, the room in a decay, the recording path");

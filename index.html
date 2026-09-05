@@ -2493,6 +2493,89 @@ function betweenNoteResidual(rmsDb, frameHopSec, onsetTimes){
   vals.sort((a,b)=>a-b); return vals[vals.length>>1];
 }
 
+// ---------- the name in the file: WAV writer + INFO/rmau reader (E7) ----------
+// wavWrite(ab, meta) → ArrayBuffer: 32-bit float PCM, interleaved, at the buffer's own
+// rate. Chunk order is fixed — fmt, LIST/INFO (INAM name, ICRD date, ISFT software, ICMT
+// comment), the private `rmau` chunk (JSON), then data — so LIST and rmau always precede
+// data and a reader that stops at data never depends on them. `ab` is anything with
+// sampleRate / numberOfChannels / length / getChannelData(c) (an AudioBuffer, or a plain
+// object under node). Every string is UTF-8, NUL-terminated, padded to an even length.
+// wavReadInfo(buf) walks the same file back: fmt, INFO, rmau, data — and returns null for
+// anything that is not RIFF/WAVE. sniffAudioInfo() is untouched: it still returns at fmt.
+function _utf8(str){
+  if(typeof TextEncoder!=="undefined") return new TextEncoder().encode(String(str));
+  const out=[]; for(const ch of String(str)){ let c=ch.codePointAt(0);
+    if(c<0x80) out.push(c); else if(c<0x800) out.push(0xC0|c>>6,0x80|c&63);
+    else if(c<0x10000) out.push(0xE0|c>>12,0x80|c>>6&63,0x80|c&63);
+    else out.push(0xF0|c>>18,0x80|c>>12&63,0x80|c>>6&63,0x80|c&63); }
+  return new Uint8Array(out);
+}
+function _utf8dec(u8){
+  if(typeof TextDecoder!=="undefined") return new TextDecoder("utf-8").decode(u8);
+  let s="", i=0; while(i<u8.length){ const b=u8[i++]; if(b<0x80) s+=String.fromCharCode(b);
+    else if(b<0xE0) s+=String.fromCharCode((b&31)<<6|u8[i++]&63);
+    else if(b<0xF0){ s+=String.fromCharCode((b&15)<<12|(u8[i++]&63)<<6|u8[i++]&63); }
+    else { const c=(b&7)<<18|(u8[i++]&63)<<12|(u8[i++]&63)<<6|u8[i++]&63; s+=String.fromCodePoint(c); } }
+  return s;
+}
+const WAV_INFO_KEYS=["INAM","ICRD","ISFT","ICMT"];
+function wavWrite(ab, meta){
+  meta=meta||{};
+  const ch=ab.numberOfChannels, n=ab.length, rate=ab.sampleRate;
+  const textChunk=(id,str)=>{ const b=_utf8(str); const size=b.length+1; return {id, size, bytes:b, pad:size&1}; };
+  const info=[];
+  const im={INAM:meta.name, ICRD:meta.date, ISFT:meta.software, ICMT:meta.comment};
+  for(const k of WAV_INFO_KEYS) if(im[k]!=null&&String(im[k]).length) info.push(textChunk(k,im[k]));
+  const infoBytes=info.reduce((a,c)=>a+8+c.size+c.pad,0);
+  const listSize=infoBytes?4+infoBytes:0;
+  const rj=_utf8(JSON.stringify(meta.rmau||{})); const rmauSize=rj.length, rmauPad=rmauSize&1;
+  const dataBytes=n*ch*4;
+  const total=12+(8+18)+(listSize?8+listSize:0)+(8+rmauSize+rmauPad)+(8+dataBytes);
+  const buf=new ArrayBuffer(total), dv=new DataView(buf), u8=new Uint8Array(buf);
+  let o=0;
+  const str=t=>{ for(let k=0;k<t.length;k++) dv.setUint8(o+k,t.charCodeAt(k)); o+=t.length; };
+  const u32=v=>{ dv.setUint32(o,v,true); o+=4; };
+  const u16=v=>{ dv.setUint16(o,v,true); o+=2; };
+  str("RIFF"); u32(total-8); str("WAVE");
+  str("fmt "); u32(18); u16(3); u16(ch); u32(rate); u32(rate*ch*4); u16(ch*4); u16(32); u16(0);
+  if(listSize){
+    str("LIST"); u32(listSize); str("INFO");
+    for(const c of info){ str(c.id); u32(c.size); u8.set(c.bytes,o); o+=c.bytes.length; dv.setUint8(o++,0); if(c.pad) dv.setUint8(o++,0); }
+  }
+  str("rmau"); u32(rmauSize); u8.set(rj,o); o+=rmauSize; if(rmauPad) dv.setUint8(o++,0);
+  str("data"); u32(dataBytes);
+  const src=[]; for(let c=0;c<ch;c++) src.push(ab.getChannelData(c));
+  for(let k=0;k<n;k++) for(let c=0;c<ch;c++){ dv.setFloat32(o,src[c][k],true); o+=4; }
+  return buf;
+}
+function wavReadInfo(buf){
+  const u8=buf instanceof Uint8Array?buf:new Uint8Array(buf);
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  const tag=off=>String.fromCharCode(u8[off],u8[off+1],u8[off+2],u8[off+3]);
+  if(u8.length<12||tag(0)!=="RIFF"||tag(8)!=="WAVE") return null;
+  const out={sampleRate:null, channels:null, bitDepth:null, info:{}, rmau:null, dataOffset:null, dataBytes:0, order:[]};
+  const cstr=(off,len)=>{ let end=off+len; while(end>off&&u8[end-1]===0) end--; return _utf8dec(u8.subarray(off,end)); };
+  let off=12;
+  while(off+8<=u8.length){
+    const id=tag(off), size=dv.getUint32(off+4,true); out.order.push(id);
+    if(id==="fmt "){ let fmt=dv.getUint16(off+8,true); out.channels=dv.getUint16(off+10,true); out.sampleRate=dv.getUint32(off+12,true);
+      const bits=dv.getUint16(off+22,true); if(fmt===0xFFFE&&size>=40) fmt=dv.getUint16(off+32,true); out.bitDepth=fmt===3?bits+"-bit float":bits+"-bit"; }
+    else if(id==="LIST"&&size>=4&&tag(off+8)==="INFO"){
+      let p=off+12; const end=Math.min(u8.length,off+8+size);
+      while(p+8<=end){ const sid=tag(p), ss=dv.getUint32(p+4,true); out.info[sid]=cstr(p+8,Math.min(ss,end-p-8)); p+=8+ss+(ss&1); }
+    }
+    else if(id==="rmau"){ try{ out.rmau=JSON.parse(cstr(off+8,size)); }catch(_e){ out.rmau=null; } }
+    else if(id==="data"){ out.dataOffset=off+8; out.dataBytes=Math.min(size,u8.length-off-8); }
+    off+=8+size+(size&1);
+  }
+  return out;
+}
+// E7.2: the filename slug — lowercase, spaces to hyphens, [a-z0-9-] only, no doubles or ends.
+function wavFileSlug(name){
+  return String(name||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[\s_]+/g,"-").replace(/[^a-z0-9-]/g,"").replace(/-{2,}/g,"-").replace(/^-|-$/g,"");
+}
+
 // ---------- the tap, read (THEORY §7.6.6, E6.2) ----------
 // `db` is a tap's 1/12-oct-smoothed spectrum in dB, `df` its bin width. The air mode is the
 // most prominent peak in 70–130 Hz, the first top mode in 140–260 Hz (≥ 3 dB over its
@@ -5712,13 +5795,23 @@ async function loadFileIntoSlot(i,file,opts){
       throw e;
     }
     setCardProgress(i,"Decoding at "+sniffed.sampleRate+" Hz…",0.08);
+    // E7.3: a WAV this app wrote carries the guitar's name (INAM) and its own facts (rmau).
+    // The name prefills an unnamed slot; type and path apply to a fresh slot only (a take
+    // added to a named, typed slot keeps the slot's); protocol/processing ride on the take.
+    let wi=null; try{ wi=sniffed.container==="WAV"?wavReadInfo(buf):null; }catch(_e){ wi=null; }
+    const rm=wi&&wi.rmau&&typeof wi.rmau==="object"?wi.rmau:null;
+    if(rm&&!append){ if(rm.type) state.slotTypes[i]=normType(rm.type); if(["di","mic","piezo"].includes(rm.path)) state.slotPaths[i]=rm.path; }
     const audioBuf=await decodeAtNativeRate(buf,sniffed);
     if(seq!==loadSeq[i]) return;
     await finishSlotFromBuffer(i,audioBuf,{
       name:file.name, kind:"file", container:sniffed.container,
       sampleRate:sniffed.sampleRate,
       channels:sniffed.channels!=null?sniffed.channels:audioBuf.numberOfChannels,
-      bitDepth:sniffed.bitDepth, channelMode:"mid" },seq,append);
+      bitDepth:sniffed.bitDepth, channelMode:"mid",
+      protocol:rm&&rm.protocol?rm.protocol:null, processing:rm&&rm.processing?rm.processing:null },seq,append);
+    if(seq!==loadSeq[i]) return;
+    const inam=wi&&wi.info&&wi.info.INAM?String(wi.info.INAM).trim():"";
+    if(inam&&!slotName(i)&&state.slots[i]) setSlotName(i,inam);
   }catch(err){
     if(seq!==loadSeq[i]) return;
     if(append&&state.slots[i]){ cardUI[i]={mode:"loaded"}; renderCard(i); toast(file.name+": "+((err&&err.message)||"could not be decoded."),true); return; }
@@ -8093,7 +8186,7 @@ function renderCard(i){
   const takeRows=takes.map((t,k)=>{
     const r=k===0?rd:takeReadiness(t,i);
     const dur=t.duration!=null&&isFinite(t.duration)?(t.duration>=10?Math.round(t.duration)+" s":t.duration.toFixed(1)+" s"):"";
-    const save=(t.kind==="recording"&&t.audioBuf)?'<button class="iconbtn" data-act="save" data-take="'+k+'" title="Save this take as a 32-bit float WAV at its own sample rate">⭳ Save</button>':"";
+    const save=(t.kind==="recording"&&t.audioBuf)?'<button class="iconbtn" data-act="save" data-take="'+k+'" title="Save as '+esc(takeFileName(i,k))+' — a 32-bit float WAV at its own sample rate, the guitar\u2019s name written into it">⭳ Save</button>':"";
     return '<div class="takerow'+(k===0?" primary":"")+'" data-take="'+k+'">'+
       '<button class="readiness '+r.level+'" data-ready="'+k+'" title="'+esc(r.phrase)+' — click for the numbers"><span class="rdot"></span></button>'+
       '<span class="takename" title="'+esc(t.name)+'">'+esc(t.name)+'</span>'+
@@ -9695,12 +9788,32 @@ function encodeWavFloat32(ab){
   for(let k=0;k<n;k++) for(let c=0;c<ch;c++){ dv.setFloat32(o,src[c][k],true); o+=4; }
   return new Blob([buf],{type:"audio/wav"});
 }
+// E7.2: {slug}_{YYYY-MM-DD}_take{n}.wav from the slot's name; the old rameau_Take-… name when the
+// slot is unnamed; _a/_b only when both slots would produce the same name.
+function takeFileName(i,k){
+  const s=slotTakes(i)[k||0]; if(!s) return "";
+  const slug=wavFileSlug(slotName(i));
+  if(!slug) return "rameau_"+sanitizeName(s.name)+".wav";
+  const other=wavFileSlug(slotName(1-i));
+  const suffix=(state.slots[1-i]&&other===slug)?(i?"_b":"_a"):"";
+  return slug+"_"+new Date().toISOString().slice(0,10)+"_take"+((k||0)+1)+suffix+".wav";
+}
+// E7.1: a 32-bit float WAV of the take with the name in the file — LIST/INFO for every reader
+// (Logic shows INAM), a private rmau chunk for this app (type, take, protocol, capture facts),
+// both before data.
 function saveTake(i,k){
-  const s=slotTakes(i)[k||0];
-  if(!s||!s.audioBuf){ toast("There is no captured audio in this slot to save.",true); return; }
+  const t=slotTakes(i)[k||0];
+  if(!t||!t.audioBuf){ toast("There is no captured audio in this slot to save.",true); return; }
   try{
-    download(encodeWavFloat32(s.audioBuf),"rameau_"+sanitizeName(s.name)+".wav");
-    toast("Take saved as a "+s.audioBuf.sampleRate+" Hz 32-bit float WAV.");
+    const name=slotName(i), type=slotType(i), pr=t.info&&t.info.protocol;
+    const fn=takeFileName(i,k);
+    const meta={ name:name||undefined, date:new Date().toISOString().slice(0,10), software:APP_NAME,
+      comment:"take "+((k||0)+1)+" · "+TYPE_WORD[type]+(pr?" · guided v"+pr.version:""),
+      rmau:{ app:APP_NAME, name:name||"", type, take:(k||0), protocol:pr||null, processing:(t.info&&t.info.processing)||null,
+             path:(state.slotPaths&&state.slotPaths[i])||null, onsets:t.tvis&&t.tvis.onsets?t.tvis.onsets.map(x=>Math.round(x*1000)/1000):null,
+             sampleRate:t.audioBuf.sampleRate } };
+    download(new Blob([wavWrite(t.audioBuf,meta)],{type:"audio/wav"}),fn);
+    toast("Saved "+fn+" — "+t.audioBuf.sampleRate+" Hz 32-bit float WAV"+(name?", with the name in the file.":". Name the guitar and the name goes into the file too."));
   }catch(err){
     toast("The take could not be written out: "+((err&&err.message)||"unknown error"),true);
   }
