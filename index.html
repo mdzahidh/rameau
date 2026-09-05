@@ -10697,11 +10697,16 @@ function boot(){
   // --allow-file-access-from-files; a fetch that fails lands nothing and says so.
   const ld=location.search.match(/[?&]load=([^&]+)(?:&|$)/i);
   if(ld&&/[?&]debug(?:=1)?(?:&|$)/i.test(location.search)){
-    const paths=decodeURIComponent(ld[1]).split(",").slice(0,2);
-    paths.forEach((rel,i)=>{ if(!rel||/^[a-z]+:/i.test(rel)||rel.indexOf("..")>=0) return;
-      fetch(rel).then(r=>{ if(!r.ok) throw new Error(r.status+""); return r.blob(); })
-        .then(b=>loadFileIntoSlot(i,new File([b],rel.split("/").pop(),{type:b.type||"audio/wav"})))
-        .catch(err=>toast("?load: "+rel+" — "+(err&&err.message||"could not be read"),true)); });
+    // E2: `;` separates takes within a slot — load=a1.wav;a2.wav,b.wav — loaded in order,
+    // each after the previous landed, so the second becomes a take of the first.
+    const slots=decodeURIComponent(ld[1]).split(",").slice(0,2);
+    slots.forEach((spec,i)=>{
+      const rels=spec.split(";").filter(rel=>rel&&!/^[a-z]+:/i.test(rel)&&rel.indexOf("..")<0);
+      (async()=>{ for(let k=0;k<rels.length;k++){ const rel=rels[k];
+        try{ const r=await fetch(rel); if(!r.ok) throw new Error(r.status+""); const b=await r.blob();
+          await loadFileIntoSlot(i,new File([b],rel.split("/").pop(),{type:b.type||"audio/wav"}),{append:k>0}); }
+        catch(err){ toast("?load: "+rel+" — "+(err&&err.message||"could not be read"),true); } } })();
+    });
   }
   const al=location.search.match(/[?&]sgalign=(file|onset)(?:&|$)/i);   // test hook
   if(al) setSgAlign(al[1].toLowerCase());
