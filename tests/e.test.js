@@ -239,5 +239,25 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
   ok(/for\(const k in lv\.bands\)/.test(sv) && /state\.toneBands\[k\]=\{v:lv\.bands\[k\]\.v\};/.test(sv), "Save persists the live spreads");
 }
 
+section("E2.4–E2.6 — the card: name headline, take list, readiness, one Play/Pause, the waveform");
+{
+  const rc = body("renderCard"), th = body("transportHtml"), tr = body("takeReadiness"), b4 = blocks[4];
+  ok(/<div class="filesub"><span class="filename"/.test(rc) && /class="slotname/.test(rc), "the name is the headline and the file sits under it");
+  ok(/<div class="takelist">'\+takeRows\+adding\+addRow\+'<\/div>/.test(rc) && /data-act="addfile"/.test(rc), "a take list with + Add take (open or record)");
+  ok(/<label class="typelbl">Type <select class="slottype"/.test(rc), "the type select is labelled Type");
+  ok(/data-act="record" title="Record a take into this slot">● Record<\/button>':""\)\+\s*'<button class="iconbtn" data-act="clear"/.test(rc) && !/data-act="record"/.test(th), "● Record sits beside ⟳ Replace and ✕ Clear, not in the transport");
+  ok(/data-act="playpause"/.test(th) && !/cardpause/.test(th) && !/type="range" class="seek"/.test(th), "one Play/Pause toggle, no separate pause button, no bare range");
+  ok(/<canvas class="wave" data-seek/.test(th) && /seekCard\(i,\{value:waveSeekValue\(cv,e\)\},false\)/.test(b4) && /seekCard\(i,\{value:waveSeekValue\(d\.cv,e\)\},true\)/.test(b4),
+    "the waveform seeks through the same seekCard(): preview while down, commit on release");
+  ok(!/const sk=tr\.querySelector\(".seek"\)/.test(body("syncTransport")) && /drawWave\(i\);/.test(body("syncTransport")), "the tick redraws the waveform's playhead instead of moving a slider");
+  ok(/const ev=toneEvidenceOf\(m, tuningMidi\(state\.tuning,state\.customOffset\), state\.a4, null\);/.test(tr) && /evidenceFor\(d\.term,ev\)/.test(tr) && /supports "\+supported\+" of "\+total\+" rows/.test(tr),
+    "readiness reads evidenceFor over every row and prints how many it supports");
+  ok(!/<span class="k">SNR<\/span>/.test(rc) && !/termHtml\("noise-floor","floor"\)/.test(rc), "the floor/SNR pills are gone — the readiness line replaces them");
+  ok(/openReadinessPop\(i,\+rb\.dataset\.ready\|\|0,rb\.getBoundingClientRect\(\)\)/.test(b4) && /missingLine\(r\.e\.missing,r\.def\)/.test(body("openReadinessPop")), "the tap opens the numbers and the rows not supported, phrased by the one place");
+  ok(/or a snapshot JSON/.test(rc), "snapshot JSON is its own phrase in the drop hint");
+  const dw = body("drawWave");
+  ok(/s\.tvis\.onsets/.test(dw) && /a>=0\.999/.test(dw) && /const clipCol="#d94a3d";/.test(dw), "the waveform draws the onset ticks and clipping in the meter's red");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

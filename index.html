@@ -382,6 +382,32 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
   font-size:13.5px; font-weight:600; color:var(--ink);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;
 }
+/* E2.4: in a loaded card the name is the headline and the file sits small and grey under it */
+.card:not(.empty) .filehead .slotname{ flex:1; max-width:none; font-size:14.5px; }
+.filesub{ display:flex; align-items:center; gap:10px; margin-top:2px; min-width:0; }
+.filesub .filename{ font-size:11.5px; font-weight:400; color:var(--dim); flex:0 1 auto; }
+.filesub .takecount{ font-size:11px; color:var(--dim); flex:none; }
+.typelbl{ font-size:11px; color:var(--dim); display:inline-flex; align-items:center; gap:4px; }
+.typelbl .slottype{ margin-right:0; }
+/* E2.5: readiness — one dot and one phrase; the tap is the numbers */
+.readiness{ font:inherit; font-size:11px; color:var(--mut); background:transparent; border:0; padding:0; cursor:help; display:inline-flex; align-items:center; gap:6px; margin-left:auto; flex:none; }
+.readiness:hover{ color:var(--ink); }
+.readiness .rdot{ width:9px; height:9px; border-radius:50%; background:#3aa55d; flex:none; }
+.readiness.warn .rdot{ background:#e0a52a; } .readiness.bad .rdot{ background:#d94a3d; }
+/* E2.4: the take list */
+.takelist{ margin-top:8px; display:flex; flex-direction:column; gap:3px; }
+.takerow{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--mut); min-width:0; }
+.takerow .readiness{ margin-left:0; }
+.takerow .takename{ min-width:0; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.takerow.primary .takename{ color:var(--ink); }
+.takerow .takedur{ font-variant-numeric:tabular-nums; color:var(--dim); flex:none; }
+.takerow .takeacts{ display:flex; gap:3px; flex:none; }
+.takerow .takeacts .iconbtn{ padding:1px 6px; font-size:10.5px; }
+.takerow.adding .progresswrap{ flex:1; margin:0; }
+.takeadd{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--dim); margin-top:2px; }
+.takeadd .k{ margin-right:2px; }
+/* E2.6: the waveform in the transport's seat */
+.transport canvas.wave{ flex:1 1 120px; min-width:100px; height:44px; width:100%; display:block; cursor:pointer; border-radius:3px; background:var(--panel2); touch-action:none; }
 .fileacts{ display:flex; gap:4px; flex:none; }
 .iconbtn{
   font:inherit; font-size:11px; color:var(--mut); background:var(--raise);
@@ -448,9 +474,6 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 /* Transport: the sound-making controls of one card in a single row — play/stop, pause,
    seek, record. Slot management (replace, clear) stays up in .fileacts. */
 .transport{ display:flex; align-items:center; gap:7px; margin-top:9px; flex-wrap:wrap; }
-.transport .seek{
-  flex:1 1 120px; min-width:100px; height:16px; accent-color:var(--slot-c); cursor:pointer;
-}
 .transport .ttime{ font-variant-numeric:tabular-nums; font-size:11px; color:var(--mut); flex:none; }
 .iconbtn:disabled{ opacity:.4; cursor:default; }
 .iconbtn:disabled:hover{ color:var(--mut); background:var(--raise); border-color:var(--hair); }
@@ -7700,7 +7723,7 @@ function renderCard(i){
       '<div class="btnrow"><button class="btn openbtn" data-act="replace">Open file…</button>'+
       (recSupported()?'<button class="btn openbtn" data-act="record" title="Record a take straight into this slot">● Record…</button>':"")+
       '</div>'+
-      '<div class="fmts">WAV · AIFF · FLAC · MP3 · M4A · snapshot JSON</div></div>';
+      '<div class="fmts">WAV · AIFF · FLAC · MP3 · M4A</div><div class="fmts">or a snapshot JSON</div></div>';
     return;
   }
   if(ui.mode==="loading"){
@@ -7794,24 +7817,20 @@ function renderCard(i){
       '<button class="iconbtn" data-act="recdiscard" title="Throw this take away">✕ Discard</button></div></div>';
     return;
   }
-  // loaded
+  // loaded (E2.4): the name is the headline, the file sits small and grey under it, the
+  // takes are a list with a readiness dot each, and the transport is one Play/Pause plus
+  // the waveform. ● Record lives beside ⟳ Replace: both act on the slot, not the sound.
   const s=state.slots[i], info=s.info, m=s.metrics||{};
+  const takes=slotTakes(i);
   const parts=[esc(String(info.container))];
   parts.push(termHtml("sample-rate",rateK(info.sampleRate)));
   if(info.bitDepth!=null) parts.push(esc(typeof info.bitDepth==="number"?info.bitDepth+"-bit":String(info.bitDepth)));
   if(info.channels!=null) parts.push(info.channels===1?"mono":(info.channels===2?"stereo":info.channels+" ch"));
-  if(s.duration!=null&&isFinite(s.duration))
-    parts.push(s.duration>=10?Math.round(s.duration)+" s":s.duration.toFixed(1)+" s");
   const chips=[];
   if(s.kind==="demo") chips.push('<span class="chip"><span class="k">synthetic</span>Karplus–Strong demo</span>');
   if(info.processing&&(info.processing.ec||info.processing.ns||info.processing.agc))
     chips.push('<span class="chip warn">browser processing was on — '+[info.processing.ec&&"echo cancellation",info.processing.ns&&"noise suppression",info.processing.agc&&"auto gain"].filter(Boolean).join(", ")+' — treat this take\'s spectrum with care</span>');
   if(s.kind==="snapshot") chips.push('<span class="chip"><span class="k">snapshot</span>stored curve — audio not included</span>');
-  if(m.noiseFloor!=null&&isFinite(m.noiseFloor))
-    chips.push('<span class="chip"><span class="k">'+termHtml("noise-floor","floor")+'</span>'+m.noiseFloor.toFixed(0)+' dB</span>');
-  if(m.snr!=null&&isFinite(m.snr))
-    chips.push('<span class="chip"><span class="k">SNR</span>'+m.snr.toFixed(0)+' dB</span>');
-  if(m.clipped) chips.push('<span class="chip err">clipping — '+m.clipCount+' samples at full scale</span>');
   if(m.rumble&&m.rumble.advise)
     chips.push('<span class="chip warn">'+(m.rumble.ratio*100).toFixed(0)+
       ' % of energy below 60 Hz — a high-pass at capture would help</span>');
@@ -7820,21 +7839,99 @@ function renderCard(i){
     const b=(mo,lb)=>'<button data-ch="'+mo+'" class="'+(s.channelMode===mo?"on":"")+'">'+lb+'</button>';
     chseg='<div class="seg" title="Channel used for analysis">'+b("mid","Mid")+b("left","L")+b("right","R")+'</div>';
   }
+  // E2.5: one dot and one phrase per take; the numbers are the tap.
+  const rd=takeReadiness(s,i);
+  const readiness='<button class="readiness '+rd.level+'" data-ready="0" title="What this take supports — click for the numbers"><span class="rdot"></span>'+esc(rd.phrase)+'</button>';
+  const takeRows=takes.map((t,k)=>{
+    const r=k===0?rd:takeReadiness(t,i);
+    const dur=t.duration!=null&&isFinite(t.duration)?(t.duration>=10?Math.round(t.duration)+" s":t.duration.toFixed(1)+" s"):"";
+    const save=(t.kind==="recording"&&t.audioBuf)?'<button class="iconbtn" data-act="save" data-take="'+k+'" title="Save this take as a 32-bit float WAV at its own sample rate">⭳ Save</button>':"";
+    return '<div class="takerow'+(k===0?" primary":"")+'" data-take="'+k+'">'+
+      '<button class="readiness '+r.level+'" data-ready="'+k+'" title="'+esc(r.phrase)+' — click for the numbers"><span class="rdot"></span></button>'+
+      '<span class="takename" title="'+esc(t.name)+'">'+esc(t.name)+'</span>'+
+      '<span class="takedur">'+dur+'</span>'+
+      '<span class="takeacts">'+save+
+      '<button class="iconbtn" data-act="replace" data-take="'+k+'" title="Replace this take with another file">⟳</button>'+
+      '<button class="iconbtn" data-act="cleartake" data-take="'+k+'" title="'+(takes.length>1?"Remove this take":"Clear this slot")+'">✕</button></span></div>';
+  }).join("");
+  const adding=ui.adding?'<div class="takerow adding"><span class="takename">'+esc(ui.adding.name||"")+'</span>'+
+    '<div class="progresswrap"><div class="progressbar"><i style="width:'+Math.round((ui.adding.frac||0)*100)+'%"></i></div><div class="progresslabel">'+esc(ui.adding.label||"")+'</div></div></div>':"";
+  const addRow=ui.adding?"":'<div class="takeadd"><span class="k">+ Add take</span>'+
+    '<button class="iconbtn" data-act="addfile" title="Another recording of the same guitar — the reliability bands measure themselves from two">Open file…</button>'+
+    (recSupported()?'<button class="iconbtn" data-act="record" title="Record another take of this guitar">● Record…</button>':"")+'</div>';
   card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
     '<span class="slotname'+(slotName(i)?'':' unset')+'" title="Click to rename">'+
     esc(slotName(i)||("Guitar "+SLOT_LETTER[i]))+'</span>'+
-    '<span class="filename" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+
     '<span class="fileacts">'+
-    '<select class="slottype" title="What kind of guitar this is — sets which resonance the Tone character panel measures">'+
-    '<option value="solid"'+(slotType(i)==="solid"?" selected":"")+'>Solidbody</option>'+
-    '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollow / acoustic</option></select>'+
-    '<button class="iconbtn" data-act="replace" title="Replace with another file">⟳ Replace</button>'+
+    '<label class="typelbl">Type <select class="slottype" title="What kind of guitar this is — sets which resonance the Tone character panel measures">'+
+    '<option value="solid"'+(slotType(i)==="solid"?" selected":"")+'>Solidbody electric</option>'+
+    '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollowbody electric</option></select></label>'+
+    '<button class="iconbtn" data-act="replace" data-take="0" title="Replace with another file">⟳ Replace</button>'+
+    (recSupported()?'<button class="iconbtn" data-act="record" title="Record a take into this slot">● Record</button>':"")+
     '<button class="iconbtn" data-act="clear" title="Clear this slot">✕ Clear</button></span></div>'+
+    '<div class="filesub"><span class="filename" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+
+    (takes.length>1?'<span class="takecount">'+takes.length+' takes</span>':"")+readiness+'</div>'+
     transportHtml(i)+
+    '<div class="takelist">'+takeRows+adding+addRow+'</div>'+
     '<div class="fileinfo">'+parts.join('<span class="sep">·</span>')+'</div>'+
-    '<div class="filemeta">'+chseg+chips.join("")+'</div>';
+    (chseg||chips.length?'<div class="filemeta">'+chseg+chips.join("")+'</div>':"");
+  drawWave(i);
 }
-
+// ---- E2.5: readiness — one dot, one phrase, from evidenceFor over every row ----
+function takeReadiness(rec,i){
+  const m=rec.metrics||{};
+  const defs=toneRowDefs().filter(d=>!d.text&&(!d.type||d.type===slotType(i)));
+  const ev=toneEvidenceOf(m, tuningMidi(state.tuning,state.customOffset), state.a4, null);
+  const rows=defs.map(d=>({def:d, e:evidenceFor(d.term,ev)}));
+  const supported=rows.filter(r=>r.e.state<=2).length, total=rows.length;
+  let level="good", head="Good take";
+  if(m.clipped){ level="bad"; head="Clipped"; }
+  else if(m.snr!=null&&m.snr<25){ level="bad"; head="Very noisy background"; }
+  else if(m.snr!=null&&m.snr<35){ level="warn"; head="Noisy background"; }
+  else if(m.levelPeak!=null&&m.levelPeak<-24){ level="warn"; head="Quiet take"; }
+  if(level==="good"&&supported<total*0.5){ level="warn"; }
+  return {level, head, supported, total, rows, phrase:head+" · supports "+supported+" of "+total+" rows"};
+}
+function openReadinessPop(i,k,anchor){
+  const t=slotTakes(i)[k]; if(!t) return;
+  const rd=takeReadiness(t,i), m=t.metrics||{};
+  const sec=(label,inner)=>'<div class="pop-sec"><div class="pop-label">'+label+'</div>'+inner+'</div>';
+  const nums=[]; if(m.levelRms!=null) nums.push("RMS "+m.levelRms.toFixed(1)+" dBFS"); if(m.levelPeak!=null) nums.push("peak "+m.levelPeak.toFixed(1)+" dBFS");
+  if(m.noiseFloor!=null) nums.push("floor "+m.noiseFloor.toFixed(0)+" dBFS"); if(m.snr!=null) nums.push("SNR "+m.snr.toFixed(0)+" dB");
+  if(m.clipped) nums.push("clipped — "+m.clipCount+" samples"); if(m.onsetCount!=null) nums.push(m.onsetCount+" onsets"); if(m.pitched!=null) nums.push(m.pitched+" pitched notes");
+  const missing=rd.rows.filter(r=>r.e.state>2).map(r=>'<li class="miss"><b>'+esc(r.def.name)+'</b> — '+esc(missingLine(r.e.missing,r.def)||"not measurable")+'</li>');
+  const met=rd.rows.filter(r=>r.e.state<=2).map(r=>esc(r.def.name));
+  let html='<div class="pop-term">'+esc(rd.head)+'</div><div class="pop-cat">'+esc(slotLabel(i))+' · '+esc(t.name)+'</div>';
+  html+=sec("The take",'<p>'+esc(nums.join(" · "))+'</p>');
+  html+=sec("Supports "+rd.supported+" of "+rd.total+" rows",'<p>'+(met.length?met.join(", "):"—")+'</p>');
+  if(missing.length) html+=sec("Not yet",'<ul class="tone-needs">'+missing.join("")+'</ul>');
+  stopPlayback(); popover.innerHTML=html; popover.classList.add("open"); placePopover(anchor);
+}
+// ---- E2.6: the waveform — the analysed mono mix's envelope, onset ticks, clipping in the
+// meter's red, the playhead. Data ink, so its colours are fixed like the meter's. ----
+const WAVE_H=44;
+function drawWave(i){
+  const cv=cards[i].querySelector("canvas.wave"); if(!cv) return;
+  const s=state.slots[i]; if(!s||!s.tvis) return;
+  const {ctx,w,h}=setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const env=s.tvis.env, n=env.length, dur=cardDur(i);
+  let mx=1e-9; for(let k=0;k<n;k++) if(env[k]>mx) mx=env[k];
+  ctx.fillStyle=cssRGBA("ink-rgb",.42);
+  const clipCol="#d94a3d";
+  for(let x=0;x<w;x++){
+    const k0=Math.floor(x/w*n), k1=Math.max(k0+1,Math.floor((x+1)/w*n));
+    let a=0; for(let k=k0;k<k1&&k<n;k++) if(env[k]>a) a=env[k];
+    const hh=Math.max(1,(a/mx)*(h/2-2));
+    if(a>=0.999) ctx.fillStyle=clipCol;
+    ctx.fillRect(x,h/2-hh,1,hh*2);
+    if(a>=0.999) ctx.fillStyle=cssRGBA("ink-rgb",.42);
+  }
+  ctx.fillStyle=cssRGBA("ink-rgb",.28);
+  for(const t of (s.tvis.onsets||[])){ const x=Math.round(t/dur*w); ctx.fillRect(x,0,1,4); ctx.fillRect(x,h-4,1,4); }
+  const pos=Math.min(dur,cardSeek[i]?cardPos[i]:cardPosNow(i));
+  if(dur>0){ const x=Math.round(pos/dur*w); ctx.fillStyle=cssColor("slot-c"); ctx.fillRect(x,0,2,h); }
+}
 // ---------- M5: record a take straight into a slot ----------
 // Two decisions carry this whole section.
 // (1) Capture is raw PCM through Web Audio, never MediaRecorder: MediaRecorder only
@@ -8448,7 +8545,7 @@ function setPopPlayUI(btn){
 // is a restart at a new one; `playKeepPos` is how the shared onstop tells those two
 // apart from a real Stop. Stop, natural end, Esc, a data change and the lm toggle
 // all arrive through stopPlayback() with the flag down, so they all reset the slider.
-const cardPos=[0,0], cardSeek=[false,false];
+const cardPos=[0,0], cardSeek=[false,false], pendingFile=[null,null];
 let playKeepPos=false, playTick=null;
 function cardDur(i){
   const s=state.slots[i];
@@ -8462,25 +8559,13 @@ function cardPosNow(i){
 // Built fresh on every renderCard, so a re-render restores the live position
 // instead of snapping the slider back to zero under a playing take.
 function transportHtml(i){
-  const rec=recSupported()
-    ?'<button class="iconbtn" data-act="record" title="Record a new take into this slot">● Record</button>':"";
-  // Only a take needs saving — a dropped file is already on disk, and a demo or
-  // snapshot slot has no captured audio behind it.
-  const sl=state.slots[i];
-  const save=(sl&&sl.kind==="recording"&&sl.audioBuf)
-    ?'<button class="iconbtn" data-act="save" title="Save this take as a 32-bit float WAV at its own sample rate">⭳ Save</button>':"";
-  if(!canPlay(i)) return rec?'<div class="transport">'+rec+'</div>':"";
+  if(!canPlay(i)) return "";
   const dur=cardDur(i), pos=Math.min(dur,cardPosNow(i)), on=cardPlaying(i), g=playGainDb(i);
   return '<div class="transport">'+
-    '<button class="iconbtn cardplay'+(on?" playing":"")+'" data-act="play" title="Play the analyzed mono mix'+
-      (i===1?' — level-match gain applies when it’s on':'')+'">'+
-      (on?(g?"■ Stop · "+fmtDb(g,1):"■ Stop"):"▶ Play")+'</button>'+
-    '<button class="iconbtn cardpause" data-act="pause" title="Pause — the slider keeps its place"'+
-      (on?"":" disabled")+'>⏸ Pause</button>'+
-    '<input type="range" class="seek" data-seek min="0" max="1000" step="1" value="'+
-      (dur>0?Math.round(pos/dur*1000):0)+'" title="Seek — play starts from here">'+
-    '<span class="ttime">'+fmtElapsed(pos*1000)+" / "+fmtElapsed(dur*1000)+'</span>'+
-    rec+save+'</div>';
+    '<button class="iconbtn cardplay'+(on?" playing":"")+'" data-act="playpause" title="'+(on?"Pause — the playhead keeps its place":"Play the analyzed mono mix"+(i===1?" — level-match gain applies when it’s on":""))+'">'+
+      (on?(g?"⏸ Pause · "+fmtDb(g,1):"⏸ Pause"):"▶ Play")+'</button>'+
+    '<canvas class="wave" data-seek height="'+WAVE_H+'" title="The analysed mono mix — click or drag to seek"></canvas>'+
+    '<span class="ttime">'+fmtElapsed(pos*1000)+" / "+fmtElapsed(dur*1000)+'</span></div>';
 }
 // In place, never a re-render: the tick runs 10× a second and renderCard rebuilds
 // the record panel's selects along with everything else.
@@ -8492,14 +8577,11 @@ function syncTransport(i){
   if(b){
     const g=playGainDb(i);
     b.classList.toggle("playing",on);
-    b.textContent=on?(g?"■ Stop · "+fmtDb(g,1):"■ Stop"):"▶ Play";
+    b.textContent=on?(g?"⏸ Pause · "+fmtDb(g,1):"⏸ Pause"):"▶ Play";
   }
-  const pb=tr.querySelector(".cardpause");
-  if(pb) pb.disabled=!on;
-  const sk=tr.querySelector(".seek");
-  if(sk&&!cardSeek[i]) sk.value=dur>0?Math.round(pos/dur*1000):0;
   const tt=tr.querySelector(".ttime");
   if(tt) tt.textContent=fmtElapsed(pos*1000)+" / "+fmtElapsed(dur*1000);
+  drawWave(i);
 }
 function stopPlayTick(){ if(playTick){ clearInterval(playTick); playTick=null; } }
 function startPlayTick(){
@@ -8541,6 +8623,10 @@ function pauseCardPlay(i){
   syncTransport(i);
 }
 // input while dragging (cheap, no restart), change on release or a keyboard arrow.
+// E2.6: the waveform seeks exactly as the range did — a preview while the pointer is down,
+// a commit on release — through the same seekCard() and the same single stop path.
+function waveSeekValue(cv,e){ const r=cv.getBoundingClientRect(); return Math.round(1000*Math.max(0,Math.min(1,(e.clientX-r.left)/Math.max(1,r.width)))); }
+let waveDrag=null;
 function seekCard(i,el,commit){
   const dur=cardDur(i);
   const pos=dur*Math.max(0,Math.min(1,(+el.value||0)/1000));
@@ -9261,8 +9347,8 @@ function encodeWavFloat32(ab){
   for(let k=0;k<n;k++) for(let c=0;c<ch;c++){ dv.setFloat32(o,src[c][k],true); o+=4; }
   return new Blob([buf],{type:"audio/wav"});
 }
-function saveTake(i){
-  const s=state.slots[i];
+function saveTake(i,k){
+  const s=slotTakes(i)[k||0];
   if(!s||!s.audioBuf){ toast("There is no captured audio in this slot to save.",true); return; }
   try{
     download(encodeWavFloat32(s.audioBuf),"rameau_"+sanitizeName(s.name)+".wav");
@@ -10494,11 +10580,15 @@ function boot(){
       const act=e.target.closest("[data-act]");
       if(act){
         const a=act.dataset.act;
-        if(a==="replace") fileInputs[i].click();
+        const tk=act.dataset.take!=null?+act.dataset.take:null;
+        if(a==="replace"){ pendingFile[i]={replace:tk}; fileInputs[i].click(); }
+        else if(a==="addfile"){ pendingFile[i]={append:true}; fileInputs[i].click(); }
+        else if(a==="cleartake") removeTake(i,tk||0);
+        else if(a==="playpause"){ if(cardPlaying(i)) pauseCardPlay(i); else toggleCardPlay(i); }
         else if(a==="play") toggleCardPlay(i);
         else if(a==="pause") pauseCardPlay(i);
         else if(a==="record") armRecording(i);
-        else if(a==="save") saveTake(i);
+        else if(a==="save") saveTake(i,tk||0);
         else if(a==="recperm") requestMicAccess(i);
         else if(a==="recheck") recheckRecChannels(i);
         else if(a==="recstart") startCapture(i);
@@ -10510,8 +10600,18 @@ function boot(){
       }
       const ch=e.target.closest("[data-ch]");
       if(ch){ setChannel(i,ch.dataset.ch); return; }
+      const rb=e.target.closest("[data-ready]");
+      if(rb){ e._gsTermHandled=true; openReadinessPop(i,+rb.dataset.ready||0,rb.getBoundingClientRect()); return; }
       if(cardUI[i].mode==="empty"||cardUI[i].mode==="error") fileInputs[i].click();
     });
+    card.addEventListener("pointerdown",e=>{
+      const cv=e.target.closest("canvas.wave"); if(!cv||e.button!==0) return;
+      e.preventDefault(); cv.setPointerCapture(e.pointerId);
+      waveDrag={i,cv}; seekCard(i,{value:waveSeekValue(cv,e)},false);
+    });
+    card.addEventListener("pointermove",e=>{ if(waveDrag&&waveDrag.i===i) seekCard(i,{value:waveSeekValue(waveDrag.cv,e)},false); });
+    card.addEventListener("pointerup",e=>{ if(waveDrag&&waveDrag.i===i){ const d=waveDrag; waveDrag=null; seekCard(i,{value:waveSeekValue(d.cv,e)},true); } });
+    card.addEventListener("pointercancel",()=>{ if(waveDrag&&waveDrag.i===i){ waveDrag=null; seekCard(i,{value:Math.round(1000*cardPos[i]/Math.max(1e-9,cardDur(i)))},true); } });
     card.addEventListener("keydown",e=>{
       if((e.key==="Enter"||e.key===" ")&&(cardUI[i].mode==="empty"||cardUI[i].mode==="error")){
         e.preventDefault();
@@ -10531,8 +10631,14 @@ function boot(){
       if(cn){ state.recChannel=+cn.value||0; saveSettings(); syncMonitor(i); return; }
     });
     fileInputs[i].addEventListener("change",()=>{
-      const f=fileInputs[i].files[0];
-      if(f) loadFileIntoSlot(i,f);
+      const f=fileInputs[i].files[0], pf=pendingFile[i]; pendingFile[i]=null;
+      if(!f){ fileInputs[i].value=""; return; }
+      // E2: "+ Add take" appends; a per-take ⟳ replaces that take (remove, then add —
+      // the name stays, it is the same guitar); the slot-level ⟳ on a one-take slot
+      // replaces the slot as before.
+      if(pf&&pf.append&&state.slots[i]) loadFileIntoSlot(i,f,{append:true});
+      else if(pf&&pf.replace!=null&&slotTakes(i).length>1){ removeTake(i,pf.replace); loadFileIntoSlot(i,f,{append:true}); }
+      else loadFileIntoSlot(i,f);
       fileInputs[i].value="";
     });
   });
