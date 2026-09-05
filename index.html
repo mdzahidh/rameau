@@ -7195,15 +7195,16 @@ function proseCandidates(){
   r=clear("body-resonance");
   if(r){ const hi=r.verdict.hi; cands.push({fam:"tone", score:sc(r), html:nm(hi)+"'s "+termHtml("body-resonance","body voice")+" sits higher — "+
     fmtHz(hi?r.b:r.a)+" against "+fmtHz(hi?r.a:r.b)+"."}); }
-  r=clear("inharmonicity");
-  if(r){ const hi=r.verdict.hi; cands.push({fam:"tone", score:sc(r), html:nm(hi)+" shows more "+termHtml("inharmonicity","string stiffness")+" — its overtones drift further sharp ("+
-    (hi?r.b:r.a).toExponential(1).replace("e-","×10⁻")+" against "+(hi?r.a:r.b).toExponential(1).replace("e-","×10⁻")+"), which reads as stiffer strings or a shorter scale."}); }
+  // String stiffness is demoted (E1): open E/A only, plain words, never in At a glance.
   r=clear("overtone-sustain");
   if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+"'s "+termHtml("overtone-sustain","overtones ring")+
     " longer — "+fmtMs(hi?r.b:r.a)+" to fall 20 dB against "+fmtMs(hi?r.a:r.b)+", about "+ratio.toFixed(1)+"× longer."}); }
   r=clear("neck-sustain");
   if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+" "+termHtml("neck-sustain","sustains")+
     " longer across the neck — a median "+fmtMs(hi?r.b:r.a)+" over "+(state.slots[hi].metrics.neckN)+" notes against "+fmtMs(hi?r.a:r.b)+" over "+(state.slots[1-hi].metrics.neckN)+", about "+ratio.toFixed(1)+"× longer."}); }
+  r=clear("f0-decay");
+  if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+"'s notes "+termHtml("f0-decay","last")+
+    " longer — "+fmtMs(hi?r.b:r.a)+" for the fundamental to fall 20 dB against "+fmtMs(hi?r.a:r.b)+", note for note, about "+ratio.toFixed(1)+"× longer."}); }
   for(let i=0;i<2;i++){ const m=state.slots[i].metrics||{}; if(m.neckFlags&&m.neckFlags.length){
     const f=m.neckFlags[0]; cands.push({fam:"time", score:0.5, html:nm(i)+" has a note that dies early — "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" falls 20 dB in "+fmtMs(f.t20)+
       " against a median of "+fmtMs(m.neckMedian)+"; a candidate "+termHtml("neck-sustain","dead spot")+", worth playing again."}); } }
@@ -7211,12 +7212,27 @@ function proseCandidates(){
   return cands;
 }
 
+// When no Instrument row is banded, the cheapest thing that would change that — in plain
+// words. One take each → a second take of either guitar (that is what measures a band).
+// Otherwise the first Instrument row's first missing item, phrased by missingPhrase().
+function cheapestUpgrade(){
+  const {records}=toneRecords();
+  const inst=records.filter(r=>r.group==="inst"&&!r.def.text&&!r.def.plain);
+  if(inst.some(r=>r.state===2)) return "Record a second take of either guitar — that is what tells the app how much a number moves on its own, and it starts to compare from there.";
+  for(const r of inst){
+    const ev=[0,1].map(i=>r.evidence[i]).find(e=>e&&e.missing&&e.missing.length);
+    if(ev) return "For "+r.name.toLowerCase()+" it "+missingPhrase(ev.missing[0],r.def)+".";
+  }
+  return "";
+}
 function renderProse(){
   if(!bothLoaded()){ prosePara.style.display="none"; return; }
   const cands=proseCandidates();
   const text=cands.length
     ? cands.slice(0,4).map(c=>c.html).join(" ")
-    : "Nothing in the Instrument group clears its reliability band — as instruments these two are not distinguishable on these takes. The Voicing rows above may still differ; that is the player and the pick. The Difference plot with "+termHtml("level-match","level-match")+" on shows the raw spectra side by side.";
+    : (toneRecords().records.some(r=>r.group==="inst"&&r.state===1)
+        ? "Nothing in the Instrument group clears its measured band — as instruments these two are not distinguishable on these takes. The Voicing rows above may still differ; that is the player and the pick."
+        : "Nothing here can yet say one guitar does more of anything than the other. "+cheapestUpgrade()+" The Difference plot with "+termHtml("level-match","level-match")+" on shows the raw spectra side by side meanwhile.");
   prosePara.style.display="";
   prosePara.innerHTML='<span class="lead">Reading the measurements</span>'+text;
 }
@@ -7299,8 +7315,9 @@ function renderVerdict(){
       const other=cands.find(c=>c.fam!==cands[0].fam);
       if(other) parts.push(other.html);
     }
-    else if(!bd||Math.abs(bd.d)<1)
-      parts.push("No instrument-level difference clears its reliability band — as guitars these two are not distinguishable on these takes.");
+    else if(toneRecords().records.some(r=>r.group==="inst"&&r.state===1)){
+      if(!bd||Math.abs(bd.d)<1) parts.push("No instrument-level difference clears its measured band — as guitars these two are not distinguishable on these takes.");
+    } else parts.push("Nothing here can yet say one guitar does more of anything than the other. "+cheapestUpgrade());
   }
   verdictPara.innerHTML='<span class="lead">At a glance</span>'+parts.join(" ");
 }
