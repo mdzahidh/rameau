@@ -2040,6 +2040,26 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   `ANATOMY_ELECTRIC` and `ANATOMY_ACOUSTIC` by `syncVocabTuning()`; every consumer already loops
   `vocab.regions`, and `syncLaneHeight()` follows because the acoustic set has a second row.
 
+### E7 (session 34): the name in the file
+
+- **Two readers, one file.** `sniffAudioInfo()` (block 0, M1) reads `fmt` and stops; it is the
+  gate on whether a file is accepted and it is deliberately **not** taught the new chunks — a
+  metadata bug must never refuse a recording. `wavReadInfo()` is a second, tolerant walker used
+  only after the sniffer said WAV, wrapped in `try` in `loadFileIntoSlot`; if it throws, the file
+  still lands, just unnamed.
+- **Chunk order is a contract, not a habit:** `fmt `, `LIST`, `rmau`, `data`. Some readers stop
+  scanning at `data`, so metadata after it is invisible; the test pins the order.
+- **The `rmau` chunk is the app's own and is never authoritative over the user.** On load it
+  fills only what is empty (`!slotName(i)`) or fresh (`!append`): a name the user typed and a type
+  they picked before the drop win, and a second take never rewrites the slot's identity.
+  `setSlotName()` stays the only name writer, so the card, A/B key, tables and canvases follow.
+- **UTF-8 and padding.** INFO strings are UTF-8, NUL-terminated, even-padded; `_utf8`/`_utf8dec`
+  fall back to hand-rolled encoders so the block-0 test runs under any node without
+  `TextEncoder`. The round-trip test uses an odd-length, accented name for this reason.
+- **The filename is derived, never stored:** `takeFileName(i,k)` reads the slot name, today's
+  date and the take index at click time, and `renderCard` prints it in the Save button's title
+  so the user sees the name before the dialog does.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

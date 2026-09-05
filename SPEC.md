@@ -2978,3 +2978,48 @@ copy block** (`E6_COPY`, SHA `ef7e6780…` in `tests/verify.sh` and `tests/e.tes
   with the path popover; a hollow pair). **Not verifiable here:** the *done when* names a
   J-45 through a microphone — no such take exists in `samples/`; the tap and room paths are
   proven on synthetic signals and the audit takes only.
+
+## 2026-09-05 — E7 built: the name in the file (session 34, reviewer; branch `e-phase`) — E phase complete
+
+The name a player gave a guitar now travels with the audio, so a take saved today reopens
+tomorrow — here or in a DAW — already knowing what it is.
+
+- **E7.1 the writer (block 0).** `wavWrite(ab, meta)` builds a 32-bit float WAV in a fixed
+  chunk order: `fmt `, `LIST/INFO` (`INAM` name, `ICRD` date, `ISFT` software, `ICMT` a
+  one-line comment — `take 2 · solidbody · guided v1`), a private `rmau` chunk carrying JSON
+  (app, name, type, take index, protocol, the capture's processing flags, the path override,
+  onsets, sample rate), then `data`. Every string is UTF-8, NUL-terminated and padded even;
+  samples are interleaved and **bit-exact** (asserted). `wavReadInfo(buf)` walks the same
+  file back and returns `null` for anything that is not RIFF/WAVE. **The sniffer is
+  untouched** — `sniffAudioInfo()` still returns at `fmt`, so a file carrying both new chunks
+  reads the same rate, channels and depth (asserted on the writer's own output, plus an
+  inverted contract that its source never names either chunk).
+- **E7.2 the filename.** `takeFileName(i, k)` → `{slug}_{YYYY-MM-DD}_take{n}.wav`,
+  `wavFileSlug()` = lowercase, spaces to hyphens, `[a-z0-9-]` only, accents stripped through
+  NFD; `_a`/`_b` only when the other slot's name makes the same slug. **One deviation:** an
+  unnamed slot falls back to the **existing** `rameau_<file>.wav` name (the ROADMAP said
+  "today's `rameau_Take-…`", which was never a rule in the code — the shipped fallback is the
+  name every other export already uses).
+- **E7.3 on load.** `loadFileIntoSlot` reads `wavReadInfo` on every WAV: `INAM` prefills the
+  slot name through `setSlotName()` — the one writer — **only when the slot is unnamed**, so a
+  name typed before the drop is never overwritten (settings-first, file second, as
+  `applySnapshot` does); `rmau` restores type and path override on a **fresh** slot only
+  (never on "+ Add take", which would rewrite the guitar's identity from its second take), and
+  the saved protocol rides on the take's facts so a guided take re-imported still lights its
+  steps. `ISFT` is `Claude Rameau` without a version — the app has no version constant, and
+  inventing one for a tag was out of scope.
+- **E7.4** The Save button's `title` and the toast both say the filename they use; the toast
+  adds *Name the guitar and the name goes into the file too* when the slot is unnamed.
+- **Verification:** `tests/e.test.js` 167 → **183** — a stereo round trip with a non-ASCII,
+  odd-length name (format, all four INFO tags, `rmau` deep-equal, chunk order, sample-exact
+  data, RIFF size and even alignment), the sniffer on that file, `null` on a non-WAV, an empty
+  `LIST` when nothing was given, the slug rule, and source-read contracts on `takeFileName`,
+  `saveTake` (no `encodeWavFloat32` on the save path any more), `renderCard` and
+  `loadFileIntoSlot`. **Not verifiable here:** the *done when* names Logic; the `INAM` reading
+  is the standard `LIST/INFO` tag Logic and every WAV editor show, but it was not opened in
+  Logic in this session.
+- **The E phase is complete on `e-phase`** (E1 on master, E2–E7 on the branch, gates run at
+  E2, E3–E5, E6 and E7 with the headless step). The open taste calls, presented not decided:
+  default region vocabulary (E5.4: Band mix vs EQ speak vs None); String stiffness as a row vs
+  popover-only; *Save as bands* as a button vs an export; whether `Guided` should default on for
+  a slot that already holds a take.

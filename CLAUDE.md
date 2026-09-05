@@ -825,7 +825,7 @@ build educational copy from it, never re-derive from scratch.
   `rameau_Take-00-58-04.wav` is the source (an all-digital, cab-simulated feed), not the capture
   — the app now records `track.getSettings()`'s processing flags on the take and warns if any
   was on. Gate hooks `?load=` (debug), `?tuning=`, `?pop=tone.<row>.<slot>`. `tests/e.test.js`
-  is the E-phase suite (**167** after E6), verify.sh step 6 of 8.
+  is the E-phase suite (**183** after E7), verify.sh step 6 of 8.
 - **E2 BUILT (session 34, branch `e-phase`; the user asked for E2–E7 on one branch without
   stopping at each gate).** A slot holds takes: `state.slots[i]` stays take 0, siblings in a
   non-enumerable shared `takes` array (`slotTakes(i)` the door); drop/record/"+ Add take" append
@@ -866,8 +866,21 @@ build educational copy from it, never re-derive from scratch.
   snapshot-additive); mic-vs-DI joins the comparability bar; Anatomy swaps to an acoustic set
   (air / top & back / strings / sparkle) via `syncVocabTuning()`; the card says `stereo,
   summed`; the guided mic step lights for mic takes. Gate hook `?types=<a>,<b>`.
-  `tests/e.test.js` **167**. **E7 next.**
-- **NEXT — E3 → E7 on `e-phase`, then the user’s test of the whole branch.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
+  `tests/e.test.js` **167**.
+- **E7 BUILT (session 34, branch `e-phase`, gate) — the E phase is complete on the branch.**
+  The name in the file: block 0 `wavWrite(ab, meta)` writes a 32-bit float WAV as `fmt `,
+  `LIST/INFO` (`INAM` name, `ICRD` date, `ISFT` software, `ICMT` `take 2 · solidbody · guided v1`),
+  a private `rmau` JSON chunk (name, type, take index, protocol, processing flags, path override,
+  onsets, rate), then bit-exact `data`; `wavReadInfo()` walks it back; **`sniffAudioInfo()` is
+  untouched and stops at `fmt`** (an inverted contract keeps it so). `takeFileName(i,k)` →
+  `{slug}_{YYYY-MM-DD}_take{n}.wav` (`wavFileSlug`: lowercase, hyphens, `[a-z0-9-]`; `_a/_b` on
+  a clash; the old `rameau_<file>` name when unnamed); `saveTake` writes through `wavWrite` and
+  the Save button's title says the name. On load `INAM` prefills an **unnamed** slot through
+  `setSlotName()` and `rmau` restores type/path on a **fresh** slot only, the protocol riding on
+  the take. `tests/e.test.js` **183**. Deviations and the Logic caveat in SPEC.md 2026-09-05
+  "E7 built". Open taste calls (presented, not decided): E5.4 default vocabulary, String
+  stiffness row vs popover, Save as bands button vs export, Guided default for a slot with a take.
+- **NEXT — the user’s test of the whole `e-phase` branch (E2–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
   in docs/THEORY.md.) M3/M4 remain gated on explicit user go-ahead.
@@ -880,7 +893,7 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 167**, headless **73**
+- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 183**, headless **73**
   (eight steps since E1; `--node` skips the headless step).
   **Step 1 is red on master and has been since `ac65835` "EQ match: fit
   each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound

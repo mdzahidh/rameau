@@ -76,7 +76,7 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ✅ built 2026-09-05 (branch `e-phase`) | `### E4 — the Band Energy fold` |
 | **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ✅ built 2026-09-05 (branch `e-phase`) — E3–E5 **gate** | `### E5 — the language ladder` |
 | **E6** | **Hollow and acoustic** — three-valued type, `tapResonance()`, `roomTail()`, `recordingPath()`, acoustic Anatomy rows. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E6 — hollow and acoustic` |
-| **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ⏸ after E6 — **gate** | `### E7 — the name in the file` |
+| **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E7 — the name in the file` |
 | **R6** | **Interval consonance explainer** — joint period, comb alignment, Plomp–Levelt/Sethares roughness. Now also carries **R6.4**, the overlay's time bound (was R5.4). | ⏸ blocked: two `docs/THEORY.md` §2.5 numeric caveats are unresolved (R6.4 is not blocked) | `# R6 — Interval consonance explainer` |
 | **Warped sgram difference** | Replace the removed pixel-wise spectrogram difference with an onset-warped / DTW one. | ⏸ deferred until after R6 | `### Deferred — warped spectrogram difference` |
 | **M3** | Live input; still owes the task-based entry points deferred from M2. | 🚫 gated on explicit user go-ahead | `# Gated` |
@@ -2301,7 +2301,9 @@ Anchors: `function slotType(`, `function setSlotType(`, the `.slottype` select i
 - **Done when** a J-45 recorded through a mic lands in a slot, Body voice reads the tap, the
   decay rows say what the room did, and nothing on a solidbody comparison changed.
 
-### E7 — the name in the file (WAV writer) — **gate**
+### E7 — the name in the file (WAV writer) — **gate** ✅ BUILT 2026-09-05 (branch `e-phase`)
+
+*Reviewer-built (`89e705d`); SPEC.md 2026-09-05 "E7 built" has the account, including the two deviations (unnamed fallback keeps the existing `rameau_<file>` name; `ISFT` carries no version).*
 
 Anchors: `function sniffAudioInfo(` (block 0 — must keep reading `fmt` and `data` only),
 `function download(`, `exportBaseName`, `sanitizeName`, `slotName`.
