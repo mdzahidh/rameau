@@ -9,7 +9,8 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 const dspSrc = blocks[0];
 const modFile = path.join(os.tmpdir(), "rameau_e_under_test.js");
 fs.writeFileSync(modFile, dspSrc + `
-module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes };
+module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes,
+  tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO };
 `);
 const D = require(modFile);
 
@@ -322,5 +323,83 @@ section("E4 — the Band Energy fold: one builder, two strips, a step line, the 
     "the lane is a chip row plus three text lines per region row: 58 px, or 88 for two rows — None keeps 58, and both canvases grew by the chip row so the plot rect did not shrink");
 }
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+section("E6 — block 0: the tap read, the room in a decay, the recording path");
+(async () => {
+  const RATE = 48000;
+  // A tap: two decaying modes, air at 98 Hz (Q ≈ 12) and top at 190 Hz (Q ≈ 9), 0.25 s.
+  const tap = new Float64Array(Math.round(0.25 * RATE));
+  for (let n = 0; n < tap.length; n++) {
+    const t = n / RATE;
+    tap[n] = Math.exp(-Math.PI * 98 * t / 12) * Math.sin(2 * Math.PI * 98 * t) + 0.6 * Math.exp(-Math.PI * 190 * t / 9) * Math.sin(2 * Math.PI * 190 * t);
+  }
+  const wt = await D.welch(tap, RATE, D.TAP_WELCH_N, D.TAP_WELCH_N >> 1, null);
+  const p12 = D.smoothOct(wt.power, wt.df, 12), db = new Float64Array(p12.length);
+  for (let q = 0; q < db.length; q++) db[q] = D.powerToDb(p12[q]);
+  const tr = D.tapResonance(db, wt.df);
+  ok(tr && tr.air && Math.abs(tr.air.f - 98) < 4 && tr.top && Math.abs(tr.top.f - 190) < 6, "tapResonance finds the air mode and the first top mode of a synthetic knock", JSON.stringify(tr));
+  const qc = D.tapQCeiling(98, RATE);
+  ok(tr && tr.air.q > 5 && tr.air.q <= qc * 1.25 && tr.top.q > 5 && qc > 8 && qc < 13, "…each with a Q up to the ceiling the window and smoothing allow (≈ 10 at 98 Hz), and the ceiling is a stated function", tr && (tr.air.q.toFixed(1) + " / " + tr.top.q.toFixed(1) + " · ceiling " + qc.toFixed(1)));
+  ok(D.tapResonance(new Float64Array(db.length).fill(-80), wt.df) === null, "a flat spectrum is no tap");
+
+  // A note (broadband decay τ = 0.35 s → T20 ≈ 0.8 s) alone, then with a room tail (τ = 2 s).
+  const hop = 0.025, mk = (roomTau) => {
+    const x = new Float64Array(Math.round(6 * RATE));
+    for (let n = 0; n < x.length; n++) {
+      const t = n / RATE, floorV = 1e-4 * Math.sin(12345.6 * n) * 0.5; // a real file has a floor everywhere
+      if (t < 1) { x[n] = floorV; continue; }
+      const u = t - 1;
+      let v = Math.exp(-u / 0.35) * Math.sin(2 * Math.PI * 110 * u) * 0.5;
+      if (roomTau) v += 0.15 * Math.exp(-u / roomTau) * (Math.sin(2 * Math.PI * 137 * u + 1) + Math.sin(2 * Math.PI * 411 * u + 2)) / 2;
+      x[n] = v + floorV;
+    }
+    return x;
+  };
+  const dry = mk(0), wet = mk(2.0);
+  const tailOf = x => { const r = D.shortTermRms(x, RATE); const f = D.dynamicsMetrics(x, RATE).noiseFloor; return D.roomTail(r, hop, [1.0], f); };
+  const td = tailOf(dry), tw = tailOf(wet);
+  const noteT20 = 20 / (8.686 / 0.35);
+  ok(td && Math.abs(td.t20 - noteT20) / noteT20 < 0.35, "a dry note's tail is the note's own decay", td && td.t20.toFixed(2) + " s vs " + noteT20.toFixed(2));
+  ok(tw && tw.t20 > 1.5 * noteT20, "…and a room tail reads slower than the note", tw && tw.t20.toFixed(2) + " s");
+  ok(!D.roomOutlastsNote(td, noteT20) && D.roomOutlastsNote(tw, noteT20), "roomOutlastsNote separates the two at ROOM_TAIL_RATIO " + D.ROOM_TAIL_RATIO);
+  ok(D.roomTail(D.shortTermRms(dry, RATE), hop, [], -60) === null, "no onset, no tail");
+
+  // The path.
+  ok(D.recordingPath({ room: tw, noteT20, channels: 1, type: "solid" }) === "mic", "a room tail is a microphone, whatever the type says");
+  ok(D.recordingPath({ room: td, noteT20, channels: 2, stereoDiffDb: -6, type: "solid" }) === "mic", "two channels that differ are a mic pair");
+  ok(D.recordingPath({ room: td, noteT20, channels: 2, stereoDiffDb: -80, type: "solid" }) === "di", "two identical channels are one DI signal");
+  ok(D.recordingPath({ room: td, noteT20, channels: 1, type: "acoustic" }) === "piezo" && D.recordingPath({ room: null, channels: 1, type: "hollow" }) === "di", "no room: an acoustic was plugged in (piezo), an electric is DI");
+  ok(D.recordingPath(null) === "unknown" && D.recordingPath({ channels: 1 }) === "unknown", "nothing analysed → unknown");
+  const cmp = D.comparability({ path: "mic", registerMidi: 50 }, { path: "di", registerMidi: 50 });
+  ok(cmp.some(c => c.key === "path" && !c.ok && c.rows.includes("f0-decay")) && cmp.find(c => c.key === "register").ok, "comparability flags mic-vs-DI and names the decay rows; strings pass through the numeric guard");
+  ok(D.comparability({ path: "mic" }, { path: "unknown" }).find(c => c.key === "path").ok, "…and an unknown path never blocks");
+
+  // The audit takes: DI recordings, all three — the room test must stay silent on them.
+  function readWav(file) {
+    const b = fs.readFileSync(file); let p = 12, fmt = null, data = null;
+    while (p + 8 <= b.length) { const id = b.toString("ascii", p, p + 4), sz = b.readUInt32LE(p + 4);
+      if (id === "fmt ") fmt = { tag: b.readUInt16LE(p + 8), ch: b.readUInt16LE(p + 10), rate: b.readUInt32LE(p + 12), bits: b.readUInt16LE(p + 22) };
+      if (id === "data") { data = b.subarray(p + 8, p + 8 + sz); break; } p += 8 + sz + (sz & 1); }
+    const { ch, rate, bits, tag } = fmt, bps = bits / 8, frames = Math.floor(data.length / (bps * ch)), x = new Float64Array(frames);
+    for (let i = 0; i < frames; i++) { const o = i * bps * ch; x[i] = tag === 3 ? data.readFloatLE(o) : bits === 16 ? data.readInt16LE(o) / 32768 : bits === 24 ? ((data[o] | (data[o + 1] << 8) | (data[o + 2] << 16)) << 8 >> 8) / 8388608 : data.readInt32LE(o) / 2147483648; }
+    return { x, rate, ch };
+  }
+  const paths = [];
+  for (const nm of ["Les_Paul", "SG", "Majesty"]) {
+    const fp = path.join(__dirname, "..", "samples", nm + ".wav");
+    if (!fs.existsSync(fp)) continue;
+    const { x, rate, ch } = readWav(fp);
+    const sb = D.stftBands(x, rate, [[60, 200], [200, 1200], [2000, 6000]]);
+    const times = D.detectOnsets(sb.flux, sb.frameRate).map(fi => fi / sb.frameRate);
+    const floor = D.dynamicsMetrics(x, rate).noiseFloor;
+    const room = D.roomTail(D.shortTermRms(x, rate), 0.025, times, floor);
+    // the last note's own fundamental decay (Goertzel at its f0, THEORY §7.6.2)
+    const t = times[times.length - 1], start = Math.round((t + 0.05) * rate), len = Math.min(Math.round(1.0 * rate), x.length - start);
+    const f0 = D.autocorrF0(x, rate, start, Math.min(8192, len));
+    const t20 = f0 ? D.trackT20(D.goertzelTrack(x, rate, Math.round(t * rate), Math.floor((x.length / rate - t) * rate / 512), 4096, 512, f0.f0), 512, rate) : null;
+    paths.push({ nm, ch, room: room && room.t20.toFixed(2), t20: t20 && t20.toFixed(2), path: D.recordingPath({ room, noteT20: t20, channels: ch, type: "solid" }) });
+  }
+  ok(paths.length === 3 && paths.every(p => p.path === "di"), "the three audit takes read as DI — no room outlasts their last note", JSON.stringify(paths));
+  console.log(`\n${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+})();
+

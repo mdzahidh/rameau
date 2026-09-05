@@ -2493,6 +2493,64 @@ function betweenNoteResidual(rmsDb, frameHopSec, onsetTimes){
   vals.sort((a,b)=>a-b); return vals[vals.length>>1];
 }
 
+// ---------- the tap, read (THEORY §7.6.6, E6.2) ----------
+// `db` is a tap's 1/12-oct-smoothed spectrum in dB, `df` its bin width. The air mode is the
+// most prominent peak in 70–130 Hz, the first top mode in 140–260 Hz (≥ 3 dB over its
+// neighbours); Q = f / (−3 dB width) on the same curve, so ≈ 17 is the ceiling the smoothing
+// allows. Null when neither window holds a peak.
+// TAP_WELCH_N is the analysis window over the 0.25 s knock; the resolution floor is its Hann
+// main lobe (≈ 1.44 bins) in quadrature with the 1/12-oct smoothing (5.8 % of f), and
+// tapQCeiling() says what Q that lets a peak at f read at most — a Q at the ceiling means
+// "at least this".
+const TAP_AIR=[70,130], TAP_TOP=[140,260], TAP_MIN_PROM=3, TAP_WELCH_N=8192;
+function tapQCeiling(f, rate){ return f/Math.hypot(1.44*rate/TAP_WELCH_N, f*(Math.pow(2,1/24)-Math.pow(2,-1/24))); }
+function tapResonance(db, df){
+  const pick=w=>{ const pk=detectPeaks(db,df,{fmin:w[0],fmax:w[1],minProm:TAP_MIN_PROM,maxCount:1,minDistOct:1/12});
+    return pk.length?{f:pk[0].f, db:pk[0].db, prom:pk[0].prom, q:peakQ(db,df,pk[0].f)}:null; };
+  const air=pick(TAP_AIR), top=pick(TAP_TOP);
+  return (air||top)?{air,top}:null;
+}
+
+// ---------- the room in a decay (THEORY §7.6.11, E6.3) ----------
+// The broadband tail after the LAST onset: from 10 dB under its peak down to the floor + 6 dB,
+// one straight line in dB → the tail's own T20. Pure; the caller compares it with the note's
+// own decay through roomOutlastsNote(). Null when there is no usable tail.
+const ROOM_TAIL_TOP_DB=10, ROOM_TAIL_FLOOR_DB=6, ROOM_TAIL_MIN_FRAMES=8, ROOM_TAIL_MIN_FALL=10, ROOM_TAIL_RATIO=1.5;
+function roomTail(rmsDb, hopSec, onsetTimes, floorDb){
+  if(!rmsDb||!rmsDb.length||!onsetTimes||!onsetTimes.length) return null;
+  const t=onsetTimes[onsetTimes.length-1];
+  const i0=Math.max(0,Math.min(rmsDb.length-1,Math.round(t/hopSec)));
+  let ip=i0; for(let i=i0;i<Math.min(rmsDb.length,i0+Math.round(0.2/hopSec)+1);i++) if(rmsDb[i]>rmsDb[ip]) ip=i;
+  // stop at the floor + 6 dB, and never fit more than 70 dB below the peak (a longer line
+  // is the floor, not a decay — a file with digital silence has no finite floor to stop at)
+  const pk=rmsDb[ip], lo=Math.max((floorDb!=null&&isFinite(floorDb)?floorDb:-Infinity)+ROOM_TAIL_FLOOR_DB, pk-70);
+  let a=-1, b=-1;
+  for(let i=ip;i<rmsDb.length;i++){ if(a<0&&rmsDb[i]<=pk-ROOM_TAIL_TOP_DB) a=i; if(a>=0&&rmsDb[i]<=lo){ b=i; break; } }
+  if(a<0) return null;
+  if(b<0) b=rmsDb.length-1;
+  if(b-a<ROOM_TAIL_MIN_FRAMES||rmsDb[a]-rmsDb[b]<ROOM_TAIL_MIN_FALL) return null;
+  let n=0,sx=0,sy=0,sxx=0,sxy=0;
+  for(let i=a;i<=b;i++){ const x=(i-ip)*hopSec, y=rmsDb[i]; n++; sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; }
+  const slope=(n*sxy-sx*sy)/Math.max(n*sxx-sx*sx,1e-12);
+  if(!(slope<-0.5)) return null;
+  return {t20:20/(-slope), slope, fall:rmsDb[a]-rmsDb[b], span:(b-a)*hopSec, t};
+}
+// The tail is the room's when it outlasts the note's own decay by ROOM_TAIL_RATIO.
+function roomOutlastsNote(room, noteT20){ return !!(room&&noteT20>0&&isFinite(noteT20)&&room.t20>ROOM_TAIL_RATIO*noteT20); }
+
+// ---------- the recording path (THEORY §7.6.12, E6.4) ----------
+// di | mic | piezo | unknown. A room tail exists only through a microphone; two channels that
+// differ are a mic pair; between DI and piezo the audio is silent, so the declared type
+// decides. Never writes the type.
+const STEREO_DIFF_DB=-20;
+function recordingPath(o){
+  if(!o) return "unknown";
+  if(roomOutlastsNote(o.room,o.noteT20)) return "mic";
+  if(o.channels>=2&&o.stereoDiffDb!=null&&isFinite(o.stereoDiffDb)&&o.stereoDiffDb>STEREO_DIFF_DB) return "mic";
+  if(o.type==null) return "unknown";
+  return o.type==="acoustic"?"piezo":"di";
+}
+
 // ---------- comparability (THEORY §7.6.10) ----------
 // Everything level-matching does not fix. Each check names the rows it blocks.
 const COMPAT_CHECKS=[
@@ -2508,12 +2566,16 @@ const COMPAT_CHECKS=[
    fmt:(a,b)=>a.toFixed(0)+" s vs "+b.toFixed(0)+" s", rows:["dynamic-range"]},
   {key:"level", label:"level", val:m=>m.levelRms, test:(a,b)=>Math.abs(a-b)<=12,
    fmt:(a,b)=>Math.abs(a-b).toFixed(0)+" dB apart", rows:[]},
+  // E6.4: a mic take against a DI take — the room is in one decay and not the other.
+  {key:"path", label:"recording path", val:m=>m.path, test:(a,b)=>a===b||a==="unknown"||b==="unknown",
+   fmt:(a,b)=>a+" vs "+b, rows:["brightness","residual","f0-decay","overtone-sustain","bloom","neck-sustain"]},
 ];
 function comparability(mA, mB){
   const out=[];
   for(const c of COMPAT_CHECKS){
     const a=c.val(mA||{}), b=c.val(mB||{});
-    if(a==null||b==null||!isFinite(a)||!isFinite(b)) continue;
+    if(a==null||b==null) continue;
+    if(typeof a==="number"&&(!isFinite(a)||!isFinite(b))) continue;
     const ok=c.test(a,b);
     out.push({key:c.key, label:c.label, ok, a, b, text:ok?null:c.fmt(a,b), rows:c.rows});
   }
@@ -5752,11 +5814,13 @@ async function computeTimeMetrics(slot, onProgress){
       if(ts&&ts.single<-57){
         const tap=x.subarray(onsetSample,onsetSample+Math.round(0.25*rate));
         if(tap.length>=4096){
-          const wt=await welch(tap,rate,4096,2048,null);
+          // E6.2: both modes from one knock (tapResonance, THEORY §7.6.6); the record keeps
+          // the air mode's f/q at the top level, as before, and the top mode beside it.
+          const wt=await welch(tap,rate,TAP_WELCH_N,TAP_WELCH_N>>1,null);
           const p12=smoothOct(wt.power,wt.df,12), db=new Float64Array(p12.length);
           for(let q=0;q<db.length;q++) db[q]=powerToDb(p12[q]);
-          const pk=detectPeaks(db,wt.df,{fmin:70,fmax:130,minProm:3,maxCount:1,minDistOct:1/12});
-          if(pk.length) taps.push({t:c.t, f:pk[0].f, db:pk[0].db, prom:pk[0].prom, q:peakQ(db,wt.df,pk[0].f)});
+          const tr=tapResonance(db,wt.df);
+          if(tr&&tr.air) taps.push({t:c.t, f:tr.air.f, db:tr.air.db, prom:tr.air.prom, q:tr.air.q, qMax:tapQCeiling(tr.air.f,rate), top:tr.top?Object.assign({qMax:tapQCeiling(tr.top.f,rate)},tr.top):null});
         }
       }
     }

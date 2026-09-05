@@ -452,6 +452,22 @@ peak is the fallback and is labelled as such. **Measured only on hollow/acoustic
 a solidbody the same window holds the riff's notes (§7.4 — the Les Paul's "air resonance"
 was A♭2).
 
+*The tap, read (added 2026-09-05, E6.2).* `tapResonance()` reads both modes from one tap
+spectrum — the first 0.25 s after an unpitched onset that fell faster than 57 dB/s (a knock
+with the strings muted), 4096-pt Welch, 1/12-octave smoothing, in dB. The air mode is the most
+prominent peak in **70–130 Hz**, the first top mode the most prominent in **140–260 Hz** — the
+two ranges stated above, kept apart so one wide air peak cannot be read twice — each accepted
+with ≥ 3 dB of prominence over its neighbours. **Q = f / Δf₋₃dB**, the width walked down each
+side of the peak on the same smoothed curve to the first sample 3 dB below it. Two things set
+the resolution floor: the 8192-point Hann window over the 0.25 s knock (−3 dB main lobe
+≈ 1.44 bins ≈ 8 Hz at 48 kHz) and the 1/12-octave smoothing (5.8 % of f), added in
+quadrature — so an air mode near 100 Hz reads a Q of at most ≈ 10 and a top mode near 200 Hz
+at most ≈ 14 (`tapQCeiling(f, rate)`); a Q at its ceiling means *at least this*, and the
+popover prints the ceiling beside it. Three knocks are asked for because the loudest *clean* knock is the one
+reported (a knock that caught a string fails the tap test's decay gate and is simply not a
+tap). A tap on a solidbody also yields a spectrum — of the neck and body bending modes (§7.6.7),
+not of an air cavity — which is why the row is hidden there rather than mislabelled.
+
 **7.6.7 · Dead spots.** The neck and body of a solidbody have bending modes (the first near
 60–120 Hz, higher ones at a few hundred Hz — Fleischer & Zwicker 1998, *Mechanical
 vibrations of electric guitars*, Acustica 84). The string's end is not a rigid support:
@@ -474,6 +490,40 @@ short-term RMS in the gap minus the peak RMS of the note before it, in dB; the m
 gaps. On a direct take this is the string's own ring plus the noise floor; with a
 microphone it rises with room and distance. THEORY does not give a distance from it, so it
 is named as what it is.
+
+**7.6.11 · The room in a decay (added 2026-09-05, E6.3).** A microphone hears the string
+through the air of the room. After a sound stops, the room's field decays exponentially in
+energy; the time to fall 60 dB is the reverberation time, RT60 (Sabine: T ≈ 0.161·V/A, V the
+volume in m³, A the total absorption in m²), typically 0.3–0.6 s in a furnished room and
+longer in a hard one, and its share of what the microphone hears grows with distance from
+the instrument (past the critical distance the reverberant field dominates the direct
+sound). The decay a microphone records is therefore the **slower** of two processes — the
+string's own loss (§7.6.2) and the room's — and a decay row cannot read faster than the room
+lets it. In an ordinary room the string outlasts the room by a wide margin (a T20 of seconds
+against a room T20 of a fifth of a second), so the room shows up **between** notes (§7.6.9)
+and not in the decays. The test is therefore relational, not a constant: after the **last**
+onset the broadband RMS envelope is followed from 10 dB below its peak to the noise floor
++ 6 dB and a straight line in dB gives the tail's T20 (`roomTail()`); when that exceeds the
+note's own decay — the slower of its fundamental T20 and, when a two-stage fit exists, its
+late slope, so that bloom (§7.6.3) is never mistaken for a room — by more than **1.5×**
+(provisional), the tail is not the string. The decay rows (Overtone ring, Bloom, Fundamental
+decay, Sustain across the neck) then read *partial* with the room named, and a pair in which
+only one take carries a room is flagged as not directly comparable. A DI take has no room:
+its tail follows the string and the test stays silent. THEORY gives no way to subtract a
+room from a decay; the rows say what they measured.
+
+**7.6.12 · What the recording path leaves in the audio (added 2026-09-05, E6.4).** Three
+paths reach the app: a direct line from a magnetic pickup (DI), a microphone in front of the
+instrument, and an under-saddle piezo (an acoustic's DI). The audio tells some apart and not
+others. A room tail (§7.6.11) exists **only** through a microphone — a pickup or a piezo
+hears the string and the top, never the room's air — so a tail slower than the string is
+evidence of a mic. Two channels that differ are two microphones or a stereo pair; a DI is one
+signal even when it is saved as two identical channels (the app sums to mono either way and
+says so). Beyond that the audio is silent: a piezo's characteristic brightness is a tendency,
+not a test, and THEORY does not fix one — so between DI and piezo the app reads the guitar's
+declared type (an acoustic with no room in it was plugged in) and prints the path as
+*detected*, with an override in its popover that is stored with the take and never written
+back into the type. `unknown` only when nothing has been analysed.
 
 **7.6.10 · Comparability and the reliability band.** Two takes are compared row by row only
 when the things level-matching does not fix are close: register (median pitched f₀ within
