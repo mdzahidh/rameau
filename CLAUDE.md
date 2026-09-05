@@ -770,7 +770,10 @@ build educational copy from it, never re-derive from scratch.
   (card + A/B key + tables + canvases); because `renderCard` replaces the chip the popover anchors
   to *and* closes the popover for that reason, it re-opens on the new chip via the extracted
   `anchorColorPop()`, and `openColorPop` no longer reassigns the input's value when it matches
-  (caret would jump to the end each keystroke). *Verification, in proportion:* `node --check` ×5,
+  (caret would jump to the end each keystroke). **The printed name is a second door** (user
+  request 2026-09-05): clicking `.slotname` opens the same popover, anchored to the chip so it
+  never moves, with the name field focused and selected (`openColorPop(i,chip,focusName)`);
+  the outside-click guard exempts it like the chip. *Verification, in proportion:* `node --check` ×5,
   the five node suites (only the documented `dsp` red), `?demo&open=all` in real Chrome with both
   guitars named, the popover in both themes, and an in-page snapshot round-trip.
 - **NEXT — the user’s visual test.** R5 is closed; Q4a and Q4b are built, so nothing stands
