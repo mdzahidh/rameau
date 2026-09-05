@@ -509,8 +509,8 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 /* ---------- plots ---------- */
 .plotwrap{ position:relative; }
 .plotwrap canvas{ display:block; width:100%; }
-#specCanvas{ height:456px; }
-#diffCanvas{ height:232px; }
+#specCanvas{ height:474px; }  /* 456 + LANE_TOP (E4.5) */
+#diffCanvas{ height:250px; }  /* 232 + LANE_TOP (E4.5) */
 #sgramCanvasA, #sgramCanvasB, #sgramCanvasD{ height:372px; } /* D removed — rule kept inert until warped diff returns */
 #envCanvas{ height:280px; }
 #eqFaceCanvas{ height:216px; }
@@ -851,8 +851,25 @@ kbd{
 /* Spectrum + Difference carry the region lane across the top margin, and its
    labels are anchored to frequencies — they cannot slide out of the way. That
    corner of the plot itself is empty, so the buttons move into it instead.
-   --laneh follows PLOT.mT (34, or 48 for two-row vocabularies; syncLaneHeight). */
-.magbtn.inplot{ top:calc(var(--laneh, 34px) + 4px); right:22px; }
+   --laneh follows PLOT.mT (58, or 88 for two-row vocabularies; syncLaneHeight). */
+.magbtn.inplot{ top:calc(var(--laneh, 58px) + 4px); right:22px; }
+/* E4.5/E4.6: the region vocabulary is the strip's leading element — a chip over the
+   lane's left end on both frequency plots — and Strings sits at the x-axis's left end,
+   with Clear harmonics beside it only while a harmonic is on. Neither is a card-header
+   control any more; the header is title and subtitle only. */
+.lanesel{
+  position:absolute; left:6px; top:1px; z-index:5; height:16px;
+  font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-weight:600;
+  color:var(--mut); background:var(--panel); border:1px solid var(--hair);
+  border-radius:6px; padding:0 4px; line-height:1.2;
+}
+.lanesel:hover{ color:var(--ink); border-color:var(--hair2); }
+/* The axis row: PLOT.mB holds Hz ticks (+7), string labels (+20, 14 px tall) and the
+   x-axis title (+34) — the controls sit on the title's row only, so they never cover a
+   string label. */
+.axisctl{ position:absolute; left:8px; bottom:2px; height:17px; z-index:5; display:flex; align-items:center; gap:10px; }
+.axisctl .switch .lbl{ font-size:10px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
+.axisctl .btn{ font-size:10px; padding:0 8px; height:17px; line-height:15px; border-radius:6px; }
 
 /* interactive zoom */
 .zoombox{
@@ -909,7 +926,7 @@ kbd{
   .page{ padding:18px 16px 32px; }
   .filerow{ grid-template-columns:1fr; }
   .tonerow{ grid-template-columns:150px 54px 1fr 54px 120px; gap:8px; }
-  #specCanvas{ height:356px; }
+  #specCanvas{ height:374px; }
   #sgramCanvasA, #sgramCanvasB, #sgramCanvasD{ height:288px; } /* D removed — inert */
 }
 @media (prefers-reduced-motion:reduce){
@@ -990,25 +1007,7 @@ kbd{
       <div class="cardhead">
         <div>
           <div class="cardtitle">Frequency analysis</div>
-          <div class="cardsub">long-term average, difference, and band energy — Regions and Strings drive exactly these views</div>
-        </div>
-        <div class="controls">
-          <div class="field">
-            <label for="vocabSel">Regions</label>
-            <select id="vocabSel" aria-label="Frequency-region vocabulary">
-              <option value="eq">EQ speak</option>
-              <option value="anatomy">Guitar anatomy</option>
-              <option value="solo">Solo EQ words</option>
-              <option value="mix" selected>Band-mix zones</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Show strings</label>
-            <label class="switch" id="stringsSwitch"><input type="checkbox" id="stringsToggle"><span class="tk"></span><span class="lbl">On axis</span></label>
-          </div>
-          <div class="field">
-            <button class="btn" id="clearHarmonicsBtn" disabled title="Hide all string harmonics">Clear harmonics</button>
-          </div>
+          <div class="cardsub">long-term average and difference — each plot names its regions in the strip above it and its strings on the axis below</div>
         </div>
       </div>
       <div class="freq-sub foldable" id="freqSpec" data-sub="spec">
@@ -1034,12 +1033,19 @@ kbd{
               <button class="btn" id="pngBtn" disabled>PNG</button>
               <button class="btn" id="csvBtn" disabled>CSV</button>
               <button class="btn" id="jsonBtn" disabled>Snapshot</button>
+              <button class="btn" id="bandsCsvBtn" disabled title="Band energy per region of the active vocabulary, as the strip prints it">Bands CSV</button>
+              <button class="btn" id="bandsJsonBtn" disabled title="Band energy per region of the active vocabulary, as the strip prints it">Bands JSON</button>
             </div>
           </div>
         </div>
         <div class="subbody">
           <div class="plotwrap" id="specWrap">
             <button class="magbtn inplot" data-mag="spec" title="Magnify" aria-label="Magnify spectrum plot">⤢</button>
+            <select class="lanesel" id="vocabSel" aria-label="Frequency-region vocabulary" title="Which named regions the strip, the shading and the band numbers use"></select>
+            <div class="axisctl">
+              <label class="switch" id="stringsSwitch" title="Open-string fundamentals on the frequency axis (S)"><input type="checkbox" class="stringsSw" id="stringsToggle"><span class="tk"></span><span class="lbl">Strings</span></label>
+              <button class="btn" id="clearHarmonicsBtn" hidden title="Hide all string harmonics">Clear harmonics</button>
+            </div>
             <canvas id="specCanvas"></canvas>
             <div class="xline" id="specXline"></div>
             <div class="readout" id="specReadout"></div>
@@ -1074,31 +1080,14 @@ kbd{
         <div class="subbody">
           <div class="plotwrap" id="diffWrap">
             <button class="magbtn inplot" data-mag="diff" title="Magnify" aria-label="Magnify difference plot">⤢</button>
+            <select class="lanesel" id="vocabSelDiff" aria-label="Frequency-region vocabulary" title="Which named regions the strip, the shading and the band numbers use"></select>
+            <div class="axisctl">
+              <label class="switch" title="Open-string fundamentals on the frequency axis (S)"><input type="checkbox" class="stringsSw" id="stringsToggleDiff"><span class="tk"></span><span class="lbl">Strings</span></label>
+            </div>
             <canvas id="diffCanvas"></canvas>
             <div class="xline" id="diffXline"></div>
             <div class="readout" id="diffReadout"></div>
           </div>
-        </div>
-      </div>
-      <div class="freq-sub foldable" id="freqBands" data-sub="bands">
-        <div class="subhead">
-          <div class="headleft">
-            <button class="collbtn" data-coll="bands" aria-expanded="true" title="Collapse panel" aria-label="Collapse Band energy panel"></button>
-            <div>
-              <div class="cardtitle">Band energy</div>
-              <div class="cardsub" id="bandsSub">share of total 60 Hz–20 kHz energy · Δ in dB</div>
-            </div>
-          </div>
-          <div class="controls">
-            <div class="exports">
-              <button class="btn" id="bandsCsvBtn" disabled>CSV</button>
-              <button class="btn" id="bandsJsonBtn" disabled>JSON</button>
-            </div>
-          </div>
-        </div>
-        <div class="subbody">
-          <table class="datatable" id="bandsTable"></table>
-          <div class="tablefoot" id="bandsFoot"></div>
         </div>
       </div>
     </section>
@@ -4019,7 +4008,7 @@ function termHtml(key, text){
    Term "links" inside canvases are recorded as hit rectangles.
    ============================================================ */
 
-const PLOT={ mL:52, mR:18, mT:34, mB:48 }; // mT holds the EQ-region lane (34, or 48 for
+const PLOT={ mL:52, mR:18, mT:58, mB:48 }; // mT holds the EQ-region lane (LANE_ONE 58, or LANE_TWO 88 for
 // two-row vocabularies — syncLaneHeight() keeps it in step); mB holds Hz ticks + string labels
 // (drawStringAxis writes those at +20) + the x-axis title at +34, which is why mB is 48
 
@@ -4342,6 +4331,9 @@ const VOCABS=[
     { key:"mx-fight",  label:"ATTACK",        role:"keep",    f0:2500, f1:5000,  row:0, strong:true },
     { key:"mx-air",    label:"CYMBALS + AIR", role:"rolloff", f0:5000, f1:20000, row:0 },
   ]},
+  // E4.5: an empty set — no shading, no strip, no band numbers anywhere; the lane keeps
+  // its one-row height so switching it on and off never moves the plot.
+  { id:"none", label:"None", regions:[] },
 ];
 const VOCAB_BY_ID={}; for(const v of VOCABS) VOCAB_BY_ID[v.id]=v;
 let VOCAB_ACTIVE="mix"; // set by block 4 (selector / snapshot / ?vocab=)
@@ -4351,6 +4343,7 @@ const VOCAB_DESC={
   anatomy:"where this instrument's own voice lives (follows the tuning)",
   solo:"the words engineers use when a solo guitar sound is off",
   mix:"where the guitar sits against the rest of a band",
+  none:"no regions",
 };
 // Band-mix role → label suffix and theme color var.
 const ROLE_TEXT={ cut:"CUT", keep:"KEEP", thin:"THIN", carve:"CARVE", rolloff:"ROLL OFF" };
@@ -4367,12 +4360,19 @@ function laneTwoRows(){
   const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq;
   return vocab.regions.some(r=>r.row===1);
 }
+// E4.1/E4.5: the strip's first row (LANE_TOP) holds its leading element, the vocabulary
+// chip (.lanesel, an HTML control over the canvas); the region rows follow, each three
+// text lines — the region's name, its band-energy value (shares on the Spectrum, Δ on the
+// Difference), the boundary Hz — so a row is 30 px: 58 for one row, 88 for two. The chip
+// has its own row because region labels are frequency-anchored: a chip beside them would
+// sit on the lowest region (60–100 Hz spans ~90 px at 1440) and hide its label.
+const LANE_TOP=18, LANE_ROW=30, LANE_ONE=LANE_TOP+40, LANE_TWO=LANE_TOP+70;
 function syncLaneHeight(){
-  PLOT.mT=laneTwoRows()?48:34;
+  PLOT.mT=laneTwoRows()?LANE_TWO:LANE_ONE;
   // .magbtn.inplot sits just under the lane, so it follows the lane's height
   document.documentElement.style.setProperty("--laneh", PLOT.mT+"px");
 }
-function drawEqLane(ctx, w, hits){
+function drawEqLane(ctx, w, hits, bands, mode){
   const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq;
   const twoRows=laneTwoRows();
   ctx.save();
@@ -4382,12 +4382,11 @@ function drawEqLane(ctx, w, hits){
   // Boundary ticks collected per row so their Hz values can be printed below,
   // deduped where adjacent regions share an edge.
   const bounds=[[],[]];
+  const rowOf=r=>bands&&bands.rows?bands.rows.find(x=>x.r===r):null;
   for(const r of vocab.regions){
     const f0=regionF(r.f0), f1=regionF(r.f1);
     if(f1<=XV.f0 || f0>=XV.f1) continue;
-    // One row keeps the original geometry; two rows (8.5/29.5) leave room for a
-    // boundary-Hz line under each row's ticks (mT is 48 then, via syncLaneHeight).
-    const yMid=twoRows?(r.row?29.5:8.5):12.5, yTick0=yMid-4, yTick1=yMid+4;
+    const yMid=LANE_TOP+9.5+(r.row?LANE_ROW:0), yTick0=yMid-4, yTick1=yMid+4;
     const x0=Math.max(xL, xOfF(f0,w)), x1=Math.min(xR, xOfF(f1,w));
     ctx.strokeStyle=cssRGBA("ink-rgb",0.18);
     ctx.beginPath();
@@ -4406,6 +4405,30 @@ function drawEqLane(ctx, w, hits){
       ctx.fillStyle=r.role?cssRGBA(ROLE_VAR[r.role],0.95):cssColor(r.strong?"ink":"dim");
       ctx.fillText(lab,cx,yMid);
       if(hits) hits.push({x:cx-tw/2-3, y:yMid-7, w:tw+6, h:14, term:r.key});
+      // E4.1/E4.2: the band-energy value under the name — the table's cell, in place.
+      // Spectrum: each loaded guitar's share in its own color. Difference: Δ A − B,
+      // colored by who is hotter, faint when the whole band sits under the floor.
+      // Skipped rather than smeared when the region is too narrow for it.
+      const row=rowOf(r);
+      if(row){
+        const yVal=yMid+11, parts=[];
+        if(mode==="delta"){
+          if(row.d!=null) parts.push({t:fmtDb(row.d,1), c:row.onFloor?cssRGBA("ink-rgb",0.3)
+            :row.d>0.75?COLORS[0]:row.d<-0.75?COLORS[1]:cssColor("dim")});
+        }else{
+          for(const i of [0,1]) if(row.share[i]!=null) parts.push({t:fmtPct(row.share[i]), c:COLORS[i]});
+        }
+        ctx.font=FONT_XXS;
+        const ws=parts.map(q=>ctx.measureText(q.t).width), gap=7;
+        const total=ws.reduce((a,b)=>a+b,0)+gap*Math.max(0,parts.length-1);
+        if(parts.length && total<(x1-x0)-10){
+          let x=cx-total/2;
+          parts.forEach((q,k)=>{ ctx.fillStyle=q.c; ctx.textAlign="left"; ctx.fillText(q.t,x,yVal); x+=ws[k]+gap; });
+          ctx.textAlign="center";
+          if(hits) hits.push({x:cx-total/2-3, y:yVal-6, w:total+6, h:12, term:r.key});
+        }
+        ctx.font=FONT_XS;
+      }
     }else{
       ctx.beginPath(); ctx.moveTo(x0+3,yMid); ctx.lineTo(x1-3,yMid); ctx.stroke();
     }
@@ -4416,7 +4439,7 @@ function drawEqLane(ctx, w, hits){
   ctx.font=FONT_XXS; ctx.fillStyle=cssColor("dim");
   for(let row=0;row<2;row++){
     if(!bounds[row].length) continue;
-    const yLab=twoRows?(row?39.5:18.5):23.5;
+    const yLab=LANE_TOP+31.5+(row?LANE_ROW:0);
     bounds[row].sort((a,b)=>a.x-b.x);
     let lastRight=-Infinity;
     for(const b of bounds[row]){
@@ -4553,7 +4576,7 @@ function drawSpectrumScene(ctx, w, h, model, hits){
   drawRegionShading(ctx, w, h);
   drawAxes(ctx, w, h, model.yMin, model.yMax, model.yStep||10, "Level (dB)");
   const nCoin=drawStringAxis(ctx, w, h, model.markers, hits, model.coincidences);
-  drawEqLane(ctx, w, hits);
+  drawEqLane(ctx, w, hits, model.bands, "share");
   for(const c of model.curves){
     drawCurve(ctx, w, h, model.grid, c.db, model.yMin, model.yMax, c.color, 0.10);
   }
@@ -4600,7 +4623,7 @@ function drawDiffScene(ctx, w, h, model, hits){
   }
   drawAxisTitles(ctx, w, h, PLOT, "Frequency (Hz)", "Difference (dB)", 34);
   drawStringAxis(ctx, w, h, model.markers, hits, model.coincidences);
-  drawEqLane(ctx, w, hits); // lane + string labels are click targets here too
+  drawEqLane(ctx, w, hits, model.bands, "delta"); // lane + string labels are click targets here too
 
   const {grid, diff}=model;
   ctx.save();
@@ -4642,6 +4665,29 @@ function drawDiffScene(ctx, w, h, model, hits){
     ctx.setLineDash(near?[4,4]:[]);
     ctx.strokeStyle=cssRGBA("ink-rgb", near?0.40:0.75);
     ctx.stroke();
+  }
+  // E4.2: the band-mean Δ per region as a step over the continuous curve — the Band
+  // Energy table's Δ column, drawn where it applies. A band whose whole width sits
+  // under the floor draws exactly as R5.5 draws the curve there: faint and dashed
+  // [4,4]. Consecutive regions that share an edge are joined by a riser.
+  if(model.bands&&model.bands.rows){
+    const rows=model.bands.rows.filter(r=>r.d!=null&&isFinite(r.d));
+    ctx.lineWidth=1.6; ctx.lineCap="butt";
+    rows.forEach((r,k)=>{
+      const x0=Math.max(PLOT.mL, xOfF(r.f0,w)), x1=Math.min(PLOT.mL+pW, xOfF(r.f1,w));
+      if(x1<=x0) return;
+      const y=yOf(r.d);
+      ctx.setLineDash(r.onFloor?[4,4]:[]);
+      ctx.strokeStyle=cssRGBA("ink-rgb", r.onFloor?0.28:0.62);
+      ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke();
+      const nx=rows[k+1];
+      if(nx&&Math.abs(nx.f0-r.f1)<1e-6){
+        ctx.setLineDash((r.onFloor||nx.onFloor)?[4,4]:[]);
+        ctx.strokeStyle=cssRGBA("ink-rgb", (r.onFloor||nx.onFloor)?0.28:0.62);
+        ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x1,yOf(nx.d)); ctx.stroke();
+      }
+    });
+    ctx.setLineDash([]);
   }
   ctx.restore();
   // side labels
@@ -5406,7 +5452,7 @@ const tuningSel=el("tuningSel"),
       a4Input=el("a4Input"), glossaryBtn=el("glossaryBtn"), themeSeg=el("themeSeg");
 const smoothSeg=el("smoothSeg"), vocabSel=el("vocabSel"),
       lmSwitch=el("lmSwitch"), lmToggle=el("lmToggle"),
-      stringsSwitch=el("stringsSwitch"), stringsToggle=el("stringsToggle"),
+      stringsSwitch=el("stringsSwitch"), stringsToggle=el("stringsToggle"), vocabSelDiff=el("vocabSelDiff"),
       clearHarmonicsBtn=el("clearHarmonicsBtn"),
       pngBtn=el("pngBtn"), csvBtn=el("csvBtn"), jsonBtn=el("jsonBtn"),
       diffPngBtn=el("diffPngBtn"), diffCsvBtn=el("diffCsvBtn"), diffJsonBtn=el("diffJsonBtn"),
@@ -5416,16 +5462,14 @@ const smoothSeg=el("smoothSeg"), vocabSel=el("vocabSel"),
       envPngBtn=el("envPngBtn"), envCsvBtn=el("envCsvBtn"), envJsonBtn=el("envJsonBtn"),
       eqJsonBtn=el("eqJsonBtn");
 const verdictCard=el("verdictCard"), verdictPara=el("verdictPara");
-const freqCard=el("freqCard"), freqSpec=el("freqSpec"), freqDiff=el("freqDiff"), freqBands=el("freqBands");
+const freqCard=el("freqCard"), freqSpec=el("freqSpec"), freqDiff=el("freqDiff");
 const specWrap=el("specWrap"), specCanvas=el("specCanvas"),
       specXline=el("specXline"), specReadout=el("specReadout"),
       specEmpty=el("specEmpty"), demoBtn=el("demoBtn");
 const diffSub=el("diffSub"), diffWrap=el("diffWrap"),
       diffCanvas=el("diffCanvas"), diffXline=el("diffXline"), diffReadout=el("diffReadout");
-const bandsSub=el("bandsSub"),
-      bandsTable=el("bandsTable"), bandsFoot=el("bandsFoot");
 // aliases for pre-M2.6f card IDs (now sub-sections inside #freqCard)
-const diffCard=freqDiff, bandsCard=freqBands, specCard=freqSpec;
+const diffCard=freqDiff, specCard=freqSpec;
 const toneCard=el("toneCard"), toneRows=el("toneRows"), toneCompat=el("toneCompat"), toneRepeatToggle=el("toneRepeatToggle"), toneSaveBandsBtn=el("toneSaveBandsBtn"),
       prosePara=el("prosePara"), toneNote=el("toneNote");
 const sgramCard=el("sgramCard"), sgramNote=el("sgramNote"), sgramSub=el("sgramSub"),
@@ -5956,7 +6000,8 @@ function buildSpecModel(forExport){
   return { exportBg:!!forExport,
            yMin, yMax, yStep, fv:zoomXf("spec"),
            markers, coincidences: findCoincidences(markers, state.tolCents), grid:GRID,
-           curves, statusText:st };
+           curves, statusText:st,
+           bands:anyLoaded()?bandTable():null }; // E4.1: the strip prints each region's shares
 }
 function diffVisible(){ return bothLoaded(); }
 function bothSgLoaded(){
@@ -6199,10 +6244,14 @@ function buildDiffModel(){
   // R5.5: the delta stays raw; the plot discloses where it is a difference of silences.
   const nf=nearFloorMask(dispDb[0],dispDb[1]);
   let nNear=0; for(let i=0;i<nf.length;i++) nNear+=nf[i];
-  if(nNear) st+=" · dashed = both below "+nearFloorDb(dispDb[0],dispDb[1]).toFixed(0)+" dB (≈ inaudible)";
+  // E4.2: the band-mean Δ per region rides along as a step line; a whole band under the
+  // floor draws it faint and dashed, and the chip says so — the table's footnote, moved.
+  const bands=bandTable();
+  if(nNear||bands.nFloor) st+=" · "+(nNear?"dashed":"")+(nNear&&bands.nFloor?" + ":"")+(bands.nFloor?"faint step":"")
+    +" = both below "+nearFloorDb(dispDb[0],dispDb[1]).toFixed(0)+" dB (≈ inaudible)";
   const dmarkers=stringAxisMarkers();
   return {grid:GRID,diff:diffBuf,yMax:diffYMax,
-    nearFloor:nf, nNearFloor:nNear,
+    nearFloor:nf, nNearFloor:nNear, bands,
     fv:zoomXf("diff"),
     yLo:z&&z.y0!=null?z.y0:null, yHi:z&&z.y0!=null?z.y1:null,
     statusText:st,
@@ -6228,6 +6277,13 @@ function drawAll(){
   // and the dashing is the whole disclosure.
   if(dm && dm.nNearFloor) diffCanvas.setAttribute("data-nearfloor", String(dm.nNearFloor));
   else diffCanvas.removeAttribute("data-nearfloor");
+  // E4.2: the rows Q3's table used to count now live on the Difference plot's step line.
+  if(dm && dm.bands.nFloor) diffCanvas.setAttribute("data-nearfloor-rows", String(dm.bands.nFloor));
+  else diffCanvas.removeAttribute("data-nearfloor-rows");
+  // E4.5: regions drawn by the active vocabulary (None → absent), so node can tell a
+  // hidden strip from a blank page.
+  const nReg=(VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq).regions.length;
+  for(const c of [specCanvas,diffCanvas]){ if(nReg) c.setAttribute("data-regions",String(nReg)); else c.removeAttribute("data-regions"); }
   const scale=collState.sgram?null:sgramScale();
   if(scale) for(let i=0;i<2;i++){
     const model=sgramModelFor(i,scale);
@@ -6799,7 +6855,7 @@ function nearFloorBands(){
   return {floorDb,onFloor};
 }
 
-// ---------- band table ----------
+// ---------- band energy (E4: folded into the two frequency plots) ----------
 // Tuning-derived bounds are floats — print Hz rounded, kHz to 2–3 significant digits.
 function rangeStr(f0,f1){
   const hz=v=>String(Math.round(v));
@@ -6808,67 +6864,52 @@ function rangeStr(f0,f1){
   if(f0>=1000) return khz(f0)+"–"+khz(f1)+" kHz";
   return hz(f0)+" Hz–"+khz(f1)+" kHz";
 }
-function renderBandsTable(){
+// The one builder behind every band-energy number on the page: the Spectrum strip's
+// shares, the Difference strip's Δ and step line, the region popover's row, the At a
+// glance scan and the Bands CSV/JSON. A share is the band's Welch power over the
+// recording's own 60 Hz–20 kHz power (level-independent); Δ is band level A − B in dB,
+// level-match subtracted when on; `onFloor` is Q3's one predicate (nearFloorBands), so
+// a floored band is faint on both plots for the same reason. Never rewrites a Δ.
+function bandTable(){
+  const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq;
+  return Object.assign(bandRowsFor(vocab.regions),{vocab});
+}
+// …and the same rows for any region list — a region's popover carries its row whether
+// or not its vocabulary is the active one (the glossary panel lists all of them).
+function bandRowsFor(regions){
   const s0=state.slots[0], s1=state.slots[1];
-  if(!s0&&!s1) return;
   const both=!!(s0&&s1);
-  const slots=[0,1].filter(i=>state.slots[i]); // columns only for loaded guitars
   const tot=[s0?bandPower(s0.welch.power,s0.welch.df,60,20000):null,
              s1?bandPower(s1.welch.power,s1.welch.df,60,20000):null];
-  const nCols=2+slots.length+(both?1:0);
-  const nfb=nearFloorBands();
-  const floorDb=nfb?nfb.floorDb:null;
-  const bandOnFloor=(f0,f1)=>!!nfb&&nfb.onFloor(f0,f1);
-  let nFloor=0;
-  let html='<thead><tr><th>Band</th><th>Range</th>'+
-    slots.map(i=>'<th>'+esc(slotDesc(i,16))+'</th>').join('')+
-    (both?'<th>Δ (A − B)</th>':'')+'</tr></thead><tbody>';
-  const row=(termsHtml,f0,f1)=>{
-    const p=[0,1].map(i=>state.slots[i]
-      ?bandPower(state.slots[i].welch.power,state.slots[i].welch.df,f0,f1):null);
-    let cells="";
-    for(const i of slots) cells+='<td>'+fmtPct(p[i]/Math.max(tot[i],1e-30))+'</td>';
+  const nfb=both?nearFloorBands():null;
+  const lm=state.lm&&state.lmOffset!=null?state.lmOffset:0;
+  const rows=[]; let nFloor=0;
+  for(const r of regions){
+    const f0=regionF(r.f0), f1=regionF(r.f1);
+    const p=[0,1].map(i=>state.slots[i]?bandPower(state.slots[i].welch.power,state.slots[i].welch.df,f0,f1):null);
+    const share=[0,1].map(i=>p[i]==null?null:p[i]/Math.max(tot[i],1e-30));
+    let d=null, onFloor=false;
     if(both){
-      const d=10*Math.log10(Math.max(p[0],1e-30)/Math.max(p[1],1e-30))-(state.lm&&state.lmOffset!=null?state.lmOffset:0);
-      const onFloor=bandOnFloor(f0,f1);
+      d=10*Math.log10(Math.max(p[0],1e-30)/Math.max(p[1],1e-30))-lm;
+      onFloor=!!nfb&&nfb.onFloor(f0,f1);
       if(onFloor) nFloor++;
-      const cls=onFloor?"delta-floor":(d>0.75?"delta-a":(d<-0.75?"delta-b":"delta-0"));
-      const tip=onFloor?' title="Both recordings are below '+floorDb.toFixed(0)
-        +' dB across this band — a difference of silences."':"";
-      cells+='<td class="'+cls+'"'+tip+'>'+fmtDb(d,1)+'</td>';
     }
-    return '<tr><td>'+termsHtml+'</td><td class="rng">'+rangeStr(f0,f1)+'</td>'+cells+'</tr>';
-  };
-  const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq;
-  html+='<tr class="grp"><td colspan="'+nCols+'">'+esc(vocab.label)+' — '+esc(VOCAB_DESC[vocab.id])+'</td></tr>';
-  for(const r of vocab.regions){
-    const label=r.label.charAt(0)+r.label.slice(1).toLowerCase();
-    let terms=termHtml(r.key,label);
-    if(r.role) terms+=' <span class="rolecell role-'+r.role+'">('+ROLE_TEXT[r.role]+')</span>';
-    html+=row(terms,regionF(r.f0),regionF(r.f1));
+    rows.push({r,f0,f1,share,d,onFloor});
   }
-  bandsTable.innerHTML=html+"</tbody>";
-  let foot="Shares are of each recording's own 60 Hz–20 kHz energy — level-independent. ";
-  if(vocab.id==="eq"||vocab.id==="mix")
-    foot+="These regions tile the whole range, so shares sum to ≈100 %.";
-  else if(vocab.id==="solo")
-    foot+="These regions deliberately leave 1.2–2 kHz unnamed, so shares won't sum to 100 %.";
-  else
-    foot+="Anatomy zones overlap and leave gaps, so shares won't sum to 100 %. "+
-      "String-derived bounds follow the tuning selector: open strings "+
-      rangeStr(VOCAB_TUNING.lowF,VOCAB_TUNING.highF)+", highest 24th-fret fundamental ≈ "+
-      fmtHz(VOCAB_TUNING.fretTopF)+".";
-  if(both) foot+=state.lm&&state.lmOffset!=null
-    ? " Δ is band level A − B after the "+fmtDb(state.lmOffset,2)+" level-match on B."
-    : " Δ is raw band level A − B (level-match off).";
-  // R5.5 disclosure: name the floor, exactly as the Difference plot's status chip
-  // does, so the two cards can never state different floors.
-  if(nFloor) foot+=" Faint Δ = both recordings sit below "+floorDb.toFixed(0)
-    +" dB across the whole band (≈ inaudible) — a difference of silences, not a tone difference.";
-  bandsFoot.innerHTML=foot;
-  // Absent when there are none, like the Difference canvas's data-nearfloor.
-  if(nFloor) bandsTable.setAttribute("data-nearfloor-rows", String(nFloor));
-  else bandsTable.removeAttribute("data-nearfloor-rows");
+  return {rows,both,nFloor,floorDb:nfb?nfb.floorDb:null,lm,loaded:!!(s0||s1)};
+}
+// The table's row, one tap down: appended to a region's glossary popover (E4.3).
+function regionBandHtml(key){
+  const r=regionForKey(key); if(!r) return "";
+  const t=bandRowsFor([r]), row=t.rows[0];
+  if(!row||!t.loaded) return "";
+  let cells='<div class="pop-val"><span class="dot" style="background:var(--dim)"></span><span class="l">range</span><span class="v">'+esc(rangeStr(row.f0,row.f1))+'</span></div>';
+  for(const i of [0,1]) if(row.share[i]!=null)
+    cells+='<div class="pop-val"><span class="dot" style="background:var(--slot-'+(i?"b":"a")+')"></span><span class="l">'+esc(slotDesc(i,20))+'</span><span class="v">'+fmtPct(row.share[i])+' of its energy</span></div>';
+  if(row.d!=null) cells+='<div class="pop-val"><span class="dot" style="background:var(--dim)"></span><span class="l">Δ A − B</span><span class="v'+(row.onFloor?' delta-floor':'')+'">'+fmtDb(row.d,1)+(t.lm?' after the '+fmtDb(t.lm,2)+' level-match':'')+'</span></div>';
+  let note="";
+  if(row.onFloor) note='<p class="pop-sub">Both recordings sit below '+t.floorDb.toFixed(0)+' dB across this whole band (≈ inaudible) — a difference of silences, not a tone difference.</p>';
+  return '<div class="pop-vals">'+cells+'</div>'+note;
 }
 
 // ---------- tone character (reworked 2026-09-05, THEORY §7) ----------
@@ -7362,26 +7403,19 @@ function renderProse(){
 // The widest band gap in the active vocabulary — exactly the Band Energy table's
 // Δ math (level-match subtracted when on), so the strip can never contradict it.
 function biggestRegionDelta(){
-  const s0=state.slots[0], s1=state.slots[1];
-  if(!s0||!s1) return null;
-  const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq;
-  const nfb=nearFloorBands();
+  const t=bandTable();
+  if(!t.both) return null;
   let best=null, floored=null;
-  for(const r of vocab.regions){
-    const f0=regionF(r.f0), f1=regionF(r.f1);
-    const p0=bandPower(s0.welch.power,s0.welch.df,f0,f1);
-    const p1=bandPower(s1.welch.power,s1.welch.df,f0,f1);
-    const d=10*Math.log10(Math.max(p0,1e-30)/Math.max(p1,1e-30))
-            -(state.lm&&state.lmOffset!=null?state.lmOffset:0);
-    if(!isFinite(d)) continue;
+  for(const row of t.rows){
+    if(row.d==null||!isFinite(row.d)) continue;
     // R5.5: a band where both takes sit under the floor can hold the largest Δ in
     // the table and still be inaudible. Never let it be the headline; report it
     // separately so the strip discloses rather than hides it.
-    const cand={r,f0,f1,d,onFloor:!!nfb&&nfb.onFloor(f0,f1)};
-    if(cand.onFloor){ if(!floored||Math.abs(d)>Math.abs(floored.d)) floored=cand; }
-    else if(!best||Math.abs(d)>Math.abs(best.d)) best=cand;
+    const cand={r:row.r,f0:row.f0,f1:row.f1,d:row.d,onFloor:row.onFloor};
+    if(cand.onFloor){ if(!floored||Math.abs(cand.d)>Math.abs(floored.d)) floored=cand; }
+    else if(!best||Math.abs(cand.d)>Math.abs(best.d)) best=cand;
   }
-  return {best,floored,floorDb:nfb?nfb.floorDb:null};
+  return {best,floored,floorDb:t.floorDb};
 }
 function renderVerdict(){
   const n=(state.slots[0]?1:0)+(state.slots[1]?1:0);
@@ -7591,9 +7625,12 @@ function copyEqSettings(){
 // untouched panels; snapshots don't carry fold state — reader preference, not
 // analysis state. drawAll() skips the canvas work of folded panels; unfolding
 // requests a fresh draw.
-const COLL_CARDS={ spec:freqSpec, diff:freqDiff, bands:freqBands, tone:toneCard,
+// E4 (2026-09-05): `bands` is gone — the Band Energy sub-section folded into the two
+// frequency plots. A stored gsCollapse `bands` key is ignored by the `k in COLL_CARDS`
+// filter below, not migrated.
+const COLL_CARDS={ spec:freqSpec, diff:freqDiff, tone:toneCard,
                    eq:eqCard, sgram:sgramCard, env:envCard };
-const COLL_DEFAULT={ spec:false, diff:false, bands:false, tone:false, eq:true, sgram:true, env:true };
+const COLL_DEFAULT={ spec:false, diff:false, tone:false, eq:true, sgram:true, env:true };
 const collState=Object.assign({},COLL_DEFAULT);
 const collTouched={};   // only these keys persist
 function applyCollapse(){
@@ -7643,7 +7680,6 @@ function updateVisibility(){
   // empty state (what to do next, demo pair, links to the two guides)
   freqCard.style.display="";
   freqDiff.style.display=both?"":"none";
-  freqBands.style.display=n?"":"none";
   specEmpty.style.display=n?"none":"";
   magBtns.forEach(b=>{
     if(b.dataset.mag==="spec") b.style.display=n?"":"none";
@@ -7658,12 +7694,9 @@ function updateVisibility(){
   eqCopyBtn.disabled=eqJsonBtn.disabled=!both;
   lmToggle.disabled=!both;
   lmSwitch.classList.toggle("disabled",!both);
-  // diff/bands sub-sections live inside #freqCard now — outer card gates n
+  // the diff sub-section lives inside #freqCard — outer card gates n
   toneCard.style.display=n?"":"none";
   eqCard.style.display=both?"":"none";
-  bandsSub.textContent=both
-    ? "share of total 60 Hz–20 kHz energy · Δ in dB"
-    : "share of total 60 Hz–20 kHz energy";
   envSub.textContent=both
     ? "amplitude envelope in dB re full scale, A/B aligned at each file's first onset · tick marks show detected onsets"
     : "amplitude envelope in dB re full scale · tick marks show detected onsets";
@@ -7689,7 +7722,7 @@ function updateVisibility(){
 }
 function renderAnalysis(){
   renderVerdict();
-  renderBandsTable(); renderToneRows(); renderProse(); renderToneNote();
+  renderToneRows(); renderProse(); renderToneNote();
   renderFooter(); updateDiffSub(); updateEqSub(); renderEqNote();
 }
 // Two loaded sources mean "compare": the first time both slots fill, the global
@@ -8749,10 +8782,10 @@ function seekCard(i,el,commit){
 }
 
 // ---------- glossary & popover ----------
-function termSections(t){
+function termSections(t, valsOverride){
   let vals=[];
   try{ vals=t.values(state)||[]; }catch(_e){ vals=[]; }
-  const valHtml=vals.length
+  const valHtml=valsOverride?valsOverride:vals.length
     ? '<div class="pop-vals">'+vals.map(v=>{
         const bg=v.slot===0?"var(--slot-a)":(v.slot===1?"var(--slot-b)":"var(--dim)");
         return '<div class="pop-val"><span class="dot" style="background:'+bg+'"></span>'+
@@ -8765,10 +8798,10 @@ function termSections(t){
     '<div class="pop-sec"><div class="pop-label">How Claude Rameau measures it</div><div class="pop-formula">'+t.measure+'</div></div>'+
     '<div class="pop-sec"><div class="pop-label">Current values</div>'+valHtml+'</div>';
 }
-function termContentHtml(key){
+function termContentHtml(key, valsOverride){
   const t=GLOSSARY_BY_KEY.get(key);
   if(!t) return "";
-  return '<div class="pop-term">'+esc(t.name)+'</div><div class="pop-cat">'+esc(t.cat)+'</div>'+termSections(t);
+  return '<div class="pop-term">'+esc(t.name)+'</div><div class="pop-cat">'+esc(t.cat)+'</div>'+termSections(t, valsOverride);
 }
 function placePopover(anchor){
   const pw=popover.offsetWidth, ph=popover.offsetHeight;
@@ -8782,7 +8815,9 @@ function placePopover(anchor){
   popover.style.top=top+"px";
 }
 function openPopover(key,anchor){
-  const html=termContentHtml(key);
+  // E4.3: a region's Current values are the Band Energy table's row — range, both
+  // shares, Δ and the floor sentence when it applies — from the same builder as the strip.
+  const html=termContentHtml(key, regionBandHtml(key));
   if(!html) return;
   stopPlayback(); // a reopen replaces the buttons; never leave orphaned audio
   popover.innerHTML=html+auditionHtml(key);
@@ -9676,23 +9711,14 @@ function exportDiffCSV(){
 }
 function exportBandsCSV(){
   if(!anyLoaded()) return;
-  const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.mix;
-  const L=["# "+APP_NAME+" band energy — "+vocab.label, "# created: "+new Date().toISOString()];
-  L.push("band,f0_hz,f1_hz,a_share_pct,b_share_pct,delta_db");
-  for(const r of vocab.regions){
-    const f0=regionF(r.f0), f1=regionF(r.f1);
-    let aShare="", bShare="", dDb="", pA=null, pB=null;
-    for(let i=0;i<2;i++){
-      const s=state.slots[i];
-      if(s&&s.welch){
-        const pBand=bandPower(s.welch.power,s.welch.df,f0,f1);
-        const pTot=bandPower(s.welch.power,s.welch.df,60,20000);
-        const share=pTot>0? (pBand/pTot*100):0;
-        if(i===0){ aShare=share.toFixed(2); pA=pBand; } else { bShare=share.toFixed(2); pB=pBand; }
-      }
-    }
-    if(pA!=null&&pB!=null&&pA>0&&pB>0) dDb=(10*Math.log10(pA/pB)).toFixed(2);
-    L.push([r.label,f0.toFixed(1),f1.toFixed(1),aShare,bShare,dDb].join(","));
+  const t=bandTable();
+  const L=["# "+APP_NAME+" band energy — "+t.vocab.label, "# created: "+new Date().toISOString(),
+           "# shares are of each recording's own 60 Hz–20 kHz energy; delta_db is band level A − B"+(t.lm?" after the "+fmtDb(t.lm,2)+" level-match on B":" (level-match off)")+
+           (t.nFloor?"; on_floor=1 marks a band where both recordings sit below "+t.floorDb.toFixed(0)+" dB (a difference of silences)":"")];
+  L.push("band,f0_hz,f1_hz,a_share_pct,b_share_pct,delta_db,on_floor");
+  for(const row of t.rows){
+    const pc=v=>v==null?"":(v*100).toFixed(2);
+    L.push([row.r.label,row.f0.toFixed(1),row.f1.toFixed(1),pc(row.share[0]),pc(row.share[1]),row.d==null?"":row.d.toFixed(2),row.d==null?"":(row.onFloor?1:0)].join(","));
   }
   download(new Blob([L.join("\n")+"\n"],{type:"text/csv"}),"rameau-bands_"+exportBaseName()+".csv");
 }
@@ -9753,8 +9779,10 @@ function exportDiffJSON(){
 }
 function exportBandsJSON(){
   if(!anyLoaded()) return;
-  const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.mix;
-  _exportCardJson("Band energy", {table: vocab.regions.map(r=>({label:r.label,f0:regionF(r.f0),f1:regionF(r.f1)}))});
+  const t=bandTable();
+  _exportCardJson("Band energy", {vocab:t.vocab.id, levelMatchDb:t.lm||0, floorDb:t.floorDb,
+    table: t.rows.map(row=>({label:row.r.label,f0:row.f0,f1:row.f1,
+      aShare:row.share[0],bShare:row.share[1],deltaDb:row.d,onFloor:row.d==null?null:row.onFloor}))});
 }
 function exportToneJSON(){
   if(!anyLoaded()) return;
@@ -9859,11 +9887,34 @@ function setSgAlign(v){
   state.sgAlign=v;
   sgAlignSeg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.al===v));
 }
+// The menu names of the vocabularies (VOCABS labels are the short strip names).
+const VOCAB_MENU={ eq:"EQ speak", anatomy:"Guitar anatomy", solo:"Solo EQ words", mix:"Band-mix zones", none:"None" };
+function fillLaneSels(){
+  for(const sel of [vocabSel,vocabSelDiff]){
+    sel.innerHTML=VOCABS.map(v=>'<option value="'+v.id+'">'+esc(VOCAB_MENU[v.id]||v.label)+'</option>').join("");
+    sel.value=VOCAB_ACTIVE;
+  }
+}
 function setVocab(v){
   if(!VOCAB_BY_ID[v]) return;
   state.vocab=v; VOCAB_ACTIVE=v;
-  vocabSel.value=v;
-  syncLaneHeight(); // two-row vocabularies need a taller lane (PLOT.mT 48 vs 34)
+  vocabSel.value=v; vocabSelDiff.value=v;
+  syncLaneHeight(); // two-row vocabularies need a taller lane (PLOT.mT 88 vs 58)
+}
+// One door onto the Strings axis: both plots' switches, the S key, the ?strings= hook
+// and the settings loader all land here, so the two switches cannot disagree.
+function syncStringsUI(){
+  document.querySelectorAll(".stringsSw").forEach(c=>{ c.checked=!!state.strings; });
+  try{ syncClearHarmonicsBtn(); }catch(_e){}
+}
+function setStrings(on, persist){
+  state.strings=!!on;
+  syncStringsUI();
+  if(persist){
+    saveSettings();
+    try{ localStorage.setItem("gsStrings",state.strings?"1":"0"); }catch(_e){}
+  }
+  requestDraw();
 }
 // ---------- settings persistence (M2.6i) ----------
 // Versioned gsSettings: tuning+offset, A4, EQ device/dir, smoothing,
@@ -9898,7 +9949,8 @@ function _clearAllHarmonics(){
   for(let i=0;i<6;i++) for(let j=0;j<HARM_SLOTS;j++) state.stringHarmonics[i][j]=false;
 }
 function syncClearHarmonicsBtn(){
-  clearHarmonicsBtn.disabled = !state.strings || !_hasAnyHarmonics();
+  // E4.6: present only while it has something to clear, beside the axis it clears.
+  clearHarmonicsBtn.hidden = !state.strings || !_hasAnyHarmonics();
 }
 function loadSettings(){
   try{
@@ -9940,7 +9992,7 @@ function loadSettings(){
         a4Input.value=state.a4;
         setSmoothUI(state.smooth);
         eqDevSel.value=state.eqDevice; eqDirSeg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.dir===state.eqDir));
-        setVocab(state.vocab); stringsToggle.checked=state.strings;
+        setVocab(state.vocab); syncStringsUI();
         try{ syncClearHarmonicsBtn(); }catch(_e){}
         syncVocabTuning(); fillSgNoteSel();
         return true;
@@ -9950,12 +10002,12 @@ function loadSettings(){
     let migrated=false;
     try{
       const v=localStorage.getItem("gsVocab"); if(v&&VOCAB_BY_ID[v]){ state.vocab=v; setVocab(v); migrated=true; }
-      const s=localStorage.getItem("gsStrings"); if(s!=null){ state.strings=s==="1"; stringsToggle.checked=state.strings; migrated=true; }
+      const s=localStorage.getItem("gsStrings"); if(s!=null){ state.strings=s==="1"; syncStringsUI(); migrated=true; }
       const sh=localStorage.getItem("gsStringHarmonics");
       if(sh){ try{ const a=JSON.parse(sh); if(Array.isArray(a)&&a.length===6){ for(let i=0;i<6;i++) for(let k=0;k<HARM_SLOTS;k++) state.stringHarmonics[i][k]=!!(a[i]&&a[i][k]); migrated=true; } }catch(_e){} }
       else {
         const hh=localStorage.getItem("gsHarmonics"); if(hh==="1"){ for(let i=0;i<6;i++) for(let k=0;k<3;k++) state.stringHarmonics[i][k]=true; migrated=true; }
-        if(hh!=null) stringsToggle.checked=state.strings;
+        if(hh!=null) syncStringsUI();
       }
       if(migrated) try{ syncClearHarmonicsBtn(); }catch(_e){}
     }catch(_e){}
@@ -9978,7 +10030,7 @@ function resetSettings(){
   a4Input.value=state.a4;
   setSmoothUI(state.smooth);
   eqDevSel.value=state.eqDevice; eqDirSeg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.dir===state.eqDir));
-  setVocab("mix"); stringsToggle.checked=false;
+  setVocab("mix"); state.strings=false; syncStringsUI();
   try{ syncClearHarmonicsBtn(); }catch(_e){}
   syncVocabTuning(); fillSgNoteSel();
   requestDraw(); renderAnalysis();
@@ -10138,8 +10190,9 @@ function setSmooth(v){
   setSmoothUI(v);
   updateCurves(true);
   renderFooter();
-  // The near-floor predicate reads displayedDb, which smoothing moves.
-  renderVerdict(); renderBandsTable();
+  // The near-floor predicate reads displayedDb, which smoothing moves — the strip's
+  // Δ and the step line are drawn from it, so the plots repaint too.
+  renderVerdict(); requestDraw();
 }
 function setTheme(t){
   if(!THEMES.includes(t)) return;
@@ -10334,12 +10387,12 @@ function boot(){
   tuningSel.addEventListener("change",()=>{
     state.tuning=tuningSel.value;
     customOffsetWrap.style.display=state.tuning==="custom"?"":"none";
-    syncVocabTuning(); fillSgNoteSel(); renderVerdict(); renderBandsTable();
+    syncVocabTuning(); fillSgNoteSel(); renderVerdict();
     requestDraw(); saveSettings();
   });
   customOffsetEl.addEventListener("input",()=>{
     state.customOffset=parseInt(customOffsetEl.value,10)||0;
-    syncVocabTuning(); fillSgNoteSel(); renderVerdict(); renderBandsTable();
+    syncVocabTuning(); fillSgNoteSel(); renderVerdict();
     requestDraw(); saveSettings();
   });
   a4Input.addEventListener("change",()=>{
@@ -10415,7 +10468,7 @@ function boot(){
     state.lm=lmToggle.checked; compareTouched.lm=true;
     stopPlayback(); // the applied gain would no longer match what's printed
     updateCurves(true);
-    renderVerdict(); renderBandsTable(); renderFooter();
+    renderVerdict(); renderFooter();
     updateDiffSub(); updateSgramSub();
     requestDraw(); // spectrogram B/difference read the offset at draw time
   });
@@ -10425,20 +10478,14 @@ function boot(){
     setSgAlign(b.dataset.al);
     updateSgramSub(); requestDraw();
   });
-  vocabSel.addEventListener("change",()=>{
-    setVocab(vocabSel.value);
+  for(const sel of [vocabSel,vocabSelDiff]) sel.addEventListener("change",()=>{
+    setVocab(sel.value);
     saveSettings();
     // keep legacy key for migration readers that haven't upgraded yet
     try{ localStorage.setItem("gsVocab",state.vocab); }catch(_e){}
-    renderVerdict(); renderBandsTable(); requestDraw();
+    renderVerdict(); requestDraw();
   });
-  stringsToggle.addEventListener("change",()=>{
-    state.strings=stringsToggle.checked;
-    saveSettings();
-    try{ localStorage.setItem("gsStrings",state.strings?"1":"0"); }catch(_e){}
-    syncClearHarmonicsBtn();
-    requestDraw();
-  });
+  document.querySelectorAll(".stringsSw").forEach(c=>c.addEventListener("change",()=>setStrings(c.checked,true)));
   clearHarmonicsBtn.addEventListener("click",()=>{
     _clearAllHarmonics();
     saveSettings();
@@ -10494,7 +10541,7 @@ function boot(){
     const opening=!item.classList.contains("open");
     if(opening){
       const t=GLOSSARY_BY_KEY.get(item.dataset.key);
-      if(t) item.querySelector(".glossdetail").innerHTML=termSections(t);
+      if(t) item.querySelector(".glossdetail").innerHTML=termSections(t, regionBandHtml(t.key));
     }
     item.classList.toggle("open");
   });
@@ -10799,6 +10846,7 @@ function boot(){
   renderCard(0); renderCard(1);
   buildGlossList("");
   fillSgNoteSel(); fillSgLookSels();
+  fillLaneSels(); syncLaneHeight(); // a fresh profile never went through setVocab()
   updateVisibility();
   renderFooter();
   requestDraw();
@@ -10879,7 +10927,7 @@ function boot(){
   const vc=location.search.match(/[?&]vocab=([a-z]+)(?:&|$)/i);                     // test hook
   if(vc&&VOCAB_BY_ID[vc[1].toLowerCase()]){ setVocab(vc[1].toLowerCase()); requestDraw(); }
   const stg=location.search.match(/[?&]strings=(0|1)(?:&|$)/i);                     // test hook
-  if(stg){ state.strings=stg[1]==="1"; stringsToggle.checked=state.strings; try{ syncClearHarmonicsBtn(); }catch(_e){} requestDraw(); }
+  if(stg) setStrings(stg[1]==="1",false);
   const hh=location.search.match(/[?&]harmonics=(0|1)(?:&|$)/i);                   // test hook (M2.6g compat: global flag enables all per-string harmonics)
   if(hh){
     const on=hh[1]==="1";

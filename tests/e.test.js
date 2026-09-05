@@ -283,5 +283,44 @@ section("E3 — the guided take: unlocks from TONE_EVIDENCE, the analysis onset 
   ok(/<h4>The guided take<\/h4>/.test(html) && /<h4>What to play — three parts, in this order<\/h4>/.test(html), "the recording guide gained one paragraph and lost nothing");
 }
 
+section("E4 — the Band Energy fold: one builder, two strips, a step line, the chip, the axis");
+{
+  const b3 = blocks[3], b4 = blocks[4];
+  // E4.5: None is a real vocabulary with an empty region set — evaluate the literal.
+  const lit = b3.slice(b3.indexOf("const VOCABS=["), b3.indexOf("];", b3.indexOf("const VOCABS=[")) + 2);
+  const V = new Function(lit + " return VOCABS;")();
+  const none = V.find(v => v.id === "none");
+  ok(none && Array.isArray(none.regions) && none.regions.length === 0 && V.length === 5, "VOCABS carries None as an empty set, beside the four vocabularies", V.map(v => v.id).join(","));
+  // E4.1/E4.2/E4.3: every band number comes from bandTable(), which reads Q3's one floor predicate.
+  const bt = body("bandRowsFor");
+  ok(/nearFloorBands\(\)/.test(bt) && /bandPower\(/.test(bt) && /share/.test(bt) && /onFloor/.test(bt), "bandTable() is the one builder: shares, Δ and the floor from the same predicate the table used");
+  ok(!/function renderBandsTable\(/.test(html) && !/id="freqBands"/.test(html) && !/id="bandsTable"/.test(html), "the table renderer and the #freqBands sub-section are gone");
+  ok(/bands:anyLoaded\(\)\?bandTable\(\):null/.test(body("buildSpecModel")) && /const bands=bandTable\(\);/.test(body("buildDiffModel")), "both plot models carry the builder's rows to block 3");
+  ok(/const t=bandTable\(\);/.test(body("biggestRegionDelta")) && /const t=bandTable\(\);/.test(body("exportBandsCSV")) && /const t=bandTable\(\);/.test(body("exportBandsJSON")) && /const t=bandRowsFor\(\[r\]\), row=t\.rows\[0\];/.test(body("regionBandHtml")) && /return Object\.assign\(bandRowsFor\(vocab\.regions\),\{vocab\}\);/.test(body("bandTable")),
+    "At a glance, both Bands exports and the region popover read the same builder");
+  ok(/termContentHtml\(key, regionBandHtml\(key\)\)/.test(body("openPopover")) && /valsOverride\?valsOverride:vals\.length/.test(body("termSections")), "a region's glossary popover prints the table's row as its Current values — one tap down, nothing printed twice");
+  // The strip: shares on the Spectrum, Δ on the Difference, skipped when narrow, never smeared.
+  const lane = body("drawEqLane");
+  ok(/drawEqLane\(ctx, w, hits, model\.bands, "share"\)/.test(body("drawSpectrumScene")) && /drawEqLane\(ctx, w, hits, model\.bands, "delta"\)/.test(body("drawDiffScene")), "the Spectrum strip prints shares, the Difference strip prints Δ");
+  ok(/fmtPct\(row\.share\[i\]\)/.test(lane) && /fmtDb\(row\.d,1\)/.test(lane) && /total<\(x1-x0\)-10/.test(lane), "…with Q3's fmtPct and the plot's fmtDb, and a value wider than its region is skipped");
+  ok(/row\.onFloor\?cssRGBA\("ink-rgb",0\.3\)/.test(lane), "…a floored Δ prints faint on the strip");
+  // The step line.
+  const ds = body("drawDiffScene");
+  ok(/model\.bands\.rows\.filter\(r=>r\.d!=null/.test(ds) && /ctx\.setLineDash\(r\.onFloor\?\[4,4\]:\[\]\);/.test(ds) && /r\.onFloor\?0\.28:0\.62/.test(ds), "the band-mean Δ step line draws over the curve, dashed [4,4] and faint where the whole band is under the floor — R5.5's own dressing");
+  // E4.4: the fold key is gone; a stored one is ignored by the existing filter.
+  ok(!/bands:freqBands/.test(b4) && !/bands:false/.test(b4) && /if\(k in COLL_CARDS&&typeof j\[k\]==="boolean"\)/.test(b4), "gsCollapse/?open= no longer know 'bands'; an old stored key falls through the filter");
+  // E4.5/E4.6: the chip on both plots drives setVocab(); Strings at the axis on both plots through one door; the card header is title and subtitle only.
+  ok((html.match(/<select class="lanesel"/g) || []).length === 2 && /for\(const sel of \[vocabSel,vocabSelDiff\]\) sel\.addEventListener\("change",\(\)=>\{\s*setVocab\(sel\.value\);/.test(b4), "a .lanesel chip on each plot, both driving setVocab()");
+  ok(/vocabSel\.value=v; vocabSelDiff\.value=v;/.test(body("setVocab")), "…setVocab syncs both chips");
+  ok((html.match(/class="stringsSw"/g) || []).length === 2 && /querySelectorAll\("\.stringsSw"\)\.forEach\(c=>c\.addEventListener\("change",\(\)=>setStrings\(c\.checked,true\)\)\)/.test(b4) && /if\(stg\) setStrings\(stg\[1\]==="1",false\);/.test(b4),
+    "Strings sits at the axis of each plot; both switches, and the ?strings= hook, go through setStrings()");
+  ok(/clearHarmonicsBtn\.hidden = !state\.strings \|\| !_hasAnyHarmonics\(\);/.test(body("syncClearHarmonicsBtn")) && /<div class="axisctl">\s*<label class="switch" id="stringsSwitch"[\s\S]{0,400}id="clearHarmonicsBtn" hidden/.test(html), "Clear harmonics renders only while a harmonic is on, beside the axis");
+  const head = html.slice(html.indexOf('id="freqCard"'), html.indexOf('id="freqSpec"'));
+  ok(!/class="controls"/.test(head) && !/<select|<button|<input/.test(head), "the Frequency card header is title and subtitle only");
+  ok(/id="bandsCsvBtn"/.test(html.slice(html.indexOf('id="freqSpec"'), html.indexOf('id="freqDiff"'))), "the Bands CSV/JSON buttons live under the Spectrum exports");
+  ok(/PLOT\.mT=laneTwoRows\(\)\?LANE_TWO:LANE_ONE;/.test(body("syncLaneHeight")) && /const LANE_TOP=18, LANE_ROW=30, LANE_ONE=LANE_TOP\+40, LANE_TWO=LANE_TOP\+70;/.test(b3) && /#specCanvas\{ height:474px; \}/.test(html) && /#diffCanvas\{ height:250px; \}/.test(html),
+    "the lane is a chip row plus three text lines per region row: 58 px, or 88 for two rows — None keeps 58, and both canvases grew by the chip row so the plot rect did not shrink");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

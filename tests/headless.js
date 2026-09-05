@@ -103,7 +103,13 @@ function shot(query, size) {
   shotCache.set(ck, img);
   return img;
 }
-function dom(query) { return chrome(["--dump-dom"], query).toString("utf8"); }
+// Cached like shot(): the renderer is deterministic (asserted first), so a query
+// already dumped is a launch already paid for.
+const domCache = new Map();
+function dom(query) {
+  if (!domCache.has(query)) domCache.set(query, chrome(["--dump-dom"], query).toString("utf8"));
+  return domCache.get(query);
+}
 
 // index.html carries its own source inline, so every frozen sentence appears in the
 // <script> text whether or not anything rendered. Pull out the #popover element
@@ -190,6 +196,23 @@ section("✦ marks only what the user has asked to see");
   ok(diffPixels(noh0, noh6, 1).length === 0,
     "no harmonics shown ⇒ tolerance changes nothing",
     diffPixels(noh0, noh6, 1).length + " px");
+}
+
+section("E4.5 — None is a real vocabulary: no regions, no strip, the plot still there");
+{
+  // One launch. The strip is canvas, so the page says what it drew: data-regions on both
+  // frequency canvases, absent for None the way data-nearfloor is absent for nothing.
+  const page = dom(BASE + "&vocab=none");
+  const canvas = id => (page.match(new RegExp('<canvas[^>]*id="' + id + '"[^>]*>')) || [""])[0];
+  ok(canvas("specCanvas") && !/data-regions=/.test(canvas("specCanvas")) && !/data-regions=/.test(canvas("diffCanvas")),
+    "None draws no regions on either plot", canvas("specCanvas"));
+  const mix = dom(BASE + "&pop=coin0"); // the launch the ✦ popover section already pays for
+  ok(/data-regions="7"/.test((mix.match(/<canvas[^>]*id="specCanvas"[^>]*>/) || [""])[0]),
+    "…while the default Band-mix vocabulary draws its seven");
+  ok((page.match(/<select class="lanesel"/g) || []).length === 2 && !/id="freqBands"/.test(page),
+    "the vocabulary chip sits on both plots and the Band energy sub-section is gone");
+  const head = page.slice(page.indexOf('id="freqCard"'), page.indexOf('id="freqSpec"'));
+  ok(!/<select|<button|<input/.test(head), "the Frequency card header carries no control");
 }
 
 section("the threshold is not an artefact of its own value");

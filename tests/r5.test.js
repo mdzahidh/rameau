@@ -1203,9 +1203,11 @@ section("R5.5 — the wiring: dashed where the predicate holds, footnote only wh
   ok(after.length > 40 && !wrote,
     "…and no delta value is rewritten after the mask exists: the number stays raw");
 
-  const foot = /if\s*\(\s*nNear\s*\)[^\n]*/.exec(body);
-  ok(foot && /dashed/.test(foot[0]),
-    "the status-chip footnote is guarded by the count — no dashes, no footnote");
+  // E4.2 (2026-09-05): the guard grew a second count — whole bands under the floor, whose
+  // step line draws faint — and the Band Energy footnote moved into this same chip.
+  const foot = /if\s*\(\s*nNear\s*\|\|\s*bands\.nFloor\s*\)[\s\S]*?inaudible\)";/.exec(body);
+  ok(foot && /dashed/.test(foot[0]) && /faint step/.test(foot[0]),
+    "the status-chip footnote is guarded by the counts — no dashes and no floored band, no footnote");
   ok(foot && /nearFloorDb\(/.test(foot[0]),
     "…and it prints the floor it actually used: every visible number defensible");
 
@@ -1256,22 +1258,26 @@ section("Q3 — the same floor in the Band Energy table and the At-a-glance stri
     "…and a band is silence only when EVERY grid point in it is masked: one audible " +
     "point inside the band makes the whole band audible");
 
-  const tbl = bodyOf(s4q, "function renderBandsTable(");
+  // E4 (2026-09-05): the Band Energy table is gone; bandTable() is the one builder its
+  // rows became, and the verdict's scan reads that builder rather than re-deriving.
+  const tbl = bodyOf(s4q, "function bandRowsFor(");
   const reg = bodyOf(s4q, "function biggestRegionDelta(");
-  ok(/nearFloorBands\(\)/.test(tbl) && /nearFloorBands\(\)/.test(reg),
-    "both the band table and the verdict's region scan call that one helper, so they " +
-    "can never disagree about which bands are silence");
-  ok(/delta-floor/.test(tbl) && /nFloor/.test(tbl),
-    "…the table discloses by class, per row");
+  ok(/nearFloorBands\(\)/.test(tbl) && /bandRowsFor\(vocab\.regions\)/.test(bodyOf(s4q, "function bandTable(")) &&
+     /bandTable\(\)/.test(reg) && !/bandPower\(/.test(reg),
+    "the band builder calls that one helper and the verdict's region scan reads the builder, " +
+    "so they can never disagree about which bands are silence");
+  ok(/onFloor/.test(tbl) && /nFloor\+\+/.test(tbl),
+    "…every row carries onFloor, and the builder counts them");
   // The done-when, inverted: disclosure never touches the number.
   const dAssigns = str => (str.match(/(^|[^.\w])d\s*=[^=]/g) || []).length;
-  ok(dAssigns(tbl.slice(tbl.indexOf("bandOnFloor("))) === 0 && dAssigns(reg) === 1,
-    "…and neither Δ is rewritten under the floor: exactly one assignment to d in the " +
-    "region scan (its declaration) and none after the table consults the predicate");
-  ok(/if\s*\(\s*nFloor\s*\)\s*bandsTable\.setAttribute/.test(tbl) &&
-     /bandsTable\.removeAttribute\(\s*["']data-nearfloor-rows["']/.test(tbl),
-    "…data-nearfloor-rows is absent, not '0', when nothing is on the floor — the same " +
-    "convention as the Difference canvas's data-nearfloor");
+  ok(dAssigns(tbl.slice(tbl.indexOf("nfb.onFloor("))) === 0 && dAssigns(reg) === 0,
+    "…and no Δ is rewritten under the floor: none after the builder consults the predicate, " +
+    "and the region scan only reads row.d");
+  const da = bodyOf(s4q, "function drawAll(");
+  ok(/if\s*\(\s*dm\s*&&\s*dm\.bands\.nFloor\s*\)\s*diffCanvas\.setAttribute\(\s*["']data-nearfloor-rows["']/.test(da) &&
+     /diffCanvas\.removeAttribute\(\s*["']data-nearfloor-rows["']/.test(da),
+    "…data-nearfloor-rows now sits on the Difference canvas, absent, not '0', when nothing " +
+    "is on the floor — the same convention as its data-nearfloor");
 
   ok(/floored\s*=\s*null/.test(reg) && /cand\.onFloor/.test(reg) && /else\s+if\s*\(\s*!\s*best/.test(reg),
     "the region scan splits its candidates: a floored band competes only with floored " +
@@ -1286,12 +1292,12 @@ section("Q3 — the same floor in the Band Energy table and the At-a-glance stri
     "never hide, and never rewrite");
 
   const ss = bodyOf(s4q, "function setSmooth(v)");
-  ok(/renderVerdict\(\)/.test(ss) && /renderBandsTable\(\)/.test(ss),
-    "changing smoothing re-renders both cards: the predicate reads displayedDb, which " +
-    "smoothing moves, so the disclosure would otherwise go stale");
+  ok(/renderVerdict\(\)/.test(ss) && /requestDraw\(\)/.test(ss),
+    "changing smoothing re-renders the verdict and repaints the plots: the predicate reads " +
+    "displayedDb, which smoothing moves, so the disclosure would otherwise go stale");
 
   ok(/\.delta-floor\s*\{[^}]*var\(--dim\)[^}]*opacity/.test(html),
-    ".delta-floor is dim and faint in the stylesheet — the table's equivalent of the " +
+    ".delta-floor is dim and faint in the stylesheet — the region popover's equivalent of the " +
     "Difference plot's dashed, dimmed near-floor run");
 }
 
