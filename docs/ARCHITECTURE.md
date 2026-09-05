@@ -1977,6 +1977,45 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   pause/seek/stop semantics are untouched. `takeReadiness()` reads `evidenceFor` over every
   non-text row for the slot's type.
 
+### E3 (session 34): the guided take
+
+- **A step table over M5's capture, nothing new in the graph.** `REC_PROTOCOL` is read by
+  `guidedTick()` from the capture's existing 100 ms timer; `cap.guide.acc` collects the step's
+  own samples from the same `onaudioprocess` walk that meters the level. Onsets are counted with
+  `stftBands` → `detectOnsets` — the analysis's detector on the analysis's bands — so a step that
+  "advanced on six notes" advanced on the six the tone rows will see. `unlocks` keys are checked
+  against `TONE_EVIDENCE` at load; a typo throws rather than silently promising a row.
+- **Skip is a state, not a deletion.** `_guideAdvance(cap, skipped)` records the step id in
+  `guide.skipped`; `guideProtocol(cap)` serialises `{version, stepsDone, skipped, floorDb}` and
+  `landRecording()` carries it into the take's facts, so the readiness popover can say *tap
+  skipped* beside Body voice instead of *needs a tap*.
+- **Off means byte-identical.** `cap.guide` is null when `state.recGuided` is false; every
+  guided branch is `if(cap.guide)`.
+
+### E4 (session 34): the Band Energy fold
+
+- **`bandRowsFor(regions)` is the one place band numbers are made** (`bandTable()` = it over
+  the active vocabulary). Both plot models carry its rows (`buildSpecModel().bands`,
+  `buildDiffModel().bands`) and `drawEqLane(ctx,w,hits,bands,mode)` prints a share row
+  (`"share"`, Spectrum) or a Δ row (`"delta"`, Difference) under each region label;
+  `drawDiffScene` draws the step line from the same rows. `regionBandHtml(key)` builds a
+  region's popover row from `bandRowsFor([r])`, so a region outside the active vocabulary (from
+  the glossary panel) still carries its numbers.
+- **Lane geometry:** `LANE_TOP` (18, the chip's row) + `LANE_ROW` (30 per region row: name,
+  value, boundary Hz); `PLOT.mT` is `LANE_ONE` 58 or `LANE_TWO` 88, set by `syncLaneHeight()`
+  from `setVocab()` **and once at boot** — a fresh profile never goes through `setVocab()`, and
+  the first build shipped with the lane overlapping the plot for exactly that reason. The two
+  canvas heights grew by `LANE_TOP` so the plot rect is unchanged. `.magbtn.inplot` still follows
+  `--laneh`.
+- **Why the chip has its own row:** region labels are frequency-anchored; a chip inline at the
+  lane's left end sits on the 60–100 Hz region (~90 px at 1440) and hides its label on both
+  plots. Measured in the first screenshot; the lead-skip mechanism that tried to accommodate it
+  was deleted rather than kept.
+- **`None`** is a real vocabulary with `regions:[]` — every consumer already loops over
+  `vocab.regions`, so nothing special-cases it. Canvases carry `data-regions` (absent for None).
+- **Headless `dom()` is cached** like `shot()`: the determinism section runs first, so a repeated
+  query is a repeated page.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

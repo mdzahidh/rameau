@@ -72,9 +72,9 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **E0** | **E phase recorded** — three principles, decisions, row disposition, THEORY §7.7 placeholder. | ✅ done 2026-09-05 | `# E — evidence-driven readouts` |
 | **E1** | **The tone panel says how sure it is** — evidence manifests measured then frozen, four render states, verdicts only from measured bands, row disposition, schema `tone-3`. | ✅ built 2026-09-05 — **gate 8**, awaiting the user's test | `### E1 — the tone panel says how sure it is` |
 | **E2** | **A slot holds takes** — `slot.takes[]`, snapshot `files[i].takes[]`, live bands from two takes, card redesign, readiness line, waveform seek. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E2 — a slot holds takes` |
-| **E3** | **The guided take** — `REC_PROTOCOL` on M5's capture, steps labelled by the rows they unlock, `protocol` in the take's facts. | ⏸ after E2 | `### E3 — the guided take` |
-| **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ⏸ after E3 | `### E4 — the Band Energy fold` |
-| **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ⏸ after E4 (E3–E5 batch) | `### E5 — the language ladder` |
+| **E3** | **The guided take** — `REC_PROTOCOL` on M5's capture, steps labelled by the rows they unlock, `protocol` in the take's facts. | ✅ built 2026-09-05 (branch `e-phase`) | `### E3 — the guided take` |
+| **E4** | **The Band Energy fold** — shares on the Spectrum strip, band-mean Δ step line on the Difference plot, table → region popover, Regions control into the strip, `None`. | ✅ built 2026-09-05 (branch `e-phase`) | `### E4 — the Band Energy fold` |
+| **E5** | **The language ladder** — plain words on the surface, number + term one tap down, measurement below that; Take rows as a traffic light. | ✅ built 2026-09-05 (branch `e-phase`) — E3–E5 **gate** | `### E5 — the language ladder` |
 | **E6** | **Hollow and acoustic** — three-valued type, `tapResonance()`, `roomTail()`, `recordingPath()`, acoustic Anatomy rows. | ⏸ after E5 — **gate** | `### E6 — hollow and acoustic` |
 | **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ⏸ after E6 — **gate** | `### E7 — the name in the file` |
 | **R6** | **Interval consonance explainer** — joint period, comb alignment, Plomp–Levelt/Sethares roughness. Now also carries **R6.4**, the overlay's time bound (was R5.4). | ⏸ blocked: two `docs/THEORY.md` §2.5 numeric caveats are unresolved (R6.4 is not blocked) | `# R6 — Interval consonance explainer` |
@@ -2171,7 +2171,9 @@ builder near `slotNames:state.slotNames.slice(), slotTypes:`; `id="toneRepeatTog
 - **Done when** dropping a second file on a loaded slot adds a take, both guitars with two
   takes turn state-2 rows into state-1 rows in place, and a v1.0.0 snapshot still loads.
 
-### E3 — the guided take (on M5's capture, no new capture code)
+### E3 — the guided take (on M5's capture, no new capture code) ✅ BUILT 2026-09-05 (branch `e-phase`)
+
+*Reviewer-built (`fa69cf4`); SPEC.md 2026-09-05 "E3, E4, E5 built" has the account.*
 
 Anchors: `async function _startCapture(`, its `sp.onaudioprocess=`, `function startCapture(`,
 `function stopCapture(`, `function detectOnsets(` (block 0), the recording panel renderer,
@@ -2200,7 +2202,10 @@ the recording guide modal.
   across the neck, Bloom and Fundamental decay in state 2, and a second take per guitar puts
   them in state 1.
 
-### E4 — the Band Energy fold (Frequency Analysis card)
+### E4 — the Band Energy fold (Frequency Analysis card) ✅ BUILT 2026-09-05 (branch `e-phase`)
+
+*Reviewer-built (`9a99eb0`). Two recorded deviations — the chip has its own lane row, and the
+strip-off pixel identity was replaced by `data-regions` — see SPEC.md 2026-09-05 "E3, E4, E5 built".*
 
 Anchors: `id="freqBands"`, the band-table renderer, `function nearFloorBands(`,
 `const VOCABS=` (block 3), `function setVocab(`, `function fmtPct(`, `drawStringAxis`,
@@ -2233,7 +2238,10 @@ Anchors: `id="freqBands"`, the band-table renderer, `function nearFloorBands(`,
 - **Done when** every number the table printed is reachable in two taps and nothing on the
   card header is a control.
 
-### E5 — the language ladder (copy and popovers, no math)
+### E5 — the language ladder (copy and popovers, no math) ✅ BUILT 2026-09-05 (branch `e-phase`)
+
+*Reviewer-built (`bf379bc`); the moved-strings table and the E5.4 taste call are in SPEC.md
+2026-09-05 "E3, E4, E5 built".*
 
 - **E5.1** Audit every surface string on the Tone panel, the cards, At a glance, and the
   Frequency card against the three rungs; move rung-2/3 text down one tap. Keep a list of

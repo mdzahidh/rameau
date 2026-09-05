@@ -825,7 +825,7 @@ build educational copy from it, never re-derive from scratch.
   `rameau_Take-00-58-04.wav` is the source (an all-digital, cab-simulated feed), not the capture
   — the app now records `track.getSettings()`'s processing flags on the take and warns if any
   was on. Gate hooks `?load=` (debug), `?tuning=`, `?pop=tone.<row>.<slot>`. `tests/e.test.js`
-  is the E-phase suite (**104** after E2), verify.sh step 6 of 8. **E2 next, after the user's test.**
+  is the E-phase suite (**134** after E5), verify.sh step 6 of 8.
 - **E2 BUILT (session 34, branch `e-phase`; the user asked for E2–E7 on one branch without
   stopping at each gate).** A slot holds takes: `state.slots[i]` stays take 0, siblings in a
   non-enumerable shared `takes` array (`slotTakes(i)` the door); drop/record/"+ Add take" append
@@ -834,7 +834,23 @@ build educational copy from it, never re-derive from scratch.
   **both** slots hold ≥ 2 takes (live → saved → provisional), the "Same guitar, two takes" switch
   is app-set and disabled; the card has the name as headline, a take list with a readiness dot
   per take (`takeReadiness` over `evidenceFor`), one Play/Pause, a canvas waveform seeking
-  through `seekCard()`. `tests/e.test.js` **104**. E3 next on the same branch.
+  through `seekCard()`. `tests/e.test.js` **104**.
+- **E3 + E4 + E5 BUILT (session 34, branch `e-phase`, one gate for the batch).** **E3:**
+  `REC_PROTOCOL` (six steps, `unlocks` validated against `TONE_EVIDENCE` at load) drives a
+  guided take on M5's capture — prompts advance on onsets counted by the analysis's own
+  `stftBands → detectOnsets` from the capture's existing tick, a first played step under 40 dB
+  above the measured floor stops the take, `protocol:{version,stepsDone,skipped,floorDb}` rides
+  in the take's facts; the `Guided` switch (`state.recGuided`, additive in gsSettings) off is
+  byte-identical to M5. **E4:** the Band Energy table is gone — `bandRowsFor()`/`bandTable()` is
+  the one builder; shares print under each region on the Spectrum strip, Δ under each region and
+  a band-mean **step line** (faint + dashed `[4,4]` where the whole band is under the floor) on
+  the Difference; a region's popover row carries range/shares/Δ/floor; Bands CSV/JSON under the
+  Spectrum exports; `None` vocabulary; the vocabulary **chip** is the strip's first row on both
+  plots (its own row — an inline chip hid the 60–100 Hz label); Strings + Clear harmonics on the
+  x-axis row; the Frequency card header is title and subtitle only; `gsCollapse`/`?open=` drop
+  `bands`. **E5:** rung-1 words on every surface (SPEC has the moved-strings table); Take rows
+  are a light and a phrase; every value/phrase is the same `[data-pop]` tap. **E5.4 taste call
+  presented, not decided:** default vocabulary Band mix vs EQ speak (or None). **E6 next.**
 - **NEXT — E3 → E7 on `e-phase`, then the user’s test of the whole branch.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -848,7 +864,7 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 104**, headless 69
+- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 134**, headless **73**
   (eight steps since E1; `--node` skips the headless step).
   **Step 1 is red on master and has been since `ac65835` "EQ match: fit
   each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound
@@ -925,7 +941,7 @@ build educational copy from it, never re-derive from scratch.
   (`?demo=a`/`=b` loads one side only). Other test hooks: `?theme=bright|dark`,
   `?sgalign=file|onset`, `?mag=<viewkey>`, `?guide`,
   `?zoom=key:x0,x1[,y0,y1]` (key = spec|diff|env|eqresp|sga|sgb; data units —
-  sg keys take x in display-time seconds, y in Hz), `?vocab=eq|anatomy|solo|mix`
+  sg keys take x in display-time seconds, y in Hz), `?vocab=eq|anatomy|solo|mix|none`
   (annotation-lane vocabulary), `?ca=RRGGBB`/`?cb=RRGGBB` (session-only guitar-color
   overrides), `?open=all|key,key` (unfold collapsed panels: diff|bands|tone|eq|sgram|
   env — **full-page screenshots need `?open=all`** now that eq/sgram/env start
@@ -972,7 +988,9 @@ build educational copy from it, never re-derive from scratch.
   relative to `index.html` and land them as A/B — headless needs
   `--allow-file-access-from-files`; how the gate renders the real audit takes),
   `?tuning=estd|eb|dstd|dropd|dadgad` (session-only, never saved), `?pop=tone.<row>.<slot>`
-  (the E1 readout popover of a tone row, slot 0/1),
+  (the E1 readout popover of a tone row, slot 0/1), `?vocab=none` (E4.5 — the empty
+  vocabulary; both frequency canvases carry `data-regions="<n>"`, absent for None, and the
+  Difference canvas carries `data-nearfloor-rows` since E4.2),
   `?strings=1|0` (bottom-axis open-string labels), `?harmonics=0|1` (compat hook —
   `1` turns harmonics 2–4 on for every string), `?how` (open the "How to use this
   app" walkthrough), `?about` (open the About modal), `?debug` (reveal the hidden

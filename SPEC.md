@@ -2813,3 +2813,108 @@ Branch `e-phase`. Same shape as E1: one commit per task, the full gate once at t
   — two takes per slot turn Pickup voice, String stiffness, Overtone ring, Even/odd, Harmonic
   richness, Attack colour and Dynamic range into state-1 rows in place, with the shaded band
   and a verdict; the Majesty's clipping shows red on its waveform. Full gate at the end.
+
+## 2026-09-05 — E3, E4, E5 built: the guided take, the Band Energy fold, the language ladder (session 34, reviewer; branch `e-phase`)
+
+The E3–E5 batch, one gate at its end. Same shape as E1/E2: one commit per milestone's tasks,
+`./tests/verify.sh --node` after each, the full gate once here.
+
+### E3 — the guided take (on M5's capture)
+
+- **`REC_PROTOCOL`** in block 4: six steps — silence (3 s), open strings, a walk up the neck,
+  the anchor notes, a tap on the bridge (hollow / acoustic only), mic placement (mic takes
+  only). Each step's `unlocks` names the tone rows its material feeds, and **every key is
+  checked against `TONE_EVIDENCE` at load** — an unknown key throws, so the manifest stays the
+  source and the table only points at it.
+- **Advance on onset, with the analysis's own detector.** `guidedTick()` counts onsets over
+  the step's own samples with `stftBands → detectOnsets` — the pair the analysis runs — from
+  the capture's existing 100 ms tick; no new node, no second pass, no second detector.
+- **The floor gate.** The first played step under `REC_GUIDE_SNR_MIN = 40` dB above the
+  measured silence stops the take with one sentence, rather than landing material the rows
+  will reject.
+- **Protocol on the take.** `landRecording()` writes `protocol:{version, stepsDone, skipped,
+  floorDb}` into the take's facts (so into the snapshot, additive); the readiness popover names
+  a skipped step beside the row it would have fed.
+- **Optional and additive.** A `Guided` switch in the arming panel (`state.recGuided`,
+  default on, remembered additively in `gsSettings` — v5 unchanged); off, M5's capture is
+  byte-identical to before. One paragraph in the recording guide, nothing removed.
+
+### E4 — the Band Energy fold
+
+- **One builder.** `bandRowsFor(regions)` — Welch band power over the recording's own
+  60 Hz–20 kHz, Δ A − B with level-match subtracted, `onFloor` from Q3's `nearFloorBands()`
+  — and `bandTable()` is it over the active vocabulary. The strip, the step line, the region
+  popover, At a glance's region scan and both Bands exports read it; `renderBandsTable()` and
+  `#freqBands` are gone.
+- **E4.1 Spectrum strip:** under each region's name, each loaded guitar's share in its own
+  colour (`fmtPct`, so `< 0.1 %` still reads as small-not-absent); skipped rather than smeared
+  when the region is too narrow. **E4.2 Difference:** Δ under each name, coloured by who is
+  hotter, and a **band-mean step line** over the continuous curve — faint and dashed `[4,4]`
+  where the whole band sits under the floor, exactly R5.5's dressing; `data-nearfloor-rows`
+  moved to `diffCanvas`; the table's footnote became a clause of the Difference status chip
+  (`dashed + faint step = both below −60 dB (≈ inaudible)`).
+- **E4.3 region popover:** a region's *Current values* are the table's row — range, both
+  shares, Δ (with the level-match it includes), the floor sentence when it applies — for any
+  region, active vocabulary or not (the glossary panel lists them all). Bands CSV/JSON sit
+  under the Spectrum exports; the CSV gains an `on_floor` column and the JSON `onFloor` /
+  `floorDb` / `levelMatchDb` (additive).
+- **E4.4:** `gsCollapse` / `?open=` no longer know `bands`; a stored key falls through the
+  existing `k in COLL_CARDS` filter, not migrated.
+- **E4.5 the chip:** `VOCABS` gains `None` (an empty set: no shading, no strip, no band
+  numbers). The vocabulary control is a `<select>` chip over the lane on **both** plots,
+  driving `setVocab()`. **Deviation, recorded:** the chip has **its own lane row** (`LANE_TOP`
+  18 px) rather than sitting inline before the first region — region labels are
+  frequency-anchored, and at 1440 px an inline chip covered the 60–100 Hz region's label on
+  both plots (verified in pixels before the change). Both canvases grew by that row, so the
+  plot rect did not shrink; `None` keeps the one-row height, so switching it never moves the
+  plot. Each canvas carries `data-regions="<n>"` (absent for None) so node can tell a hidden
+  strip from a blank page.
+- **E4.6:** Strings is a switch at the x-axis's left end of each plot (`setStrings()` the one
+  door — both switches, the S key, the `?strings=` hook); Clear harmonics is `hidden` unless a
+  harmonic is on and sits beside it, on the axis title's row so it never covers a string
+  label. The Frequency card header is title and subtitle only.
+- **Verification (in proportion):** `tests/e.test.js` 116 → 134 (source-read: one builder,
+  both models carry its rows, strip/step/popover read it, None is empty, chips and switches
+  through one door, the header carries no control); `tests/r5.test.js`'s R5.5/Q3 contracts
+  re-pointed at `bandRowsFor` / `drawAll` (325 → 332, none weakened); `tests/headless.js`
+  gains one `?vocab=none` launch and a `dom()` cache (the renderer is deterministic, asserted
+  first, so a dumped query is a launch already paid for). The ROADMAP's "pixel-identity of the
+  plot rect against the strip-off render" was **not** built as written: the default
+  vocabulary tints every plot pixel, so no strip-off render exists to compare against; the
+  claim is carried by `data-regions` plus the source-read that `None` is an empty set.
+
+### E5 — the language ladder
+
+Rung 1 on the surface, rung 2 one tap down, rung 3 below that. **Moved down one tap:**
+
+| Was on the surface | Now behind |
+|---|---|
+| At a glance: the level gap in dB (`ran 3.1 dB louder`) | the `level-match` term's popover (current offset) |
+| At a glance: the region's Hz range and Δ (`Kick (60–100 Hz) … 8.5 dB hotter`) | the region's popover (E4.3 row) |
+| At a glance, one guitar: centroid / tilt / longest note | the tone rows (it now says what the take supports) |
+| Tone rows: `band ±12 %` / `inside ±12 %` under a verdict | the readout popover, "The band" |
+| Take rows: `RMS −20.6 dBFS · peak −1.9 dBFS · floor −62 dBFS · SNR 41 dB`, `12 of 14 onsets pitched · conf 0.91`, `14 onsets · 2.5 per s` | the phrase's tap (`openTonePop`, "This take") |
+| Footer note: per-slot pitched-note and open-string counts | the readiness dot's tap |
+| Comparability bar: the measured gaps (`8.3 semitones apart`) | the `comparability` term |
+| Sub-titles: `dB re full-scale sine`, `A − B, dB` | the plots' axis titles and status chips |
+
+**Reworded on the surface:** `partials` → `clear overtones`, `two-stage decay` → `fall in two
+stages`, `knee` → `turns at`, stiffness ticks `0.1 / 10 ×10⁻⁴` → `more supple / stiffer`.
+**E5.2:** the three text rows (Pitch check, Level and floor, Material) print a traffic light
+and one phrase (`Good level, noisy background`) with `takeReadiness()`'s own thresholds; the
+light's palette is the readiness dot's. **E5.3:** every value label and every phrase is the
+same `[data-pop]` tap into `openTonePop`; the comparability bar's detail is a term. **Left
+as-is, flagged:** the stiffness value label still prints `0.06 ×10⁻⁴` (the row's point is the
+number; the popover explains it), and `proseCandidates()`'s ratios (`×1.6`) stay — Q5 pinned
+"the ratio a player would quote" on the user's report, and a bare ratio is a player's word.
+Two contracts updated rather than the strings: r5's `widest audible spectral gap` →
+`widest audible gap`; e.test's tap selector `.vlab[data-pop]` → `[data-pop]`.
+
+### E5.4 — a taste call for the user (presented, not decided)
+
+The default region vocabulary for a new user. **Band mix** is the settled default (session 20:
+"where the guitar sits against the rest of a band" — role colours, the At-a-glance headline
+names a mix zone). The ladder argues for the **plainest set**, which is **EQ speak** (`LOW
+END / LOW MIDS / MIDS / UPPER MIDS / HIGHS / AIR` — the words a first-time user already has),
+or now **None** (a clean plot; the chip invites the choice). Nothing was changed; `setVocab("mix")`
+is still the default path.
