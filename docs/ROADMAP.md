@@ -2348,6 +2348,19 @@ Anchors: `function sniffAudioInfo(` (block 0 — must keep reading `fmt` and `da
 
 ---
 
+### 2026-09-06 — feedback batch 2 ✅ BUILT (branch `e-feedback`)
+
+*Reviewer-built from the user's second test; SPEC.md 2026-09-06 (second batch) has the five
+items and the row-by-row audit table.* The card is a stack of takes with one transport; the
+"Same guitar, two takes" switch is gone; the Tone character card is regrouped **by what a
+player asks** (How it sounds / How it rings / The take) with sensitivity to the playing as a
+**per-row tag**, player-speak names (Sustain, Dead spots, Pick attack), a short line that says
+what the number is, and an ear-first readout popover with eleven synthesized pairs
+(`TONE_EAR`). **Open for the user to strike:** Sustain and Dead spots share a T20 (one matched
+across takes, one over every note plus the flags) — one row or two. **Next:** the user's test —
+recording first (M5 capture and the guided take in Chrome and Safari), then E4–E7 and the EQ
+release pass, all still untested — then merge `e-feedback` to master.
+
 # Gated — do not start without explicit user go-ahead
 
 - **M3 — live input.** Still owes the task-based entry points deferred from M2.

@@ -176,7 +176,62 @@ section("E1.6 — At a glance: state-1 Instrument rows only; the empty case name
   ok(cu.length > 100 && /r\.state===2/.test(cu) && /Record a second take of either guitar/.test(cu) && /missingPhrase\(ev\.missing\[0\],r\.def\)/.test(cu),
     "cheapestUpgrade: a second take when a row is measured, else the first missing item in the one phrasing");
   ok(/cheapestUpgrade\(\)/.test(rv) && /cheapestUpgrade\(\)/.test(rp), "both the strip and the prose print it in the empty case");
-  ok(/r\.group==="inst"&&r\.state===1/.test(rv) && /r\.group==="inst"&&r\.state===1/.test(rp), "…and 'not distinguishable' is said only when a banded row exists to say it");
+  ok(/r\.def\.glance&&r\.state===1/.test(rv) && /r\.def\.glance&&r\.state===1/.test(rp) && /r\.def\.glance&&!r\.def\.text&&!r\.def\.plain/.test(cu),
+    "…and 'not distinguishable' is said only when a banded glance row exists to say it (glance is a row flag since 2026-09-06, not a group)");
+}
+
+section("2026-09-06 — the Tone character card re-audited under the core use case: groups by what a player asks, per-row sensitivity, ear-first popover, synthesized pairs");
+{
+  const defs = body("toneRowDefs"), b4 = blocks[4];
+  const tg = b4.slice(b4.indexOf("const TONE_GROUPS=["), b4.indexOf("];", b4.indexOf("const TONE_GROUPS=[")));
+  ok(/id:"sound"/.test(tg) && /id:"ring"/.test(tg) && /id:"take"/.test(tg) && !/id:"inst"|id:"voice"/.test(tg), "three groups: How it sounds / How it rings / The take — Instrument and Voicing are gone");
+  ok(!/g:"inst"|g:"voice"/.test(defs), "no row points at a dead group");
+  const rows = [...defs.matchAll(/\{g:"(\w+)", term:"([\w-]+)", name:"([^"]+)"/g)].map(m => ({ g: m[1], term: m[2], name: m[3] }));
+  const byTerm = Object.fromEntries(rows.map(r => [r.term, r]));
+  ok(rows.length === 17, "seventeen rows", rows.length);
+  ok(byTerm["f0-decay"].name === "Sustain" && byTerm["neck-sustain"].name === "Dead spots" && byTerm["attack-spectrum"].name === "Pick attack", "player-speak names: Sustain, Dead spots, Pick attack");
+  ok(["pickup-resonance", "body-resonance", "inharmonicity", "brightness", "even-odd", "harmonic-richness", "attack-spectrum"].every(t => byTerm[t].g === "sound") &&
+     ["overtone-sustain", "bloom", "neck-sustain", "f0-decay"].every(t => byTerm[t].g === "ring") &&
+     ["pitch-check", "noise-floor", "dynamic-range", "residual", "comparability", "recording-path"].every(t => byTerm[t].g === "take"), "each row sits in the group its question belongs to");
+  const glance = [...defs.matchAll(/term:"([\w-]+)"[^\n]*glance:true/g)].map(m => m[1]).sort();
+  ok(glance.join() === ["bloom", "body-resonance", "f0-decay", "neck-sustain", "overtone-sustain", "pickup-resonance"].join(), "glance:true on exactly the rows that fed At a glance before (String stiffness stays out via plain)", glance.join());
+  // Every non-text row states what is measured (unit line + `how`), what it sounds like (`ear`) and how much the playing moves it (`sens`).
+  const numeric = rows.filter(r => !["pitch-check", "noise-floor", "comparability", "recording-path"].includes(r.term));
+  const rowSrc = t => { const i = defs.indexOf('term:"' + t + '"'); const j = defs.indexOf("\n    {g:", i + 1); return defs.slice(i, j < 0 ? undefined : j); };
+  ok(numeric.every(r => /\n\s+how:"/.test(rowSrc(r.term))), "every numeric row carries `how` — the measurement in one breath");
+  ok(numeric.every(r => /\n\s+sens:\{k:"(low|mid|high|take)", note:"[^"]*"\}/.test(rowSrc(r.term))), "every numeric row carries `sens` with a level and a note");
+  ok(numeric.filter(r => r.g !== "take").every(r => /\n\s+ear:\{hi:"[^"]+", lo:"[^"]+"\}/.test(rowSrc(r.term))), "every guitar row carries `ear` — higher and lower in a player's words");
+  ok(["brightness", "even-odd", "harmonic-richness", "attack-spectrum", "bloom"].every(t => /sens:\{k:"high"/.test(rowSrc(t))) && ["pickup-resonance", "f0-decay", "inharmonicity", "overtone-sustain"].every(t => /sens:\{k:"low"/.test(rowSrc(t))),
+    "the disclosure follows THEORY §7.4/§7.5: the pick-moved rows say high, the decay rates and the pickup say low");
+  ok(numeric.every(r => { const u = rowSrc(r.term).match(/unit:"([^"]+)"/)[1]; return /(Hz|dB|seconds|inharmonicity B|centroid|percentile|frequency|when a note|energy in|brightness of)/.test(u) && /(median|mean|whole take|average|open E|each gap|tap|first 12|two takes|every pitched|comb-checked|above the floor)/.test(u); }),
+    "every unit line names the quantity and the material it is combined over");
+  for (const k of ["warmth", "low-end", "tightness", 'term:"sustain"', 'term:"attack"']) ok(!defs.includes(k), "still no dead row: " + k.replace(/"/g, ""));
+  // Row: the tag beside the name.
+  const rh = body("toneRowHtml");
+  ok(/TONE_SENS_WORD\[d\.sens\.k\]/.test(rh) && /class="sens '\+d\.sens\.k\+'"/.test(rh) && /'<small>'\+esc\(d\.unit\)\+'<\/small>/.test(rh), "the row prints the sensitivity tag beside the name and the unit line under it");
+  ok(/\.tonename \.sens\{/.test(b4 + blocks[0]) || /\.tonename \.sens\{/.test(fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")), "…and the tag has a rule");
+  // Popover: ear first, then the measurement, then the number, then the disclosure.
+  const op = body("openTonePop");
+  const at = t => op.indexOf(t);
+  ok(at('sec("By ear"') > 0 && at('sec("What is measured"') > at('sec("By ear"') && at('d.text?"This take":"This number"') > at('sec("What is measured"') && at('sec("How much the playing moves it"') > at('d.text?"This take":"This number"') && at('sec("What it rests on"') > at('sec("How much the playing moves it"'),
+    "the readout is layered: By ear → What is measured → This number → How much the playing moves it → What it rests on");
+  ok(/<b>Higher<\/b> — "\+esc\(d\.ear\.hi\)/.test(op) && /<b>Lower<\/b> — "\+esc\(d\.ear\.lo\)/.test(op), "By ear prints higher and lower");
+  ok(/data-ear="'\+d\.term\+':lo"/.test(op) && /data-ear="'\+d\.term\+':hi"/.test(op) && /Synthesized string, not a recording — what changed: '\+esc\(ex\.changed\)/.test(op), "the pair of play buttons says it is synthesized and what changed");
+  ok(/Same player, same pick, same phrase on both guitars — then what differs here is the guitar\./.test(op) && /d\.sens\.k==="high"\?/.test(op), "a high-sensitivity row says the use case back: same player, same pick, same phrase");
+  // The synthesized pairs.
+  const te = b4.slice(b4.indexOf("const TONE_EAR={"), b4.indexOf("const _earCache={};"));
+  const earKeys = [...te.matchAll(/^  "([\w-]+)":\{lo:"/gm)].map(m => m[1]);
+  ok(earKeys.length === 11 && earKeys.every(k => byTerm[k] && byTerm[k].g !== "take"), "eleven pairs, one per guitar row, none for a Take row", earKeys.join());
+  ok(earKeys.every(k => new RegExp('"' + k + '":\\{lo:"[^"]+", hi:"[^"]+", changed:"[^"]+",\\s*make:w=>').test(te)), "each pair has two labels, a `changed` sentence and a maker");
+  ok(/THEORY §7\.2/.test(te) && /§7\.6\.2/.test(b4.slice(b4.indexOf("// ---------- ear examples"), b4.indexOf("const TONE_EAR={"))), "the pairs cite the THEORY sections they enact");
+  ok(/e0\[\(i-D\+N\)%N\]/.test(body("earKs")), "the pluck-position comb is circular (a linear one left the first D samples uncombed and the even partials alive)");
+  ok(/startPlayback\(0,null,null,\(\)=>setEarPlayUI\(null\),0,rec\)/.test(b4) && /toneEarRec\(term,w\)/.test(b4), "the ear buttons play through the one playback path, handing it a synthesized rec");
+  ok(/samples, info:\{sampleRate:EAR_RATE\}/.test(body("toneEarRec")) && /0\.5\/pk/.test(body("toneEarRec")), "the rec has the shape canPlay() reads, normalised to −6 dBFS");
+  // Copy that named the old groups.
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  ok(!/Nothing in the Instrument group|Instrument rows read the open strings|It lives in the Voicing group|filed under voicing/.test(html), "no copy names the Instrument or Voicing group any more");
+  const bl = html.slice(html.indexOf('key:"bloom"'), html.indexOf('key:"bloom"') + 1200);
+  ok(!/swell|gets warmer or louder|build-up of body-mode/.test(bl) && /two polarizations/.test(bl) && /7\.6\.3/.test(bl), "Bloom's glossary now describes the two-stage decay THEORY §7.6.3 measures, not a swell");
 }
 
 section("E1.7 — exports: schema tone-3, additive");

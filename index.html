@@ -623,6 +623,13 @@ table.datatable tr.grp td{
 .tonerow:last-child{ border-bottom:0; }
 .tonename{ font-size:12.5px; color:var(--ink); }
 .tonename small{ display:block; font-size:10.5px; color:var(--dim); letter-spacing:.02em; }
+/* 2026-09-06: the per-row sensitivity disclosure — a tag, not a group */
+.tonename .sens{ display:inline-block; margin-left:6px; padding:0 5px; font-size:9.5px; letter-spacing:.04em; color:var(--dim); border:1px solid var(--hair2); border-radius:3px; vertical-align:1px; white-space:nowrap; }
+.tonename .sens.high{ color:var(--warn); border-color:var(--warn); }
+.earplay-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.earplay{ font-size:11.5px; padding:3px 9px; border:1px solid var(--hair); border-radius:6px; background:var(--panel2); color:var(--ink); cursor:pointer; }
+.earplay.playing{ border-color:var(--ink); }
+.pop-sec p.earnote{ font-size:11px; color:var(--dim); margin-top:6px; }
 .axend{ font-size:10px; color:var(--faint); font-variant-numeric:tabular-nums; }
 .axend.lo{ text-align:right; }
 .axend.hi{ text-align:left; }
@@ -4020,7 +4027,7 @@ const GLOSSARY=[
   { key:"brightness", name:"Brightness", cat:"Tone descriptors", hook:"where the spectral balance sits",
     musician:"How trebly versus dark a guitar sounds overall. New strings, bridge pickups, and maple boards read as “brighter”.",
     science:"Perceived brightness correlates strongly with the spectral centroid — the energy-weighted average frequency of the spectrum.",
-    measure:"Spectral centroid Σf·P(f) / ΣP(f) over 60 Hz–20 kHz of the Welch average, in Hz. No note name: a centroid is where the energy balances, not a pitch — nothing sounds at it. It lives in the Voicing group because the audit (THEORY §7.4) found pick position alone moves it 0.37 octaves, pickup position 0.46, and a transposed phrase moves it one-for-one — more than two guitars differ on the same riff. Spectral tilt is printed under it rather than as its own row: the two correlate at r = 0.80 and would count one fact twice.",
+    measure:"Spectral centroid Σf·P(f) / ΣP(f) over 60 Hz–20 kHz of the Welch average, in Hz. No note name: a centroid is where the energy balances, not a pitch — nothing sounds at it. It carries the pick-sensitive tag because the audit (THEORY §7.4) found pick position alone moves it 0.37 octaves, pickup position 0.46, and a transposed phrase moves it one-for-one — more than two guitars differ on the same riff. Spectral tilt is printed under it rather than as its own row: the two correlate at r = 0.80 and would count one fact twice.",
     values(state){ return _vals(state, s=>fmtHz(s.metrics.centroid)+(s.metrics.tilt!=null?"  ·  tilt "+s.metrics.tilt.toFixed(1)+" dB/oct":"")); } },
 
   { key:"spectral-centroid", name:"Spectral centroid", cat:"Tone descriptors", hook:"the spectrum's centre of mass",
@@ -4055,7 +4062,7 @@ const GLOSSARY=[
 
   { key:"attack-spectrum", name:"Attack colour", cat:"Tone descriptors", hook:"the first 10 ms against the ring",
     musician:"Whether the pick's click is brighter or darker than the note that follows it — the difference between a thin celluloid pick and a thick, rounded one, or the angle you hold it at.",
-    science:"The spectral centroid of the first 10 ms after an onset compared with the centroid 300–500 ms later, as a ratio in octaves (THEORY §7.6.8). On the audit takes it varied as much between strings of one guitar as between guitars on one string, so it is filed under voicing: it is the pick meeting the string.",
+    science:"The spectral centroid of the first 10 ms after an onset compared with the centroid 300–500 ms later, as a ratio in octaves (THEORY §7.6.8). On the audit takes it varied as much between strings of one guitar as between guitars on one string, so it carries the pick-sensitive tag: it is the pick meeting the string.",
     measure:"For the longest comb-checked notes: 512-pt Welch over the first 10 ms, 2048-pt Welch over 300–500 ms after the onset, log₂ of the centroid ratio; median over notes. Positive = the attack is brighter than the ring.",
     values(state){ return _vals(state, s=>s.metrics.attackSpectrum!=null ? (s.metrics.attackSpectrum>0?"+":"")+s.metrics.attackSpectrum.toFixed(2)+" oct" : null); } },
 
@@ -4071,9 +4078,9 @@ const GLOSSARY=[
     measure:"Per onset: low-band (60–200 Hz) STFT power decay from post-onset peak → time to shed 20 dB. Median across onsets. Shorter = tighter. A fixed band moves with register and note density, so this is a voicing row.",
     values(state){ return _vals(state, s=>s.metrics.decays && s.metrics.decays[0]!=null ? fmtMs(s.metrics.decays[0])+" to −20 dB" : null); } },
 
-  { key:"bloom", name:"Bloom", cat:"Tone descriptors", hook:"notes that swell after the attack",
-    musician:"When a note gets warmer or louder a moment after the pick — common on big-bodied acoustics and semi-hollows as the body's resonances build up.",
-    science:"Energy (often low-mid) that peaks tens to hundreds of milliseconds after the onset transient, i.e. slow build-up of body-mode resonance.",
+  { key:"bloom", name:"Bloom", cat:"Tone descriptors", hook:"a fast first fall, then a slow tail",
+    musician:"A note that drops quickly for a moment after the pick and then seems to hold, ringing on at a gentler slope — what players call bloom or natural compression. It is not the note getting louder: it is the note stopping its fall.",
+    science:"A string vibrates in two polarizations: motion perpendicular to the top drives the bridge hard and loses energy fast, motion parallel to it couples weakly and rings on. Their sum has two decay slopes in dB and a knee where the fast term hands over to the slow one (THEORY §7.6.3, Weinreich 1977; Woodhouse 2004).",
     measure:"Two-stage decay fit (THEORY §7.6.3): the broadband RMS envelope in dB (10 ms frames) from the onset peak to −30 dB, fitted as two straight lines with one knee placed where the residual is smallest. A note counts as two-stage when the knee removes at least 40 % of the one-line residual and the early slope is at least 1.5× the late one; the row prints the median knee time and both slopes over such notes, or says one slope fits. The mechanism is the string's two polarizations losing energy to the bridge at different rates.",
     values(state){ return _vals(state, s=>{ const b=slotBloom(s.metrics); return b ? "knee "+fmtMs(b.knee)+"  ·  "+b.early.toFixed(1)+" → "+b.late.toFixed(1)+" dB/s  ·  "+b.n+" notes" : null; }); } },
 
@@ -4087,7 +4094,7 @@ const GLOSSARY=[
       return parts.length?parts.join(" · "):null; }); } },
 
   { key:"dynamic-range", name:"Dynamic range", cat:"Tone descriptors", hook:"loud-to-quiet spread",
-    musician:"<b>A Take / recording row since 2026-09-05</b> — a fact about the performance and the floor (a −60 dBFS floor took 4.7 dB off it in the audit), not about the guitar. How much louder the loud bits are than the quiet bits. Wide range = expressive, uncompressed playing; narrow = compressed or consistently dug-in.",
+    musician:"<b>A row of The take since 2026-09-05</b> — a fact about the performance and the floor (a −60 dBFS floor took 4.7 dB off it in the audit), not about the guitar. How much louder the loud bits are than the quiet bits. Wide range = expressive, uncompressed playing; narrow = compressed or consistently dug-in.",
     science:"The statistical spread of short-term level over the performance, ignoring silence.",
     measure:"RMS in 50 ms frames (25 ms hop); frames above noise-floor + 8 dB count as active; DR = 95th − 10th percentile of active frame levels, in dB. A performance measure — and a −60 dBFS noise floor took 4.7 dB off it in the audit, so it also flags the take.",
     values(state){ return _vals(state, s=>s.metrics.dr!=null ? s.metrics.dr.toFixed(1)+" dB" : null); } },
@@ -7267,15 +7274,22 @@ function regionBandHtml(key){
 }
 
 // ---------- tone character (reworked 2026-09-05, THEORY §7) ----------
-// Three groups. Only the Instrument group feeds "At a glance". Every row carries a
-// reliability band — how far its number is expected to move between two takes of the
-// same guitar — and a difference inside that band prints "not distinguishable", never a
-// delta. Rows say what they mean in plain words; the glossary popover holds the formula.
+// Three groups, by what a player asks (user, 2026-09-06 — the core use case is one player,
+// two of their own guitars, the same phrase; "Voicing / technique" read as "this is the
+// player, not the guitar", which under that use case is wrong). How sensitive a row is to
+// the playing is a per-row disclosure (`sens`, the tag beside the name), never a bucket.
+// Rows with `glance:true` feed At a glance. Every row carries a reliability band — how far
+// its number is expected to move between two takes of the same guitar — and a difference
+// inside that band prints "not distinguishable", never a delta. The short line under a
+// row's name states what is measured; the readout popover goes ear-first, then the method.
 const TONE_GROUPS=[
-  {id:"inst", name:"Instrument", hint:"stays put when the pick, the level or the phrase changes — these feed At a glance"},
-  {id:"voice", name:"Voicing / technique", hint:"real differences, but they belong to the player, the pick and what was played"},
-  {id:"take", name:"Take / recording", hint:"how much to trust the numbers above"},
+  {id:"sound", name:"How it sounds", hint:"the colour of the guitar — its resonances and the balance of its overtones; the tag on a row says how much the pick moves it"},
+  {id:"ring", name:"How it rings", hint:"how notes hold, fade and turn — decay rates, which the pick does not set"},
+  {id:"take", name:"The take", hint:"how far to trust the rows above"},
 ];
+// The disclosure's words, from the audit (THEORY §7.4/§7.5); the row's `sens.note` holds the number.
+const TONE_SENS_WORD={low:"steady under the playing", mid:"part the phrase", high:"the pick moves this"};
+const TONE_SENS_LEAD={low:"Little.", mid:"Some.", high:"A lot."};
 const TONE_MIN_STRINGS=2;
 // The open strings the take contains: for each string of the selected tuning, the
 // longest comb-checked note within ±50 ¢ of it. The instrument rows read these first
@@ -7332,17 +7346,23 @@ function slotStiffnessEA(m){
 function toneRowDefs(){
   const both=bothLoaded();
   const defs=[
-    // ---- Instrument ----
-    {g:"inst", term:"pickup-resonance", name:"Pickup voice", types:["solid","hollow"], piezo:true,
-     unit:"where the pickup itself peaks — cable length and the volume pot move it too",
+    // ---- How it sounds / How it rings: the rows that feed At a glance (glance:true) ----
+    {g:"sound", term:"pickup-resonance", name:"Pickup voice", types:["solid","hollow"], piezo:true, glance:true,
+     unit:"frequency of the pickup's own peak — the hump over the 0.8–8 kHz trend of the take's average spectrum",
+     how:"The 1/3-octave-smoothed average spectrum of the whole take between 800 Hz and 8 kHz, a straight line fitted through it in log-frequency, and the frequency of the largest hump over that line; Q from the hump's −3 dB width.",
+     ear:{hi:"a higher peak is the single-coil kind of bright — glassy, with more spit on the pick", lo:"a lower peak is the humbucker kind of warm — thicker mids, less glass on top"},
+     sens:{k:"low", note:"the two audit guitars sharing pickups landed within 9 % of each other at the same Q (THEORY §7.5); the pick does not move it, but a longer cable or the volume pot below ten pulls it down"},
      lo:1000, hi:8000, log:true, ticks:["1 kHz","8 kHz"], more:"peaks higher",
      val:s=>s.metrics.hump&&!s.metrics.hump.edge?s.metrics.hump.f:null,
      range:s=>{ const h=s.metrics.hump; if(!h||!(h.q>0)) return null; const w=1/(2*h.q); return [h.f/(1+w), h.f*(1+w)]; },
      fmt:(v,s)=>fmtHz(v),
      detail:(v,s)=>fmtDb(s.metrics.hump.db,1)+" over the trend"+(s.metrics.hump.q?" · Q "+s.metrics.hump.q.toFixed(1)+" (the bar is the −3 dB width)":""),
      reason:s=>s.metrics.hump?"no clear peak in 0.8–8 kHz":"no spectrum"},
-    {g:"inst", term:"body-resonance", name:"Body voice", types:["hollow","acoustic"],
-     unit:"the body's own low hum — from a tap on the bridge when the take has one",
+    {g:"sound", term:"body-resonance", name:"Body voice", types:["hollow","acoustic"], glance:true,
+     unit:"frequency of the body's air resonance — the strongest 70–130 Hz peak, from a tap on the bridge when the take has one",
+     how:"From a tap (an onset with no pitch that decays fast): its first 0.25 s, Welch-averaged, the peak between 70 and 130 Hz and its Q from the −3 dB width. Without a tap, and labelled as such: the most prominent 70–130 Hz peak of the whole take's average spectrum.",
+     ear:{hi:"a higher hum sits under the A string — a tighter, smaller-box low end", lo:"a lower hum sits under the low E — the boomy, big-box low end"},
+     sens:{k:"low", note:"a tap has no pick position and no phrase (THEORY §7.6.6); the fallback from the average spectrum moves with what was played, and says that it is the fallback"},
      lo:70, hi:130, log:true, ticks:["70 Hz","130 Hz"], more:"hums higher",
      val:s=>{ const b=slotBodyRes(s.metrics); return b?b.f:null; },
      fmt:(v,s)=>fmtHz(v),
@@ -7350,69 +7370,96 @@ function toneRowDefs(){
        const q=x=>x&&x.q?"Q "+x.q.toFixed(1)+(x.qMax&&x.q>=x.qMax*0.9?" (at the ceiling of "+x.qMax.toFixed(0)+" — at least this)":""):"";
        return "tap test · air "+fmtHz(t.f)+" "+q(t)+(t.top?" · top "+fmtHz(t.top.f)+" "+q(t.top):" · no top mode found 140–260 Hz")+" · "+E6_COPY.tap.detail; },
      reason:()=>"no peak found 70–130 Hz"},
-    {g:"inst", term:"inharmonicity", name:"String stiffness", plain:true,
-     unit:"how far the overtones drift sharp on the two low strings — the strings and the scale, not the pick",
+    {g:"sound", term:"inharmonicity", name:"String stiffness", plain:true,
+     unit:"inharmonicity B of the open E and A strings — how far their overtones run sharp, fitted over the first 12 partials, the two averaged",
+     how:"For the open E and the open A: the frequencies of partials 1–12 fitted to f_n = n·f₀·√(1 + B·n²), one B per string, and the mean of the two. It needs 12 accepted partials on each string to count as measured.",
+     ear:{hi:"stiffer strings put a faint piano-like shimmer on a chord — the high overtones sit a little sharp and beat against the tuning", lo:"more supple strings sound purer and sweeter up top — a chord's overtones line up"},
+     sens:{k:"low", note:"set by the string's diameter, its tension and the scale length (THEORY §7.6.1) — nothing in the hand moves it; it rises as a string corrodes"},
      lo:1e-5, hi:1e-3, log:true, ticks:["more supple","stiffer"], more:"stiffer / shorter scale",
      val:s=>slotStiffnessEA(s.metrics),
      fmt:(v,s)=>(v*1e4).toFixed(2)+" ×10⁻⁴",
      detail:(v,s)=>openStringNotes(s.metrics).filter(n=>(n.si===0||n.si===1)&&n.nB>=6).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+(n.B*1e4).toFixed(2)+" ×10⁻⁴ over "+n.nB+" partials"+(n.rmsCents!=null?" · ±"+n.rmsCents.toFixed(1)+" ¢":"")).join(" · "),
      reason:s=>s.metrics.notes?"open E and A not found in this take":"analysed before this row existed"},
-    {g:"inst", term:"overtone-sustain", name:"Overtone ring",
-     unit:"how long the upper harmonics keep singing after the pick",
+    {g:"ring", term:"overtone-sustain", name:"Overtone ring", glance:true,
+     unit:"seconds for the upper partials (3–8) to fall 20 dB — geometric mean over the open strings, or over every pitched note",
+     how:"Each partial 3–8 tracked at its own (inharmonic) frequency, frame by frame, from the onset peak until it has fallen 25 dB or the next note begins; the time each takes to fall 20 dB; the geometric mean over those partials and over the open strings the take contains (every pitched note when it holds fewer than two).",
+     ear:{hi:"the upper harmonics keep singing under the note — the guitar sounds alive to the end of a held chord", lo:"the shimmer goes first and the note dulls to its fundamental while it is still sounding"},
+     sens:{k:"low", note:"a decay rate is set by where the string's energy goes (THEORY §7.6.2), not by how hard or where it was picked; it does need notes that ring 1.5 s or more"},
      lo:0.2, hi:10, log:true, ticks:["0.2 s","10 s"], more:"rings longer",
      val:s=>slotOvertoneSustain(s.metrics), fmt:v=>fmtMs(v),
      detail:(v,s)=>{ const {notes,matched}=_instNotes(s.metrics); const ls=notes.filter(n=>n.partials).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+n.partials.map(t=>t==null?"—":t.toFixed(1)).join(" / ")+" s");
        return "partials 3–8, time to fall 20 dB, geometric mean"+(matched?" over the open strings":" over pitched notes")+(ls.length?" · per note (partials 1–8): "+ls.join(" · "):""); },
      reason:s=>s.metrics.notes?"no note long enough to fit":"analysed before this row existed"},
-    {g:"inst", term:"bloom", name:"Bloom",
-     unit:"a fast first fall, then a slow tail — what players hear as natural compression",
+    {g:"ring", term:"bloom", name:"Bloom", glance:true,
+     unit:"when a note's decay turns from its fast first fall to its slow tail — the knee time, median over notes that fit two stages",
+     how:"Each note's broadband level in dB, 10 ms frames, from the onset peak to −30 dB, fitted as two straight lines with one knee placed where the residual is smallest. A note counts when the knee removes 40 % of the one-line residual and the early slope is at least 1.5× the late one; the row prints the median knee time and both slopes.",
+     ear:{hi:"a late turn: the note drops for a moment and then seems to hold — what players call bloom, or natural compression", lo:"an early turn: the note settles into its long tail almost at once and reads as steady rather than swelling"},
+     sens:{k:"high", note:"the knee time ran 0.1–3.2 s across the notes of one guitar in the audit (THEORY §7.5) — this row carries no band and no verdict until yours is measured"},
      lo:0.1, hi:4, log:true, ticks:["0.1 s","4 s"], noband:true,
      val:s=>{ const b=slotBloom(s.metrics); return b?b.knee:null; },
      fmt:(v,s)=>"turns at "+fmtMs(v),
      detail:(v,s)=>{ const b=slotBloom(s.metrics); return b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · median over "+b.n+(b.n===1?" note":" notes")+" that fit two stages"; },
      reason:s=>s.metrics.notes?"one slope fits — no knee":"analysed before this row existed"},
-    {g:"inst", term:"neck-sustain", name:"Sustain across the neck",
-     unit:"how evenly notes ring out — a note that dies early is flagged",
+    {g:"ring", term:"neck-sustain", name:"Dead spots", glance:true,
+     unit:"seconds for the fundamental to fall 20 dB — median over every pitched note; a note under a third of its neighbours is flagged",
+     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak and the time it takes to fall 20 dB. The row prints the median; a note under one third of the median of the notes within an octave of it (at least three) is flagged by name as a candidate dead spot.",
+     ear:{hi:"an even neck — every note rings out about as long as its neighbours", lo:"a dead spot — one note thuds and dies while the ones around it ring on"},
+     sens:{k:"mid", note:"a decay rate is not set by the pick (THEORY §7.6.2), but this median follows the phrase — a riff up the neck rings shorter than one on the low strings (§7.4), which is why Sustain matches notes across the takes and this row does not"},
      lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
      val:s=>s.metrics.neckMedian,
      fmt:(v,s)=>fmtMs(v),
      detail:(v,s)=>{ const m=s.metrics, fl=(m.neckFlags||[]).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref));
        return "median over "+m.neckN+" notes · "+(fl.length?fl.join(" · "):"none flagged"); },
      reason:s=>s.metrics.notes?"fewer than 6 notes with a measurable decay":"analysed before this row existed"},
-    {g:"inst", term:"f0-decay", name:"Fundamental decay",
-     unit:"how long the note itself lasts — matched note for note when two takes are loaded",
+    {g:"ring", term:"f0-decay", name:"Sustain", glance:true,
+     unit:"seconds for the fundamental to fall 20 dB — median over the notes both takes share, matched by pitch",
+     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak until it has fallen 25 dB or the next note begins, and the time it takes to fall 20 dB. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, so an open E is only ever measured against an open E; the row prints the median.",
+     ear:{hi:"the note hangs in the air — you can hold it, bend it, let it sing before the next one", lo:"the note is gone sooner — it drops away and you have to keep the line moving"},
+     sens:{k:"low", note:"a decay rate is set by the string's losses into the air and the body (THEORY §7.6.2), not by how hard it was hit; matching note for note removes the register (§7.4), which is what moved the old fixed-band rows"},
      lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
      val:s=>_median(_f0DecayNotes(s.metrics,both?_otherMetrics(s):null).map(n=>n.t20)),
      fmt:v=>fmtMs(v),
      detail:(v,s)=>{ const ns=_f0DecayNotes(s.metrics,both?_otherMetrics(s):null); return "time for the fundamental to fall 20 dB, median over "+ns.length+(both?" matched":"")+(ns.length===1?" note":" notes")+(ns.length?" · "+ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · "):""); },
      reason:s=>s.metrics.notes?(both?"no note this take shares with the other":"no note with a measurable decay"):"analysed before this row existed"},
-    // ---- Voicing / technique ----
-    {g:"voice", term:"brightness", name:"Brightness",
-     unit:"where the energy balances — the pick, the pickup and the register all move it",
+    // ---- How it sounds (continued): the pick-sensitive rows, tagged as such ----
+    {g:"sound", term:"brightness", name:"Brightness",
+     unit:"spectral centroid of the whole take's average spectrum, 60 Hz–20 kHz — where its energy balances",
+     how:"The energy-weighted average frequency Σf·P(f) / ΣP(f) of the Welch average spectrum between 60 Hz and 20 kHz, in Hz. The tilt beside it is the slope of the same spectrum in dB per octave.",
+     ear:{hi:"trebly, cutting, glassy — new strings, a bridge pickup, a maple board", lo:"dark, round, mellow — old strings, a neck pickup, the tone rolled off"},
+     sens:{k:"high", note:"pick position alone moved it 0.37 octaves, the pickup selector 0.46, and it tracks the register one for one (THEORY §7.4) — same pick, same pickup and same phrase on both guitars, and what remains is the guitar"},
      lo:400, hi:6000, log:true, ticks:["400 Hz","6 kHz"], more:"brighter",
      val:s=>s.metrics.centroid,
      fmt:(v,s)=>fmtHz(v),
      detail:(v,s)=>"spectral centroid of the whole take"+(s.metrics.tilt!=null?" · tilt "+s.metrics.tilt.toFixed(1)+" dB/oct":"")},
-    {g:"voice", term:"even-odd", name:"Even / odd balance",
-     unit:"set mostly by where you pick — plucking at a third of the string silences every third overtone",
+    {g:"sound", term:"even-odd", name:"Even / odd balance",
+     unit:"energy in the even harmonics (2, 4 … 10) against the odd (3, 5 … 9), in dB — median over comb-checked notes",
+     how:"From the harmonic peaks of every note that passes the pitch check: 10·log₁₀ of the summed power of harmonics 2, 4, 6, 8, 10 over that of 3, 5, 7, 9; the median over notes. Positive means even-dominant.",
+     ear:{hi:"even-heavy: sweet, consonant, organ-like — the octave and the fifth ride on the note", lo:"odd-heavy: hollow, reedy, a little clarinet — the twelfth and the seventeenth come forward"},
+     sens:{k:"high", note:"plucking at a third of the string silences every third harmonic and swings this from +5 to +21 dB; at the middle every even one vanishes (THEORY §7.2, §7.4) — it says where the pick landed before it says anything about the guitar"},
      lo:-12, hi:12, zero:0, ticks:["odd −12","+12 even"], more:"further even",
      val:s=>s.metrics.evenOdd,
      fmt:v=>fmtDb(v,1),
      detail:(v,s)=>(v>0.5?"even-leaning":(v<-0.5?"odd-leaning":"balanced"))+" · median over "+s.metrics.pitched+" comb-checked notes",
      reason:s=>_pitchReason(s)},
-    {g:"voice", term:"harmonic-richness", name:"Harmonic richness",
-     unit:"overtones against the fundamental — median over every pitched note",
+    {g:"sound", term:"harmonic-richness", name:"Harmonic richness",
+     unit:"energy in harmonics 2–10 against the fundamental, in dB — median over comb-checked notes",
+     how:"For every note that passes the pitch check: the Welch spectrum over the note, the peaks at h·f₀ ± 3.5 % for h = 1…10, and 10·log₁₀ of the summed power of harmonics 2–10 over the fundamental's; the median over notes.",
+     ear:{hi:"rich, jangly, brassy — the note is more overtone than fundamental", lo:"pure, plain, hollow — mostly the note itself, like a flute, or a bass through a dark amp"},
+     sens:{k:"high", note:"pluck position alone moved it 15 dB in the audit (THEORY §7.4): near the bridge is rich, over the neck is pure, on any guitar"},
      lo:-6, hi:24, ticks:["−6 dB","+24 dB"], more:"richer",
      val:s=>s.metrics.richness, fmt:v=>fmtDb(v,1),
      detail:(v,s)=>"harmonics 2–10 against the fundamental · median over "+s.metrics.pitched+" comb-checked notes",
      reason:s=>_pitchReason(s)},
-    {g:"voice", term:"attack-spectrum", name:"Attack colour",
-     unit:"the first 10 ms against the ring that follows — pick material and angle",
+    {g:"sound", term:"attack-spectrum", name:"Pick attack",
+     unit:"brightness of the first 10 ms against the ring 300–500 ms later, in octaves — median over the longest notes",
+     how:"For the longest notes that pass the pitch check: the spectral centroid of the first 10 ms after the onset and the centroid 300–500 ms later, log₂ of their ratio; the median over notes. Positive means the attack is brighter than the ring.",
+     ear:{hi:"a click on the front of every note — a thin pick, a hard edge, the nail", lo:"a soft front — a thick rounded pick, the thumb; the note just appears"},
+     sens:{k:"high", note:"on the audit takes it varied as much between the strings of one guitar as between guitars on one string (THEORY §7.5) — it is the pick meeting the string"},
      lo:-2, hi:2, zero:0, ticks:["darker −2","+2 oct brighter"], more:"brighter at the pick",
      val:s=>s.metrics.attackSpectrum, fmt:v=>(v>0?"+":"")+v.toFixed(2)+" oct",
      detail:(v,s)=>"centroid of the first 10 ms over the centroid 300–500 ms later, median over the longest notes"+(s.metrics.attack!=null?" · rise time (10 → 90 %) "+fmtMs(s.metrics.attack)+", median over onsets":""),
      reason:s=>_pitchReason(s)},
-    // ---- Take / recording ----
+    // ---- The take ----
     // E5.2: text rows print a traffic light and one plain phrase; `detail` holds the
     // numbers and is what the tap shows. Thresholds are takeReadiness()'s own.
     {g:"take", term:"pitch-check", name:"Pitch check", text:true,
@@ -7431,12 +7478,16 @@ function toneRowDefs(){
        if(m.noiseFloor!=null) b.push("floor "+m.noiseFloor.toFixed(0)+" dBFS"); if(m.snr!=null) b.push("SNR "+m.snr.toFixed(0)+" dB");
        if(m.clipped) b.push("clipped — "+m.clipCount+" samples"); return b.join(" · "); }},
     {g:"take", term:"dynamic-range", name:"Dynamic range",
-     unit:"loud-to-quiet spread of the performance — a fact about the take, and one the floor eats into",
+     unit:"95th minus 10th percentile of the 50 ms levels above the floor, in dB — the loud-to-quiet spread of the performance",
+     how:"RMS in 50 ms frames, 25 ms hop; frames above the noise floor + 8 dB count as active; the 95th minus the 10th percentile of their levels, in dB.",
+     sens:{k:"take", note:"a fact about the performance and the floor — a −60 dBFS floor took 4.7 dB off it in the audit (THEORY §7.4)"},
      lo:4, hi:30, ticks:["4 dB","30 dB"], more:"wider",
      val:s=>s.metrics.dr, fmt:v=>v.toFixed(1)+" dB",
      detail:()=>"95th − 10th percentile of 50 ms RMS frames above the floor + 8 dB"},
     {g:"take", term:"residual", name:"Between notes",
-     unit:"how far the sound drops between notes — room, distance and noise all show up here",
+     unit:"the quietest 50 ms in each gap of 0.3 s or more against the note before it, in dB — median over gaps",
+     how:"RMS in 50 ms frames, 25 ms hop; for every gap of at least 0.3 s between onsets, the gap's minimum minus the peak of the note before it; the median over gaps.",
+     sens:{k:"take", note:"it rises with the room and the mic's distance (THEORY §7.6.9); a DI take has only the string's own ring and the noise floor here"},
      lo:-60, hi:-10, ticks:["−60 dB","−10 dB"], more:"less quiet between notes",
      val:s=>s.metrics.residual, fmt:v=>Math.abs(v).toFixed(0)+" dB below the note",
      detail:()=>"median over every gap of 0.3 s or more: the gap's quietest 50 ms against the peak of the note before it",
@@ -7460,6 +7511,7 @@ function toneRowDefs(){
        return b.join(" · "); }},
   ];
   // E6.1: Body voice is the headline row when a hollow or acoustic guitar is loaded.
+  // The panel groups by g, so the unshift keeps it inside How it sounds.
   if([0,1].some(i=>state.slots[i]&&(slotType(i)==="hollow"||slotType(i)==="acoustic"))){ const k=defs.findIndex(d=>d.term==="body-resonance"); if(k>0) defs.unshift(defs.splice(k,1)[0]); }
   return defs;
 }
@@ -7611,7 +7663,10 @@ const TONE_STATE_WORD={1:"measured, with a band", 2:"measured", 3:"partial — t
 // detail lives in the readout popover (click a value).
 function toneRowHtml(rec){
   const d=rec.def, both=bothLoaded();
-  const name='<div class="tonename">'+termHtml(d.term,rec.name||d.name)+'<small>'+esc(d.unit)+'</small></div>';
+  // The disclosure (2026-09-06): how much the playing moves this row, said beside the name,
+  // never as a group. The number behind the word is in the readout popover.
+  const sensTag=d.sens&&TONE_SENS_WORD[d.sens.k]?'<span class="sens '+d.sens.k+'" title="How much the playing moves this row — the number is in the readout">'+TONE_SENS_WORD[d.sens.k]+'</span>':"";
+  const name='<div class="tonename">'+termHtml(d.term,rec.name||d.name)+sensTag+'<small>'+esc(d.unit)+'</small></div>';
   const attrs=' data-key="'+d.term+'" data-group="'+d.g+'" data-state="'+rec.state+'"';
   if(rec.state===4&&!d.text){
     // Collapsed: title plus one line naming what was missing (per side when the sides differ).
@@ -7674,8 +7729,19 @@ function openTonePop(key,i,anchor){
   const p=t=>'<p>'+t+'</p>';
   const dotCls=i?"var(--slot-b)":"var(--slot-a)";
   let html='<div class="pop-term">'+esc(d.name)+'</div><div class="pop-cat">'+esc(slotLabel(i))+' · '+esc(TONE_STATE_WORD[rec.state]||"")+'</div>';
+  // Layered, ear first (user, 2026-09-06): what higher and lower sound like, a pair of
+  // synthesized examples where the contrast can be made by changing only what the row
+  // measures (TONE_EAR), then the measurement in one breath, then this take's number.
+  if(d.ear){
+    const ex=TONE_EAR[d.term];
+    html+=sec("By ear",p("<b>Higher</b> — "+esc(d.ear.hi)+".")+p("<b>Lower</b> — "+esc(d.ear.lo)+".")+(ex?
+      '<div class="earplay-row"><button class="earplay" data-ear="'+d.term+':lo">▶ '+esc(ex.lo)+'</button><button class="earplay" data-ear="'+d.term+':hi">▶ '+esc(ex.hi)+'</button></div><p class="earnote">Synthesized string, not a recording — what changed: '+esc(ex.changed)+'.</p>':""));
+  }
+  if(d.how) html+=sec("What is measured",p(esc(d.how)));
   html+=sec(d.text?"This take":"This number",'<div class="pop-vals"><div class="pop-val"><span class="dot" style="background:'+dotCls+'"></span><span class="l">'+esc(slotDesc(i,20))+'</span><span class="v">'+
     (val!=null||d.text?txt:'<span class="reason">'+esc(rec.reason[i]||"—")+'</span>')+'</span></div></div>'+(rec.detail[i]?p(rec.detail[i]):""));
+  if(d.sens&&d.sens.note) html+=sec("How much the playing moves it",p((TONE_SENS_LEAD[d.sens.k]?"<b>"+TONE_SENS_LEAD[d.sens.k]+"</b> ":"")+esc(d.sens.note)+"."+
+    (d.sens.k==="high"?" Same player, same pick, same phrase on both guitars — then what differs here is the guitar.":"")));
   const needs=[]; for(const what in ev.need){ const miss=ev.missing.find(x=>x.what===what); needs.push(miss?'<li class="miss">'+esc(missingPhrase(miss,d))+'</li>':'<li class="met">'+esc(_needPhrase(what,ev.need[what],ev.have[what]))+'</li>'); }
   const rowMiss=(rec.missing||[]).map(x=>'<li class="miss">'+esc(missingPhrase(x,d))+'</li>');
   html+=sec("What it rests on",(needs.length||rowMiss.length)?'<ul class="tone-needs">'+needs.join("")+rowMiss.join("")+'</ul>':p("A fact about the take — nothing to earn."));
@@ -7751,7 +7817,7 @@ function proseCandidates(){
   if(!s0||!s1) return [];
   const {records}=toneRecords();
   const nm=slotNameHtml, cands=[];
-  // Only Instrument rows, only when the difference clears the row's band and no
+  // Only glance rows, only when the difference clears the row's band and no
   // comparability check blocks it. Score = how many bands the difference spans.
   const rec=k=>records.find(r=>r.key===k);
   const clear=k=>{ const r=rec(k); return (r&&r.verdict&&r.verdict.kind==="diff")?r:null; };
@@ -7779,12 +7845,12 @@ function proseCandidates(){
   return cands;
 }
 
-// When no Instrument row is banded, the cheapest thing that would change that — in plain
+// When no glance row is banded, the cheapest thing that would change that — in plain
 // words. One take each → a second take of either guitar (that is what measures a band).
-// Otherwise the first Instrument row's first missing item, phrased by missingPhrase().
+// Otherwise the first glance row's first missing item, phrased by missingPhrase().
 function cheapestUpgrade(){
   const {records}=toneRecords();
-  const inst=records.filter(r=>r.group==="inst"&&!r.def.text&&!r.def.plain);
+  const inst=records.filter(r=>r.def.glance&&!r.def.text&&!r.def.plain);
   if(inst.some(r=>r.state===2)) return "Record a second take of either guitar — that is what tells the app how much a number moves on its own, and it starts to compare from there.";
   for(const r of inst){
     const ev=[0,1].map(i=>r.evidence[i]).find(e=>e&&e.missing&&e.missing.length);
@@ -7797,8 +7863,8 @@ function renderProse(){
   const cands=proseCandidates();
   const text=cands.length
     ? cands.slice(0,4).map(c=>c.html).join(" ")
-    : (toneRecords().records.some(r=>r.group==="inst"&&r.state===1)
-        ? "Nothing in the Instrument group clears its measured band — as instruments these two are not distinguishable on these takes. The Voicing rows above may still differ; that is the player and the pick."
+    : (toneRecords().records.some(r=>r.def.glance&&r.state===1)
+        ? "Nothing that speaks for the guitar itself clears its measured band — as guitars these two are not distinguishable on these takes. The rows tagged as moving with the pick may still differ; with the same player, pick and phrase on both, that difference is the guitar too, but it carries no band."
         : "Nothing here can yet say one guitar does more of anything than the other. "+cheapestUpgrade()+" The Difference plot with "+termHtml("level-match","level-match")+" on shows the raw spectra side by side meanwhile.");
   prosePara.style.display="";
   prosePara.innerHTML='<span class="lead">Reading the measurements</span>'+text;
@@ -7868,7 +7934,7 @@ function renderVerdict(){
       const other=cands.find(c=>c.fam!==cands[0].fam);
       if(other) parts.push(other.html);
     }
-    else if(toneRecords().records.some(r=>r.group==="inst"&&r.state===1)){
+    else if(toneRecords().records.some(r=>r.def.glance&&r.state===1)){
       if(!bd||Math.abs(bd.d)<1) parts.push("No instrument-level difference clears its measured band — as guitars these two are not distinguishable on these takes.");
     } else parts.push("Nothing here can yet say one guitar does more of anything than the other. "+cheapestUpgrade());
   }
@@ -7883,7 +7949,7 @@ function renderToneNote(){
   const bandNote=lv.ready?"Reliability bands are measured live from the takes in the slots; Save as bands keeps them for later sessions."
     :state.toneBandsAt?"Reliability bands were measured on "+new Date(state.toneBandsAt).toLocaleDateString()+" from two takes of each guitar; rows without one carry no verdict."
     :"No reliability band is measured yet, so no row carries a verdict. Add a second take to each guitar (drop a file on its card, or record) and the bands measure themselves.";
-  toneNote.innerHTML="Instrument rows read the open strings when a take has them. "+esc(bandNote)+" Level-matching never changes the numbers on this panel."+
+  toneNote.innerHTML="The rows that feed At a glance read the open strings when a take has them. "+esc(bandNote)+" Level-matching never changes the numbers on this panel."+
     (snap?" Snapshot slots reuse the metrics stored at export.":"");
 }
 
@@ -9164,6 +9230,10 @@ function auditionHtml(key){
   const r=regionForKey(key);
   if(!r) return "";
   return auditionBlock(regionF(r.f0),regionF(r.f1));
+}
+function setEarPlayUI(btn){
+  popover.querySelectorAll(".earplay.playing").forEach(x=>{ x.classList.remove("playing"); x.textContent="▶ "+x.textContent.slice(2); });
+  if(btn){ btn.classList.add("playing"); btn.textContent="■ "+btn.textContent.slice(2); }
 }
 function setPopPlayUI(btn){
   popover.querySelectorAll(".popplay.playing").forEach(x=>{
@@ -10666,6 +10736,97 @@ function makeDemoSamples(rate,damping,lpExc,seed,gain){
   for(let i=0;i<total;i++) out[i]*=g;
   return out;
 }
+
+// ---------- ear examples for the tone rows (2026-09-06) ----------
+// Each pair is one synthesized string with ONE thing changed — the thing the row measures —
+// so the contrast is honest by construction. Every pair traces to THEORY: pluck position
+// §7.2, decay rates §7.6.2, two-stage decay §7.6.3, the pickup's RLC peak §7.6.4, the
+// Helmholtz air resonance §7.6.6, inharmonicity §7.6.1, the attack transient §7.6.8.
+// Rows that cannot be made this way have no entry (the Take rows: facts about a recording,
+// not a contrast between guitars). Rendered at EAR_RATE, cached per (term, side).
+const EAR_RATE=44100;
+function earFade(out){ const n=out.length, nf=Math.min(n,Math.round(0.06*EAR_RATE)); for(let i=0;i<nf;i++) out[n-nf+i]*=0.5*(1+Math.cos(Math.PI*i/nf)); return out; }
+// Extended Karplus–Strong. o.damp: loop loss per round trip (sets the fundamental's decay);
+// o.S: the loop filter's stretch — 0.5 is the strongest high-frequency loss (overtones die
+// first), near 1 almost none (overtones ring); o.pos: pluck at that fraction of the string,
+// a comb on the excitation that silences every partial n with n·pos an integer (THEORY §7.2);
+// o.lp: low-passed (darker) excitation — true for the demo's 0.35 one-pole, or the coefficient
+// itself (smaller = darker); o.click: ms of bright noise added on the front.
+function earKs(f0,dur,o){
+  const rate=EAR_RATE, N=Math.max(2,Math.round(rate/f0)), rand=lcg(o.seed||7);
+  const ex=new Float64Array(N); let y=0;
+  for(let i=0;i<N;i++){ let v=rand(); if(o.lp){ y+=(o.lp===true?0.35:o.lp)*(v-y); v=y; } ex[i]=v; }
+  if(o.pos){ const D=Math.max(1,Math.round(o.pos*N)), e0=Float64Array.from(ex); for(let i=0;i<N;i++) ex[i]=e0[i]-e0[(i-D+N)%N]; } // circular: the loop is periodic, so the comb must be too
+  const n=Math.round(dur*rate), out=new Float64Array(n), d=Float64Array.from(ex);
+  const S=o.S!=null?o.S:0.5, damp=o.damp!=null?o.damp:0.996; let k=0;
+  for(let i=0;i<n;i++){ const v=d[k]; out[i]=v; d[k]=damp*(S*v+(1-S)*d[(k+1)%N]); k=(k+1)%N; }
+  if(o.click){ const nc=Math.round(o.click*rate/1000), r2=lcg(11); let pv=0; for(let i=0;i<nc&&i<n;i++){ const v=r2(); out[i]+=0.8*(v-pv)*(1-i/nc); pv=v; } }
+  return earFade(out);
+}
+// Partials placed by hand at n·f₀·√(1 + B·n²) (THEORY §7.6.1), amplitude 1/n, decay τ/√n.
+function earAdditive(f0,dur,B,nP,tau){
+  const rate=EAR_RATE, n=Math.round(dur*rate), out=new Float64Array(n);
+  for(let q=1;q<=nP;q++){ const f=q*f0*Math.sqrt(1+B*q*q); if(f>=rate/2) break; const a=1/q, t=tau/Math.sqrt(q), w=2*Math.PI*f/rate;
+    for(let i=0;i<n;i++) out[i]+=a*Math.exp(-i/(t*rate))*Math.sin(w*i); }
+  return earFade(out);
+}
+// One damped resonance rung once — a tap's ring at f with Q (THEORY §7.6.6), τ = Q/(π f).
+function earResonance(f,Q,dur){
+  const rate=EAR_RATE, n=Math.round(dur*rate), out=new Float64Array(n), tau=Q/(Math.PI*f), w=2*Math.PI*f/rate;
+  for(let i=0;i<n;i++) out[i]=Math.exp(-i/(tau*rate))*Math.sin(w*i);
+  const r=lcg(5), nk=Math.round(0.004*rate); let y=0; for(let i=0;i<nk;i++){ y+=0.25*(r()-y); out[i]+=0.5*y*(1-i/nk); } // the knock itself
+  return earFade(out);
+}
+// RBJ peaking section — the pickup's resonant hump (THEORY §7.6.4) put on a string that has none.
+function earPeak(x,f,Q,dB){
+  const rate=EAR_RATE, A=Math.pow(10,dB/40), w=2*Math.PI*f/rate, al=Math.sin(w)/(2*Q), c=Math.cos(w);
+  const b0=1+al*A, b1=-2*c, b2=1-al*A, a0=1+al/A, a1=-2*c, a2=1-al/A; let x1=0,x2=0,y1=0,y2=0; const out=new Float64Array(x.length);
+  for(let i=0;i<x.length;i++){ const v=x[i], yy=(b0*v+b1*x1+b2*x2-a1*y1-a2*y2)/a0; x2=x1; x1=v; y2=y1; y1=yy; out[i]=yy; }
+  return out;
+}
+// A two-stage envelope (THEORY §7.6.3) imposed on a note whose own decay is slow: early dB/s to the knee, late after it.
+function earKnee(x,tk,early,late){
+  const rate=EAR_RATE, out=new Float64Array(x.length);
+  for(let i=0;i<x.length;i++){ const t=i/rate, db=t<tk?-early*t:-(early*tk+late*(t-tk)); out[i]=x[i]*Math.pow(10,db/20); }
+  return out;
+}
+function earSeq(parts){ // [[Float64Array, startSec], …] summed into one buffer
+  const rate=EAR_RATE; let total=0; for(const [x,t0] of parts) total=Math.max(total,Math.round(t0*rate)+x.length);
+  const out=new Float64Array(total); for(const [x,t0] of parts){ const o=Math.round(t0*rate); for(let i=0;i<x.length;i++) out[o+i]+=x[i]; }
+  return out;
+}
+const TONE_EAR={
+  "pickup-resonance":{lo:"peak at 2.5 kHz", hi:"peak at 5 kHz", changed:"the same plucked string through one resonant peak, +10 dB at Q 2.5 — placed at 2.5 kHz (the humbucker's neighbourhood) and at 5 kHz (the single coil's); nothing else",
+    make:w=>earPeak(earKs(196,2.2,{S:0.7}), w==="hi"?5000:2500, 2.5, 10)},
+  "body-resonance":{lo:"hum at 92 Hz", hi:"hum at 118 Hz", changed:"a tap — one damped resonance rung once, at 92 Hz and at 118 Hz, both with Q 12",
+    make:w=>earResonance(w==="hi"?118:92, 12, 1.5)},
+  "inharmonicity":{lo:"B = 0.3 ×10⁻⁴", hi:"B = 6 ×10⁻⁴", changed:"twelve partials of an open A placed by hand at n·f₀·√(1 + B·n²), amplitudes and decays identical — only B differs; the stiff value is exaggerated so the shimmer is unmistakable",
+    make:w=>earAdditive(110,2.5,w==="hi"?6e-4:0.3e-4,12,1.2)},
+  "overtone-sustain":{lo:"overtones die first", hi:"overtones ring on", changed:"the same string with the loop's high-frequency loss turned up or down — the fundamental's own decay is left alone",
+    make:w=>earKs(196,2.6,{S:w==="hi"?0.97:0.5, damp:0.995})},
+  "bloom":{lo:"turns at 0.15 s", hi:"turns at 0.9 s", changed:"the same long note with a two-slope envelope imposed — 20 dB/s until the knee, 4 dB/s after it; only the knee time moves",
+    make:w=>earKnee(earKs(147,3,{S:0.95,damp:0.9995}), w==="hi"?0.9:0.15, 20, 4)},
+  "neck-sustain":{lo:"one note dies early", hi:"all four ring evenly", changed:"four notes up the neck; in the lower example the third is given far more loss per round trip — a dead spot — and nothing else changes",
+    make:w=>earSeq([[110,0],[131,0.7],[165,1.4],[196,2.1]].map(([f,t],k)=>[earKs(f,1.5,{S:0.8,damp:(w==="lo"&&k===2)?0.95:0.99}),t]))},
+  "f0-decay":{lo:"a shorter ring", hi:"a longer ring", changed:"the same plucked string with more or less loss per round trip — only the decay rate differs",
+    make:w=>earKs(165,2.6,{S:0.8,damp:w==="hi"?0.993:0.972})},
+  "brightness":{lo:"centroid low", hi:"centroid high", changed:"the same string plucked with a dark (low-passed) excitation through a dull loop, and with a bright one through a loop that keeps its highs",
+    make:w=>earKs(196,1.8,w==="hi"?{S:0.95}:{S:0.5,lp:true})},
+  "even-odd":{lo:"plucked at the middle", hi:"plucked at a third", changed:"the same string plucked at one half of its length and at one third — at p = 1/2 every even partial is silenced, at p = 1/3 the 3rd, 6th and 9th (THEORY §7.2)",
+    make:w=>earKs(198.65,1.8,{S:0.9,pos:w==="hi"?1/3:1/2})}, // 44100/198.65 = 222 samples: both 1/2 and 1/3 land on a whole sample
+  "harmonic-richness":{lo:"plucked over the neck", hi:"plucked at the bridge", changed:"the same string plucked at 45 % of its length and at 8 % — the pluck position sets the partials' weights as sin(nπp)/n² (THEORY §7.2)",
+    make:w=>earKs(198.65,1.8,{S:0.9,pos:w==="hi"?0.08:0.45})},
+  "attack-spectrum":{lo:"a soft front", hi:"a click on the front", changed:"the same softly plucked string (a heavily low-passed excitation), with 4 ms of bright noise added on the front of one — the ring after it is identical",
+    make:w=>earKs(196,1.6,{S:0.7,lp:0.06,click:w==="hi"?4:0})},
+};
+const _earCache={};
+function toneEarRec(term,w){
+  const ex=TONE_EAR[term]; if(!ex||(w!=="lo"&&w!=="hi")) return null;
+  const key=term+":"+w; if(_earCache[key]) return _earCache[key];
+  const x=ex.make(w); let pk=0; for(let i=0;i<x.length;i++){ const a=Math.abs(x[i]); if(a>pk) pk=a; }
+  const g=pk>0?0.5/pk:1, samples=new Float32Array(x.length); for(let i=0;i<x.length;i++) samples[i]=x[i]*g;
+  return (_earCache[key]={samples, info:{sampleRate:EAR_RATE}});
+}
 function loadDemo(only){
   // only: "a"/"b" loads a single demo guitar (exercises single-guitar mode)
   const specs=[
@@ -11169,6 +11330,13 @@ function boot(){
   popover.addEventListener("click",e=>{
     const rb=e.target.closest?e.target.closest(".string-color-reset"):null;
     if(rb){ const si=+popover.dataset.stringSi; _setStringColor(si, STRING_COLORS[((si%6)+6)%6], true); return; }
+    const eb=e.target.closest?e.target.closest(".earplay"):null;
+    if(eb){ // a synthesized pair, never a slot: the rec is handed to startPlayback, gain 0 dB (slot 0 rule)
+      if(eb.classList.contains("playing")){ stopPlayback(); return; }
+      const [term,w]=eb.dataset.ear.split(":"); const rec=toneEarRec(term,w); if(!rec) return;
+      if(startPlayback(0,null,null,()=>setEarPlayUI(null),0,rec)) setEarPlayUI(eb);
+      return;
+    }
     const b=e.target.closest?e.target.closest(".popplay"):null;
     if(!b) return;
     if(b.classList.contains("playing")){ stopPlayback(); return; }

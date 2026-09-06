@@ -895,6 +895,31 @@ build educational copy from it, never re-derive from scratch.
   52/66, `?open=bands` again); **Show strings** + Clear harmonics in the Frequency card header.
   `tests/e.test.js` **187**. **Untested by the user so far: all recording, E4–E7, the EQ release
   pass** — they head the next test plan.
+- **2026-09-06 feedback batch 2 BUILT (branch `e-feedback`, reviewer).** (1) **The card is a
+  stack of takes** — common head, one row per take (Save / Open file / ● Record / ✕, each acting
+  on *that* take), a *New take* row, **one transport + waveform + seek head playing the selected
+  take** (`selTake`, `playRec`, `selectTake`; `pendingRec[i].replace` + `landRecording` swap a
+  take only after the new one lands). (2) The **"Same guitar, two takes" switch is gone** — a
+  status line says it. (3–5) **The Tone character card re-audited under the core use case**
+  (one player, two guitars, the same phrase): groups are **by what a player asks** — *How it
+  sounds* / *How it rings* / *The take* (`TONE_GROUPS` ids `sound|ring|take`; `inst`/`voice`
+  are gone) — and how much a row moves with the playing is a **per-row disclosure** (`sens`
+  tag beside the name + the audit's number in the popover), never a bucket; **`glance:true`**
+  on a row, not its group, is what feeds At a glance. Player-speak names: Fundamental decay →
+  **Sustain**, Sustain across the neck → **Dead spots**, Attack colour → **Pick attack**. Every
+  numeric row's short line states the quantity, the material and the combination, and carries
+  `how` (the measurement in one breath) and `ear` (higher / lower in a player's words). The
+  readout popover is **layered ear-first**: By ear → synthesized pair → What is measured → This
+  number → How much the playing moves it → the rest. **`TONE_EAR`** (block 4, after
+  `makeDemoSamples`) holds eleven pairs — one Karplus–Strong string with *one* thing changed,
+  the thing the row measures (circular pluck-position comb; a loop-filter stretch for overtone
+  loss; an RBJ peak for the pickup hump; a damped resonance for the tap; additive partials at
+  n·f₀·√(1+Bn²) for stiffness; an imposed two-slope envelope for bloom); each button row says it
+  is synthesized and what changed; played through `startPlayback(0,…,rec)` with a synthesized
+  rec, gain 0 dB. **No pair for the six Take rows** (facts about a recording). Bloom's glossary
+  now matches THEORY §7.6.3 (two-stage decay, not a swell). SPEC.md 2026-09-06 (second batch)
+  has the row-by-row audit table. `tests/e.test.js` **219**. Awaiting the user's test —
+  recording and E4–E7 still untested.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -909,7 +934,7 @@ build educational copy from it, never re-derive from scratch.
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
 - The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 187**, headless **73**
-  (eight steps since E1; `--node` skips the headless step). **All node suites green since the
+  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp 236, e **219**. **All node suites green since the
   EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
   "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went
   0.999 → 1.022 dB there. The bound was not the defect: the fitter was in a local minimum on

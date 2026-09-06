@@ -3138,3 +3138,71 @@ Paul with the same hands on it. The §7 audit's finding (how much a row moves wi
 versus the guitar) becomes a per-row **disclosure** — steady across playing, or moves with the
 playing — not a bucket that disowns the row. Rows are named the way a player says them.
 
+## 2026-09-06 — The user's second feedback batch (reviewer; branch `e-feedback`): the card as a stack of takes, and the Tone character card re-audited under the core use case
+
+Five items, collected first ("Collect my feedback and process them in a batch"), built in one
+pass with the node gate between tasks and the full gate once at the end.
+
+1. **The card is a stack of takes.** One common head (letter chip, name, kind); one row per
+   take with its readiness light, name, duration, *Save*, *Open file* (replace this take),
+   *● Record* (replace this take) and *✕*; a *New take* row with *Add file* / *Record*; **one
+   transport, one waveform and one seek head per card**, playing the **selected** take
+   (`selTake`, `playRec(i)`, `selectTake`; a click on a take row selects it). Replacing a take
+   through a recording goes through `pendingRec[i].replace` and `landRecording`, which removes
+   the replaced take once the new one has landed — a failed take leaves the old one in place.
+2. **"Same guitar, two takes" is gone.** It had been app-set and disabled since E2 — a status
+   light dressed as a control. The panel now says the status in one line (*measured from the
+   takes on the cards* / *bands saved <date>* / *provisional until each guitar has two takes*);
+   *Save as bands* stays.
+3. **The short line under each row states what the number is** — the quantity, the material and
+   how it is combined (e.g. Sustain: *seconds for the fundamental to fall 20 dB — median over
+   the notes both takes share, matched by pitch*). Every numeric row also carries `how`, the
+   measurement in one breath, printed in the readout popover under **What is measured**.
+   Bloom's short line, glossary and THEORY now say the same thing: a fast first fall then a
+   slow tail (§7.6.3) — the glossary had described a *swell*, which is not what is measured.
+4. **The readout popover is layered, ear first.** *By ear* (what higher and what lower sound
+   like, in a player's words) → a pair of **synthesized examples** → *What is measured* → *This
+   number* → *How much the playing moves it* → what it rests on, the band, the verdict, the
+   method. The examples (`TONE_EAR`, block 4) are one Karplus–Strong string with **one thing
+   changed — the thing the row measures**, so the contrast is honest by construction, and each
+   button row says so and says what changed. Eleven rows have a pair; they were measured with
+   an independent script before shipping (pluck at ½ vs ⅓: even/odd −35 → +11 dB; bridge vs
+   neck pluck: richness 8 → 22 dB; the click on the attack: 1.6 → 13 kHz against an unchanged
+   ring; the 2.5 vs 5 kHz peak: 14 dB swing between the bands; partial 12 at 6 vs 75 ¢ sharp;
+   the third of four notes dying in 0.18 s against 0.55 s; the knee envelopes as imposed). **The
+   six Take rows have no pair** — they are facts about a recording, and an example would be a
+   recording lesson, not a contrast between guitars. One finding on the way: a linear
+   pluck-position comb leaves the first D samples uncombed and the even partials alive; the comb
+   is circular, because the loop is.
+5. **The Tone character card, re-audited row by row under the core use case.** The groups are
+   now **by what a player asks** — *How it sounds* (resonances and the balance of the
+   overtones), *How it rings* (decay rates, which the pick does not set), *The take* — and how
+   much a row moves with the playing is a **per-row disclosure** (`sens`: a tag beside the
+   name — *steady under the playing* / *part the phrase* / *the pick moves this* — and the
+   audit's number in the popover), never a bucket. `glance:true` on a row is what feeds At a
+   glance (the same six rows as before; the group test is gone from `cheapestUpgrade`,
+   `renderProse` and `renderVerdict`). The audit table, for striking:
+
+   | Row (was) | Now | What is measured | THEORY | Moves with the playing (§7.4/§7.5) | Group | Call |
+   |---|---|---|---|---|---|---|
+   | Pickup voice | Pickup voice | hump over the 0.8–8 kHz trend of the whole-take LTAS, Hz + Q | §7.6.4 | low — two guitars sharing pickups within 9 % | How it sounds · glance | keep |
+   | Body voice | Body voice | strongest 70–130 Hz peak, from a tap when there is one | §7.6.6 | low (tap) — the LTAS fallback follows the phrase and says so | How it sounds · glance | keep |
+   | String stiffness | String stiffness | inharmonicity B, open E and A, 12 partials, averaged | §7.6.1 | none — strings and scale; rises as a string corrodes | How it sounds · plain | keep (never in At a glance) |
+   | Brightness | Brightness | spectral centroid of the whole-take LTAS, 60 Hz–20 kHz; tilt beside it | §7.4 | **high** — pick 0.37 oct, pickup 0.46 oct, register 1:1 | How it sounds · tag high | keep |
+   | Harmonic richness | Harmonic richness | harmonics 2–10 vs fundamental, dB, median over comb-checked notes | §7.2 | **high** — 15 dB from pluck position | How it sounds · tag high | keep |
+   | Even / odd balance | Even / odd balance | even (2–10) vs odd (3–9) harmonics, dB, median | §7.2 | **high** — +5 → +21 dB, −90 at the middle | How it sounds · tag high | keep |
+   | Attack colour | **Pick attack** | centroid of the first 10 ms vs 300–500 ms later, octaves, median over the longest notes | §7.6.8 | **high** — as much between strings as between guitars | How it sounds · tag high | rename |
+   | Fundamental decay | **Sustain** | fundamental's T20, median over the notes both takes share, matched by pitch | §7.6.2 | low — a rate; matching removes the register | How it rings · glance | rename |
+   | Sustain across the neck | **Dead spots** | fundamental's T20, median over every pitched note; a note under ⅓ of its neighbours flagged | §7.6.7 | mid — the median follows the phrase; the flags do not | How it rings · glance | rename (overlaps Sustain; kept for the flags — strike if one row is wanted) |
+   | Overtone ring | Overtone ring | partials 3–8 T20, geometric mean over the open strings | §7.6.2 | low — a rate; needs notes ≥ 1.5 s | How it rings · glance | keep |
+   | Bloom | Bloom | knee time of the two-stage decay, median over notes that fit | §7.6.3 | **high spread** — 0.1–3.2 s across one guitar's notes; no band, no verdict | How it rings · glance | keep, tagged |
+   | Pitch check · Level and floor · Dynamic range · Between notes · Material · Recording path | same | facts about the take (the two numeric ones now state their percentiles and gaps) | §7.3, §7.6.9, §7.6.10 | — | The take | keep |
+
+   Nothing dropped and nothing merged without the user; the one overlap (Sustain / Dead spots:
+   the same T20, one matched across takes, one over every note plus the flags) is named above.
+
+**Verification, in proportion:** `node --check` ×5 after each task; `tests/e.test.js` 189 →
+**219** (the glance contract re-pointed; the new section mutation-checked — a linear comb, a
+dropped `glance`, a renamed *By ear* section each caught); the ear pairs measured with an
+independent FFT script (`scratchpad`, not shipped); the full gate once at the end of the batch.
+Recording and E4–E7 remain untested by the user.

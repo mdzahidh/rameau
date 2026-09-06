@@ -2103,6 +2103,54 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   started on a suspended context on Safari plays nothing and fires `onended` late or never.
   Start inside the resume promise, guarded by `playCur.src===src`.
 
+## Tone character, re-audited under the core use case (2026-09-06, feedback batch 2)
+
+The E-phase panel grouped rows as *Instrument* / *Voicing / technique* / *Take*. The user's
+core use case — one player, two of their own guitars, the same phrase, only the guitar changes
+— made the middle bucket wrong: with the same hands on both, a brighter guitar is a guitar
+fact. Three decisions follow, and they are the whole of the change.
+
+- **Groups by the player's question, sensitivity by row.** `TONE_GROUPS` is `sound` (*How it
+  sounds*: Pickup/Body voice, Brightness, Harmonic richness, Even/odd, Pick attack, String
+  stiffness), `ring` (*How it rings*: Sustain, Dead spots, Overtone ring, Bloom) and `take`.
+  Each numeric row carries `sens:{k,note}` — `k` in `low|mid|high|take` chosen from THEORY
+  §7.4/§7.5, `note` the measured number — rendered as a tag beside the name
+  (`TONE_SENS_WORD`) and a popover section. **`glance:true` is a row flag**, and
+  `cheapestUpgrade` / `renderProse` / `renderVerdict` read it; nothing reads a group id to
+  decide what reaches At a glance any more. Body voice's headline `unshift` still lands inside
+  `sound` because the panel groups by `g`.
+- **What the number is, said on the row.** `unit` is the quantity + material + combination;
+  `how` is the exact measurement in one or two sentences (the glossary `measure` stays the
+  long form behind *The full measurement*). The two must agree with THEORY §7.6 — Bloom's
+  glossary was the one that did not (a "swell" against a two-stage decay) and was rewritten.
+- **The popover goes ear first.** Section order in `openTonePop`: By ear (`d.ear.hi/lo` +
+  the `TONE_EAR` pair) → What is measured (`d.how`) → This number → How much the playing
+  moves it (`d.sens`) → What it rests on → The band → Verdict → Override → Method. A `high`
+  row closes its disclosure with the use case ("same player, same pick, same phrase — then
+  what differs here is the guitar").
+
+**The synthesized pairs (`TONE_EAR`, block 4).** The rule: one string, one change, the change
+being what the row measures. `earKs(f0,dur,o)` is extended Karplus–Strong — `damp` the loop
+loss (the fundamental's decay), `S` the two-point loop filter's stretch (0.5 = strongest
+high-frequency loss, so overtones die first; near 1 they ring), `pos` a **circular** comb on
+the excitation (pluck at that fraction; a linear comb left the first D samples uncombed and
+the even partials alive — measured, then fixed), `lp` a one-pole on the excitation (true =
+the demo's 0.35, or a coefficient), `click` ms of differenced noise on the front. Around it:
+`earAdditive` (partials placed at n·f₀·√(1+Bn²)), `earResonance` (a tap: one damped mode,
+τ = Q/πf), `earPeak` (RBJ peaking section — the pickup hump), `earKnee` (an imposed
+two-slope envelope), `earSeq` (notes summed at offsets). `toneEarRec(term,w)` renders once per
+(term, side), normalises to −6 dBFS and returns `{samples, info:{sampleRate:EAR_RATE}}` — the
+shape `canPlay()` reads — so the ear buttons ride the one playback path
+(`startPlayback(0,null,null,onstop,0,rec)`; slot 0 means 0 dB of level-match gain). The
+pairs were measured with an independent FFT script before shipping; the numbers are in
+SPEC.md. The Take rows have no pair by design.
+
+**Traps.** `tests/e.test.js` pins `term:"sustain"`, `warmth`, `tightness`, `low-end` and
+`term:"attack"` as *absent* from `toneRowDefs` — a row named *Sustain* is fine (`name:`), a
+term is not, and prose in `ear`/`sens` must not spell those words with a hyphen. The
+`.tonename small` unit line is read by `toneRowHtml` after the tag, so a tag must stay
+inline (`display:inline-block`) or the unit drops a line.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never
