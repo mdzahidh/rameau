@@ -8340,7 +8340,7 @@ function openReadinessPop(i,k,anchor){
 }
 // ---- E2.6: the waveform — the analysed mono mix's envelope, onset ticks, clipping in the
 // meter's red, the playhead. Data ink, so its colours are fixed like the meter's. ----
-const WAVE_H=44;
+const WAVE_H=44, WAVE_HEAD="#7CFC00";   // lawn green — reads against the cream waveform and the dark one alike
 function drawWave(i){
   const cv=cards[i].querySelector("canvas.wave"); if(!cv) return;
   const s=state.slots[i]; if(!s||!s.tvis) return;
@@ -8362,14 +8362,11 @@ function drawWave(i){
   for(const t of (s.tvis.onsets||[])){ const x=Math.round(t/dur*w); ctx.fillRect(x,0,1,4); ctx.fillRect(x,h-4,1,4); }
   const pos=Math.min(dur,cardSeek[i]?cardPos[i]:cardPosNow(i));
   if(dur>0){
-    // The playhead used to be a 2 px line in the guitar's colour over a waveform of the same
-    // weight — invisible in a dense take (user test 2026-09-06). Now: a panel-coloured halo so
-    // the head is read against a clear gap, a 3 px bar, and a wedge at each end.
-    const x=Math.round(pos/dur*w)+0.5;
-    ctx.fillStyle=cssColor("panel"); ctx.fillRect(x-4,0,8,h);
-    ctx.fillStyle=cssColor("slot-c"); ctx.fillRect(x-1.5,0,3,h);
-    ctx.beginPath(); ctx.moveTo(x-5.5,0); ctx.lineTo(x+5.5,0); ctx.lineTo(x,6); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x-5.5,h); ctx.lineTo(x+5.5,h); ctx.lineTo(x,h-6); ctx.closePath(); ctx.fill();
+    // The playhead: one sleek 1 px line in a fixed bright colour (user request 2026-09-06 —
+    // the guitar-coloured 2 px line vanished in a dense take, the halo-and-wedge version was
+    // too thick). Data ink like the meter's green and the string hues: the same in both themes.
+    const x=Math.round(pos/dur*w);
+    ctx.fillStyle=WAVE_HEAD; ctx.fillRect(x,0,1,h);
   }
 }
 // ---------- E3: the guided take ----------
