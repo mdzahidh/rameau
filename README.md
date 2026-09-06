@@ -10,6 +10,15 @@ tone-character panel — with every number traceable to the formula that produce
 It is one HTML file. There is no build step, no server, and no network access of any
 kind.
 
+## What it is for
+
+One player, two guitars, the same phrase. You record the same riff on two of your own
+guitars — same picking, same amp, same cable, same room — and drop one recording on each
+card. Because you and the phrase stay the same, what the plots and the Tone character panel
+show is the guitar: how much brighter the Strat really is than the Les Paul, which one
+sustains, which one blooms after the pick. Nothing stops you dropping two unrelated files,
+but then the player and the room are in the comparison too, and the panel tells you so.
+
 ## Private by design — nothing you drop in ever leaves your browser
 
 **Your recordings are analysed right where they sit: in your own browser, on your own

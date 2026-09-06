@@ -3121,3 +3121,20 @@ null type read as solid — each caught); `tests/headless.js` re-pointed for the
 header control; node gate green; the full gate once at the end of the batch plus one
 screenshot of the Frequency card. Recording itself remains untested here.
 
+## 2026-09-06 — The core use case, written down (user; "literally the MOST IMPORTANT aspect of the whole app")
+
+**One player, two guitars, the same phrase — only the guitar changes.** A guitarist records the
+same riff on two of their own instruments, with the same picking, amp, cable and room, and
+drops one recording on each card. Because the player and the phrase are held constant, what the
+app shows is the guitar. This is the product requirement every other decision serves, and it
+is now stated in the README, docs/STORY.md, the header tagline, the empty state and the How-to
+modal. Nothing stops two arbitrary files being dropped; the app loads them and the
+comparability bar says what else differs, but that is not the comparison it is built for.
+
+**Consequence for the Tone character panel (built in the same batch, entry below):** the
+E-phase split into *Instrument* and *Voicing / technique* read as "these rows are about the
+player, not the guitar". Under the real use case that is wrong — a Strat is brighter than a Les
+Paul with the same hands on it. The §7 audit's finding (how much a row moves with the phrase
+versus the guitar) becomes a per-row **disclosure** — steady across playing, or moves with the
+playing — not a bucket that disowns the row. Rows are named the way a player says them.
+

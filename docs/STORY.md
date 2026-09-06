@@ -15,6 +15,17 @@ Drop-in briefing for the app repo. **How to use:** copy this file into the repo 
 - **Slogan (next to the title):** *"Yes — but why does it sound that way?"*
 - Named for Jean-Philippe Rameau (1683–1764), who derived harmony from the overtone series in 1722 — and for Claude (Rameau's organist brother, and the AI that helped build this). Diderot's *Rameau's Nephew* is about Claude's son: the family that stood next to genius, working the same material.
 
+## The core use case (2026-09-06 — "the selling point of this app")
+
+One guitarist — a professional or a learner — owns several guitars and wants to understand
+how any two of them differ in tone. They record the **same phrase** on both, themselves: same
+player, same technique, same picking, same amp and cable. **Only the guitar changes.** The app
+exists to explain that difference. Every framing, grouping, name and sentence follows from it:
+a brighter guitar is a guitar fact when the player is held constant, and the panel's job is to
+say how bright, how it sustains, how it attacks — in a player's words, with the measurement one
+tap down. Two arbitrary recordings still load, but the app makes clear that is not the
+comparison it is built for (the comparability bar names what differs besides the guitar).
+
 ## The About section (draft — Zahid's story, his framing)
 
 **About Claude Rameau**
