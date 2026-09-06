@@ -6571,7 +6571,15 @@ function drawAll(){
   // E4.2: the step line counts the floored bands too; the table reports the same count.
   if(dm && dm.bands.nFloor) diffCanvas.setAttribute("data-nearfloor-rows", String(dm.bands.nFloor));
   else diffCanvas.removeAttribute("data-nearfloor-rows");
-  if(!collState.bands) renderBandsTable();
+  // The table renders once per change of what it prints, not once per frame: re-inserting
+  // it on every draw during the load animation repainted the sub-section partially, and the
+  // fold button's antialiased corner came out one shade different between launches (found by
+  // the gate's whole-page compares, 2026-09-06). A key over the inputs is the one door.
+  if(!collState.bands){
+    const sk=i=>{ const s=state.slots[i]; return s?[s.name,slotName(i),slotTakes(i).length,s.channelMode,loadSeq[i]].join("|"):"-"; };
+    const key=[VOCAB_ACTIVE,state.smooth,state.lm,state.lmOffset,state.tuning,state.customOffset,sk(0),sk(1)].join("\u0001");
+    if(key!==_bandsKey){ _bandsKey=key; renderBandsTable(); }
+  } else _bandsKey=null;
   // E4.5: regions drawn by the active vocabulary (None → absent), so node can tell a
   // hidden strip from a blank page.
   const nReg=(VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq).regions.length;
@@ -7193,6 +7201,7 @@ function bandRowsFor(regions){
 // The Band energy table (back 2026-09-06). Every cell is bandTable()'s row — the same
 // numbers the region popover, the step line, At a glance and the Bands exports read — so
 // the table cannot disagree with the plots. Q3's floor disclosure rides on `onFloor`.
+let _bandsKey=null;
 function renderBandsTable(){
   const t=bandTable();
   if(!t.loaded){ bandsTable.innerHTML=""; bandsFoot.innerHTML=""; bandsTable.removeAttribute("data-nearfloor-rows"); return; }

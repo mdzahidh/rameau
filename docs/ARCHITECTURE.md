@@ -2091,7 +2091,14 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   be set), and the At a glance opener. `recordingPath` already returned `unknown` for a null type.
 - **`renderBandsTable()` runs inside `drawAll()`** from the same `bandTable()` the plots read, so
   the table and the strips cannot disagree and the fold state gates it like a canvas. It never
-  calls `bandPower` itself (inverted contract).
+  calls `bandPower` itself (inverted contract). **But once per change of its inputs, not once
+  per frame** (`_bandsKey` over vocabulary, smoothing, level-match, tuning and each slot's
+  file/name/take count/channel/`loadSeq`): re-inserting the table on every draw during the load
+  animation repainted the sub-section partially, and the fold button's antialiased corner came
+  out two shades different in roughly one launch in two — found because the gate's whole-page
+  compares went red by exactly one pixel at (154, 1697). Four launches of the fixed page are
+  byte-identical. Partial repaints are not pixel-stable in headless Chrome; render DOM on data
+  change, canvases on frames.
 - **Playback start on webkit:** `src.start()` is not queued behind `ctx.resume()`; a source
   started on a suspended context on Safari plays nothing and fires `onended` late or never.
   Start inside the resume promise, guarded by `playCur.src===src`.

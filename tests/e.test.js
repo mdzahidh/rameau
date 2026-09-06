@@ -312,8 +312,8 @@ section("E4 — the Band Energy fold: one builder, two strips, a step line, the 
   // 2026-09-06 (user test): the table came back as its own sub-section, on the same builder; the numbers left the strips.
   ok(/id="freqBands" data-sub="bands"/.test(html) && /id="bandsTable"/.test(html) && /const t=bandTable\(\);/.test(body("renderBandsTable")) && !/bandPower\(/.test(body("renderBandsTable")),
     "the Band energy table is back as a sub-section and renders bandTable()'s rows — never its own integral");
-  ok(/if\(!collState\.bands\) renderBandsTable\(\);/.test(body("drawAll")) && /bandsTable\.setAttribute\("data-nearfloor-rows", String\(t\.nFloor\)\)/.test(body("renderBandsTable")),
-    "…drawn with the plots, folded like them, and it reports the floored rows");
+  ok(/if\(key!==_bandsKey\)\{ _bandsKey=key; renderBandsTable\(\); \}/.test(body("drawAll")) && /\[VOCAB_ACTIVE,state\.smooth,state\.lm,state\.lmOffset,state\.tuning,state\.customOffset,sk\(0\),sk\(1\)\]/.test(body("drawAll")) && /bandsTable\.setAttribute\("data-nearfloor-rows", String\(t\.nFloor\)\)/.test(body("renderBandsTable")),
+    "…drawn with the plots but only when its inputs change, folded like them, and it reports the floored rows");
   ok(/bands:anyLoaded\(\)\?bandTable\(\):null/.test(body("buildSpecModel")) && /const bands=bandTable\(\);/.test(body("buildDiffModel")), "both plot models carry the builder's rows to block 3");
   ok(/const t=bandTable\(\);/.test(body("biggestRegionDelta")) && /const t=bandTable\(\);/.test(body("exportBandsCSV")) && /const t=bandTable\(\);/.test(body("exportBandsJSON")) && /const t=bandRowsFor\(\[r\]\), row=t\.rows\[0\];/.test(body("regionBandHtml")) && /return Object\.assign\(bandRowsFor\(vocab\.regions\),\{vocab\}\);/.test(body("bandTable")),
     "At a glance, both Bands exports and the region popover read the same builder");
