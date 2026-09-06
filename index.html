@@ -249,6 +249,9 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
    and a real flex row once it has travelled into the magnify head. */
 .ctlmove{ display:contents; }
 .ctlgroup > span{ font-size:11px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
+/* 2026-09-06: the time views' take pickers — one select per guitar, shown only for a stack */
+.ctlgroup.takesel select[data-takesel="0"]{ border-left:3px solid var(--slot-a); }
+.ctlgroup.takesel select[data-takesel="1"]{ border-left:3px solid var(--slot-b); }
 .exports{ display:flex; gap:6px; }
 
 /* progressive disclosure: analysis panels fold to their header line */
@@ -1274,6 +1277,11 @@ kbd{
                 <output id="sgDimOut">80%</output>
               </label>
             </div>
+            <div class="ctlgroup takesel" id="sgramTakeSel" hidden title="A spectrogram has a time axis, so it shows one take of a guitar at a time — the same take the card plays. Pick it here or on the card.">
+              <span>Take</span>
+              <select data-takesel="0" aria-label="Which take of guitar A the spectrogram shows"></select>
+              <select data-takesel="1" aria-label="Which take of guitar B the spectrogram shows"></select>
+            </div>
           </div>
           <span id="sgramCtlHome" hidden></span>
           <div class="ctlgroup">
@@ -1320,6 +1328,11 @@ kbd{
           </div>
         </div>
         <div class="controls">
+          <div class="ctlgroup takesel" id="envTakeSel" hidden title="The envelope has a time axis, so it shows one take of a guitar at a time — the same take the card plays. Pick it here or on the card.">
+            <span>Take</span>
+            <select data-takesel="0" aria-label="Which take of guitar A the envelope shows"></select>
+            <select data-takesel="1" aria-label="Which take of guitar B the envelope shows"></select>
+          </div>
           <div class="exports">
             <button class="btn" id="envPngBtn" disabled>PNG</button>
             <button class="btn" id="envJsonBtn" disabled>JSON</button>
@@ -8253,7 +8266,7 @@ function updateVisibility(){
     sgramNote.textContent=who+" — the original audio was not stored, so a spectrogram cannot be recomputed.";
     envNote.textContent=who+" — the original audio was not stored, so an envelope cannot be redrawn.";
   }
-  syncAbKeys();
+  syncAbKeys();  syncTakeSels();
 }
 function renderAnalysis(){
   renderVerdict();
@@ -9338,9 +9351,33 @@ function selectTake(i,k){
   if(cardPlaying(i)) stopPlayback();
   selTake[i]=k; cardPos[i]=0;
   renderCard(i);
+  syncTakeSels();     // the pickers on the time-view cards say the same take
   requestDraw();      // the spectrogram and the envelope follow the selection
   renderAnalysis();   // so do the Take rows of the tone panel
 }
+// The take pickers on the spectrogram and envelope cards (user, 2026-09-06: the guitar cards
+// are too far up the page to be where a time view's take is chosen). One select per guitar,
+// present only while that guitar holds more than one take, reading and writing the SAME
+// selection as the card (`selTake` through `selectTake`) — never a second state. Rebuilt from
+// every door that changes a stack: renderCard, selectTake, updateVisibility.
+function syncTakeSels(){
+  for(const grp of document.querySelectorAll(".ctlgroup.takesel")){
+    let any=false;
+    grp.querySelectorAll("select[data-takesel]").forEach(sel=>{
+      const i=+sel.dataset.takesel, takes=slotTakes(i);
+      if(takes.length<2){ sel.hidden=true; sel.innerHTML=""; return; }
+      any=true; sel.hidden=false;
+      const opts=takes.map((t,k)=>'<option value="'+k+'">'+esc(slotLabel(i))+' · take '+(k+1)+(t.name?' — '+esc(shortName(t.name,18)):'')+'</option>').join("");
+      if(sel.innerHTML!==opts) sel.innerHTML=opts;
+      const v=String(selTake[i]||0); if(sel.value!==v) sel.value=v;
+    });
+    grp.hidden=!any;
+  }
+}
+document.addEventListener("change",e=>{
+  const sel=e.target.closest?e.target.closest(".ctlgroup.takesel select[data-takesel]"):null;
+  if(sel) selectTake(+sel.dataset.takesel, +sel.value);
+});
 let playKeepPos=false, playTick=null;
 function cardDur(i){
   const s=playRec(i);

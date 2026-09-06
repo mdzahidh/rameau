@@ -508,6 +508,12 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
     "Take rows read the selected take; perTake rows average each take's own value, geometric on a log axis");
   ok(/d="mean over "\+nT\+" takes \("\+perVals\.map\(fm\)\.join\(" · "\)\+"\)"/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints and lists the per-take values");
   ok(/Values: means over each guitar's takes; the Take rows read the selected take/.test(body("renderToneRows")), "the panel's status line says so once");
+  // The time views carry their own take picker (user, 2026-09-06): same selection as the card, never a second state.
+  ok(/<div class="ctlgroup takesel" id="sgramTakeSel" hidden/.test(html) && /<div class="ctlgroup takesel" id="envTakeSel" hidden/.test(html) && (html.match(/<select data-takesel="[01]"/g)||[]).length===4, "a Take group with one select per guitar on the spectrogram and envelope cards, hidden until a stack exists");
+  ok(html.indexOf('id="sgramTakeSel"')>html.indexOf('id="sgramCtlMove"') && html.indexOf('id="sgramTakeSel"')<html.indexOf('id="sgramCtlHome"'), "the spectrogram's picker sits inside the wrapper that travels to the expanded view");
+  const sts=body("syncTakeSels");
+  ok(/if\(takes\.length<2\)\{ sel\.hidden=true;/.test(sts) && /grp\.hidden=!any;/.test(sts) && /const v=String\(selTake\[i\]\|\|0\); if\(sel\.value!==v\) sel\.value=v;/.test(sts), "the picker reads selTake and hides itself for a single take");
+  ok(/if\(sel\) selectTake\(\+sel\.dataset\.takesel, \+sel\.value\);/.test(b4) && /syncTakeSels\(\);\s*\/\/ the pickers on the time-view cards/.test(body("selectTake")) && /syncTakeSels\(\);\n\}/.test(body("updateVisibility")), "…writes through selectTake, and is rebuilt by selectTake and updateVisibility");
 }
 
 section("E6 — block 0: the tap read, the room in a decay, the recording path");

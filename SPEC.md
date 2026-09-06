@@ -3239,6 +3239,14 @@ between a guitar's own takes.
 it. Selecting a take redraws them. The spectrum chip says `A = mean of 3 takes`; the
 spectrogram title and the envelope legend say `take 2 of 3`.
 
+**Take pickers on the time views (user, same day: "the audio cards are so far up and away that
+it may not be clear at all to the user how to select a different track").** The spectrogram
+card and the envelope card each carry a *Take* group — one select per guitar, present only
+while that guitar holds more than one take, inside the spectrogram's moving control wrapper so
+the expanded view has it too. It reads and writes the **same** selection as the card
+(`syncTakeSels()` ↔ `selectTake()`), never a second state, and is rebuilt from `selectTake`
+and `updateVisibility`. Pure UI: `node --check` ×5, four source contracts, no Chrome.
+
 **Left open, flagged:** the band could shrink as takes accumulate (the mean's uncertainty is
 smaller than one take's spread); the note matching in Sustain still matches each take against
 the other guitar's take 0; snapshots do not carry the selection (a snapshot slot has no audio,
