@@ -2069,6 +2069,33 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   date and the take index at click time, and `renderCard` prints it in the Save button's title
   so the user sees the name before the dialog does.
 
+### Feedback batch (session 35, 2026-09-06)
+
+- **One capture stream per page session.** `recLive` holds the stream from the first grant and
+  one `AudioContext`; `recAcquire(deviceId)` returns the held stream when the device matches and
+  its track is live, else releases and opens; `recCtxGet(rate)` reuses the context unless the
+  rate differs. Probe, monitor and capture disconnect their nodes and **never stop the tracks or
+  close the context** — every `getUserMedia()` is a chance for the browser to prompt again, and
+  Safari caps a page's contexts. Track-ended handlers use `addEventListener`, never `onended=`,
+  because three phases now share one track. Released on `pagehide` only.
+- **The guided level gate lives in the tick, not at the advance.** Onset detection on room
+  noise produces onsets, so a step advanced on nothing and the old SNR check at advance time
+  fired at once. Notes are counted only after the step's short-term RMS peak clears the silence
+  floor by `REC_GUIDE_SNR_MIN`; until then the prompt reports the dB reached, warns at
+  `REC_GUIDE_WARN_S`, and `_guideFail` discards at `REC_GUIDE_WAIT_S` and re-arms the panel with
+  the reason (`cardUI.fail`). 25 dB is the E1 manifest's usable minimum, chosen so the take
+  lands and the rows disclose; the two timers are unmeasured judgement until a real capture.
+- **`slotType(i)` may be `null`.** Every reader that compares it to a string is unaffected
+  (`null !== "solid"`), which is exactly why the tests pin the three places that must treat it
+  specially: the row filter (`types[i]==null` keeps the row, collapsed), `typesDiffer` (both must
+  be set), and the At a glance opener. `recordingPath` already returned `unknown` for a null type.
+- **`renderBandsTable()` runs inside `drawAll()`** from the same `bandTable()` the plots read, so
+  the table and the strips cannot disagree and the fold state gates it like a canvas. It never
+  calls `bandPower` itself (inverted contract).
+- **Playback start on webkit:** `src.start()` is not queued behind `ctx.resume()`; a source
+  started on a suspended context on Safari plays nothing and fires `onended` late or never.
+  Start inside the resume promise, guarded by `playCur.src===src`.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

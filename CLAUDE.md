@@ -848,7 +848,9 @@ build educational copy from it, never re-derive from scratch.
   Spectrum exports; `None` vocabulary; the vocabulary **chip** is the strip's first row on both
   plots (its own row — an inline chip hid the 60–100 Hz label); Strings + Clear harmonics on the
   x-axis row; the Frequency card header is title and subtitle only; `gsCollapse`/`?open=` drop
-  `bands`. **E5:** rung-1 words on every surface (SPEC has the moved-strings table); Take rows
+  `bands` — **E4.2/E4.3/E4.6 reversed 2026-09-06 on the user's test: the table is back, the
+  strips print no numbers, Show strings is a header control again (see the feedback bullet).**
+  **E5:** rung-1 words on every surface (SPEC has the moved-strings table); Take rows
   are a light and a phrase; every value/phrase is the same `[data-pop]` tap. **E5.4 taste call
   presented, not decided:** default vocabulary Band mix vs EQ speak (or None).
 - **E6 BUILT (session 34, branch `e-phase`, gate).** Hollow and acoustic: the type is
@@ -880,7 +882,20 @@ build educational copy from it, never re-derive from scratch.
   the take. `tests/e.test.js` **183**. Deviations and the Logic caveat in SPEC.md 2026-09-05
   "E7 built". Open taste calls (presented, not decided): E5.4 default vocabulary, String
   stiffness row vs popover, Save as bands button vs export, Guided default for a slot with a take.
-- **NEXT — the user’s test of the whole `e-phase` branch (E2–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
+- **Feedback batch BUILT (session 35, 2026-09-06, branch `e-feedback` off `eq-release-pass`).**
+  The user tested **E2 only** and sent fourteen items; SPEC.md 2026-09-06 has each with its
+  reasoning. In short: seek head visible and live; Safari playback starts inside `resume()`;
+  **one capture stream + one context per page session** (`recLive`/`recAcquire`/`recCtxGet` —
+  one permission prompt, labels in Chrome, mic indicator stays lit, released on `pagehide`);
+  processing flags on every `getUserMedia` path; disclaimer demoted; guided prompt big and bold,
+  silence countdown, **level gate `REC_GUIDE_SNR_MIN = 25`** before notes count, warn at 25 s,
+  give up at 45 s and **discard** with the reason; **type has a fourth state, not set (`null`)**
+  — type-bound rows collapse to "needs the guitar's kind", the cross-type comparison waits;
+  **Band energy table back** as `#freqBands` on `bandTable()` (strips print no numbers, `PLOT.mT`
+  52/66, `?open=bands` again); **Show strings** + Clear harmonics in the Frequency card header.
+  `tests/e.test.js` **187**. **Untested by the user so far: all recording, E4–E7, the EQ release
+  pass** — they head the next test plan.
+- **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
   in docs/THEORY.md.) M3/M4 remain gated on explicit user go-ahead.
@@ -893,7 +908,7 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 183**, headless **73**
+- The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 187**, headless **73**
   (eight steps since E1; `--node` skips the headless step). **All node suites green since the
   EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
   "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went

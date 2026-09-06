@@ -2204,6 +2204,12 @@ the recording guide modal.
 
 ### E4 — the Band Energy fold (Frequency Analysis card) ✅ BUILT 2026-09-05 (branch `e-phase`)
 
+*2026-09-06, user test: **partly reversed.** The table is back as its own sub-section on the
+same builder, the shares and Δ no longer print on the strips, and Show strings + Clear harmonics
+returned to the card header ("cleaner UI"; "all the controls are on the top"). What stands from
+E4: one builder (`bandTable()`), the region popover row, the Difference step line, the `None`
+vocabulary, the vocabulary chip on both plots. SPEC.md 2026-09-06 items 11 and 12.*
+
 *Reviewer-built (`9a99eb0`). Two recorded deviations — the chip has its own lane row, and the
 strip-off pixel identity was replaced by `data-regions` — see SPEC.md 2026-09-05 "E3, E4, E5 built".*
 

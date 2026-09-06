@@ -3057,3 +3057,67 @@ The gate's step 1 had been red since 2026-08-27: the single-peak recovery bound
   being removed. Node gate all green; no headless step touched (block-0 math only, no pixel
   moves except the EQ card's fitted curve).
 
+## 2026-09-06 — The user's first test of `e-phase` (E2 only): fourteen items, built as one batch (reviewer; branch `e-feedback`)
+
+The user tested E2 and part of the recording panel, sent feedback one item at a time and asked
+that it be collected before anything was built. Recording and E4–E7 were **not** tested and
+head the next test plan. Fourteen items, twelve changes:
+
+1. **Seek head.** A 2 px line in the guitar's colour over a waveform of the same weight was
+   invisible; now a panel-coloured halo, a 3 px bar and a wedge at each end, and it **follows
+   the pointer** during a drag (the preview redraws the waveform; the take restarts on release).
+2. **Safari sometimes silent.** `startPlayback` started the source before `resume()` had
+   settled on a suspended/interrupted webkit context. The source now starts inside the resume
+   promise when the context is not running, a closed context is recreated, and `t0` is taken at
+   the real start. Item 5's shared capture context also stops the page from exhausting Safari's
+   context budget.
+3. + 5. + 14. **One stream per page session.** The panel opened the device four times per
+   take — permission check, channel probe, pre-roll monitor, capture — and stopped it between,
+   so Chrome (no persisted grant on `file://`) and Safari (asks per call unless a stream from
+   the grant is live) prompted again and again. `recLive` holds the first grant's stream and one
+   `AudioContext` for the page session; every phase draws on them; a new stream is opened only
+   when the device changes; released on `pagehide`. **Cost, stated:** the browser's mic-in-use
+   indicator stays lit while the page is open after the first grant. What a browser does on a
+   fresh page load is outside the page's control.
+   Chrome listed only "Default input" because the stream was stopped before `enumerateDevices`
+   could label anything and the permission was per device: the held stream fixes the labels,
+   and the track's own `deviceId` is written to `state.recDevice` so the select names the device
+   the grant was given for.
+4. **Disclaimer.** The browser-limit paragraph moves below the level tip and is set as small
+   faint type.
+6. **Processing off, every path.** `recOpen` carried a bare `{audio:true}` third fallback that
+   would have opened a stream with echo cancellation on — gone (boolean constraints are ideal,
+   never a reason to reject). A live track that reports a processor on is asked once more via
+   `applyConstraints`; `recTrackInfo` still records what landed on the take.
+7. **Guided prompt** as a prompt: one 17 px bold line, the step label above, progress and Skip
+   below. Prompts shortened.
+8. + 13. **Pacing.** The silence step shows a countdown. The old rule judged the take when the
+   first played step *advanced*, and `detectOnsets` on room noise advanced it in seconds, so the
+   40 dB check fired on nothing ("stopped immediately"). Now a played step counts notes **only
+   once the guitar is heard `REC_GUIDE_SNR_MIN = 25` dB above the measured floor** — the E1
+   manifest's usable minimum, not the 35 the full rows want; the take lands and the rows say how
+   sure they are. Nothing heard for 25 s warns in the prompt; 45 s gives up. Measured on no real
+   capture yet — the user could not record this session — so the 25/45 s are judgement, flagged.
+9. **Discard on failure.** A guided take that gives up is discarded and the panel re-arms with
+   the reason above the Start button (`_guideFail`), never landed.
+10. **Not set.** The type has a fourth state, `null`: fresh, cleared and snapshot-default slots
+    are not set, the card select starts at *Not set — choose…*, type-bound rows collapse to
+    *needs the guitar's kind — set it on the card*, the cross-type comparison waits until both
+    are set, At a glance says what to do, and take readiness counts type-bound rows as
+    unsupported until the kind is chosen. Saved WAVs (`rmau`), snapshots that stored a type,
+    and the select still set it; nothing infers it. This is the E-phase principle applied to
+    the one input the panel had been assuming.
+11. **Band energy table back** (user: "cleaner UI"). Own sub-section again (`#freqBands`,
+    `gsCollapse`/`?open=` know `bands`), rendered from `bandTable()` inside `drawAll` so it can
+    never disagree with the plots; the shares and Δ **no longer print under the regions** on
+    either strip; the lane is M2.6c's 34/48 px under the chip row again (`PLOT.mT` 52/66). The
+    Difference step line stays — it is a line, not a number (default taken, flagged).
+12. **Show strings** and Clear harmonics back in the Frequency card header, one switch, labelled
+    *Show strings*.
+
+**Verification, in proportion:** `node --check` ×5; `tests/e.test.js` 183 → **187** with the E4
+contracts re-pointed and the new ones mutation-checked (level gate removed, table not drawn,
+null type read as solid — each caught); `tests/headless.js` re-pointed for the table and the
+header control; node gate green; the full gate once at the end of the batch plus one
+screenshot of the Frequency card. Recording itself remains untested here.
+
