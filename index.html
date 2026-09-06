@@ -249,9 +249,13 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
    and a real flex row once it has travelled into the magnify head. */
 .ctlmove{ display:contents; }
 .ctlgroup > span{ font-size:11px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
-/* 2026-09-06: the time views' take pickers — one select per guitar, shown only for a stack */
-.ctlgroup.takesel select[data-takesel="0"]{ border-left:3px solid var(--slot-a); }
-.ctlgroup.takesel select[data-takesel="1"]{ border-left:3px solid var(--slot-b); }
+/* 2026-09-06: the time views' take pickers — beside the plot they steer, one select per
+   guitar, shown only for a stack; the right padding keeps clear of the magnify button */
+.takebar{ display:flex; align-items:center; gap:7px; margin:0 0 6px; padding-right:44px; }
+.takebar > span{ font-size:11px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
+#magCtls .takebar{ margin:0; padding:0; }
+.takesel select[data-takesel="0"]{ border-left:3px solid var(--slot-a); }
+.takesel select[data-takesel="1"]{ border-left:3px solid var(--slot-b); }
 .exports{ display:flex; gap:6px; }
 
 /* progressive disclosure: analysis panels fold to their header line */
@@ -1277,11 +1281,6 @@ kbd{
                 <output id="sgDimOut">80%</output>
               </label>
             </div>
-            <div class="ctlgroup takesel" id="sgramTakeSel" hidden title="A spectrogram has a time axis, so it shows one take of a guitar at a time — the same take the card plays. Pick it here or on the card.">
-              <span>Take</span>
-              <select data-takesel="0" aria-label="Which take of guitar A the spectrogram shows"></select>
-              <select data-takesel="1" aria-label="Which take of guitar B the spectrogram shows"></select>
-            </div>
           </div>
           <span id="sgramCtlHome" hidden></span>
           <div class="ctlgroup">
@@ -1301,12 +1300,14 @@ kbd{
       <div class="cardbody">
         <div class="sgramstack">
           <div class="plotwrap" id="sgramWrapA" style="display:none">
+            <div class="takebar takesel" data-pane="0" hidden title="A spectrogram has a time axis, so it shows one take at a time — the same take the card plays. Pick it here or on the card."><span>Take</span><select data-takesel="0" aria-label="Which take of guitar A this spectrogram shows"></select></div>
             <button class="magbtn" data-mag="sga" title="Magnify" aria-label="Magnify spectrogram A">⤢</button>
             <canvas id="sgramCanvasA"></canvas>
             <div class="xline" id="sgramXlineA"></div>
             <div class="readout" id="sgramReadoutA"></div>
           </div>
           <div class="plotwrap" id="sgramWrapB" style="display:none">
+            <div class="takebar takesel" data-pane="1" hidden title="A spectrogram has a time axis, so it shows one take at a time — the same take the card plays. Pick it here or on the card."><span>Take</span><select data-takesel="1" aria-label="Which take of guitar B this spectrogram shows"></select></div>
             <button class="magbtn" data-mag="sgb" title="Magnify" aria-label="Magnify spectrogram B">⤢</button>
             <canvas id="sgramCanvasB"></canvas>
             <div class="xline" id="sgramXlineB"></div>
@@ -1328,11 +1329,6 @@ kbd{
           </div>
         </div>
         <div class="controls">
-          <div class="ctlgroup takesel" id="envTakeSel" hidden title="The envelope has a time axis, so it shows one take of a guitar at a time — the same take the card plays. Pick it here or on the card.">
-            <span>Take</span>
-            <select data-takesel="0" aria-label="Which take of guitar A the envelope shows"></select>
-            <select data-takesel="1" aria-label="Which take of guitar B the envelope shows"></select>
-          </div>
           <div class="exports">
             <button class="btn" id="envPngBtn" disabled>PNG</button>
             <button class="btn" id="envJsonBtn" disabled>JSON</button>
@@ -1341,6 +1337,7 @@ kbd{
         </div>
       </div>
       <div class="cardbody">
+        <div class="takebar takesel" hidden title="The envelope has a time axis, so it shows one take of each guitar at a time — the same take the card plays. Pick it here or on the card."><span>Take</span><select data-takesel="0" aria-label="Which take of guitar A the envelope shows"></select><select data-takesel="1" aria-label="Which take of guitar B the envelope shows"></select></div>
         <div class="plotwrap" id="envWrap">
           <button class="magbtn" data-mag="env" title="Magnify" aria-label="Magnify envelope plot">⤢</button>
           <canvas id="envCanvas"></canvas>
@@ -6756,6 +6753,10 @@ function drawMag(){
 // lands, wherever the cluster happens to be standing.
 function syncMagCtls(key){
   const home=(key!=="sga"&&key!=="sgb");
+  // The pane's own take picker travels with the pane (it sits in the plot wrap, not the head):
+  // any picker still in the modal goes back first, then the opened pane's comes along.
+  for(const bar of Array.from(magCtls.querySelectorAll(".takebar"))){ const w=el(bar.dataset.pane==="1"?"sgramWrapB":"sgramWrapA"); w.insertBefore(bar,w.firstChild); }
+  if(!home){ const bar=el(key==="sga"?"sgramWrapA":"sgramWrapB").querySelector(".takebar"); if(bar) magCtls.appendChild(bar); }
   const want=home?sgramCtlHome.parentNode:magCtls;
   if(sgramCtlMove.parentNode===want&&(!home||sgramCtlMove.nextSibling===sgramCtlHome)) return;
   if(home) sgramCtlHome.parentNode.insertBefore(sgramCtlMove,sgramCtlHome);
@@ -9361,7 +9362,7 @@ function selectTake(i,k){
 // selection as the card (`selTake` through `selectTake`) — never a second state. Rebuilt from
 // every door that changes a stack: renderCard, selectTake, updateVisibility.
 function syncTakeSels(){
-  for(const grp of document.querySelectorAll(".ctlgroup.takesel")){
+  for(const grp of document.querySelectorAll(".takesel")){
     let any=false;
     grp.querySelectorAll("select[data-takesel]").forEach(sel=>{
       const i=+sel.dataset.takesel, takes=slotTakes(i);
@@ -9375,7 +9376,7 @@ function syncTakeSels(){
   }
 }
 document.addEventListener("change",e=>{
-  const sel=e.target.closest?e.target.closest(".ctlgroup.takesel select[data-takesel]"):null;
+  const sel=e.target.closest?e.target.closest(".takesel select[data-takesel]"):null;
   if(sel) selectTake(+sel.dataset.takesel, +sel.value);
 });
 let playKeepPos=false, playTick=null;
