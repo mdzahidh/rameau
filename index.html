@@ -8340,7 +8340,10 @@ function openReadinessPop(i,k,anchor){
 }
 // ---- E2.6: the waveform — the analysed mono mix's envelope, onset ticks, clipping in the
 // meter's red, the playhead. Data ink, so its colours are fixed like the meter's. ----
-const WAVE_H=44, WAVE_HEAD="#7CFC00";   // lawn green — reads against the cream waveform and the dark one alike
+// The waveform is ink at 0.42 (themed through cssRGBA); the playhead is one 1 px line in a
+// bright colour picked per theme (user request 2026-09-06): lawn green on the dark panel,
+// a strong blue on the cream one, where lime has no contrast.
+const WAVE_H=44, WAVE_HEAD={bright:"#0b5fff", dark:"#7CFC00"};
 function drawWave(i){
   const cv=cards[i].querySelector("canvas.wave"); if(!cv) return;
   const s=state.slots[i]; if(!s||!s.tvis) return;
@@ -8366,7 +8369,7 @@ function drawWave(i){
     // the guitar-coloured 2 px line vanished in a dense take, the halo-and-wedge version was
     // too thick). Data ink like the meter's green and the string hues: the same in both themes.
     const x=Math.round(pos/dur*w);
-    ctx.fillStyle=WAVE_HEAD; ctx.fillRect(x,0,1,h);
+    ctx.fillStyle=WAVE_HEAD[theme]||WAVE_HEAD.bright; ctx.fillRect(x,0,1,h);
   }
 }
 // ---------- E3: the guided take ----------
@@ -10694,6 +10697,7 @@ function setTheme(t){
   // colormaps that never theme; the difference image only re-renders when its
   // endpoints actually change (the two themes carry different overrides).
   applyUserColors();
+  for(let i=0;i<2;i++) drawWave(i);   // ink-tinted waveform and the per-theme playhead follow the theme
 }
 
 // ---------- user slot colors (item k) ----------
