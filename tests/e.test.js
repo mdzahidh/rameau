@@ -125,7 +125,11 @@ section("E1.4 — toneRecords: evidence and state on every record, one door to a
     "INVERTED: diff and same are each assigned once, and only inside the measured guard — no verdict from a provisional band");
   ok(!/provisional/.test(guardBody), "the guard body never mentions a provisional band");
   // E6.1 (2026-09-05): the type became three-valued and a row lists the types it applies to.
-  ok(/if\(def\.types&&!\[0,1\]\.some\(i=>state\.slots\[i\]&&applies\(def,i\)\)\) continue;/.test(tr), "a type-bound row is hidden, not a pointer, when no loaded slot is a kind it applies to");
+  ok(/if\(def\.types&&!\[0,1\]\.some\(i=>state\.slots\[i\]&&\(applies\(def,i\)\|\|types\[i\]==null\)\)\) continue;/.test(tr), "a type-bound row is hidden, not a pointer, when no loaded slot is a kind it applies to — but stays, collapsed, for a slot whose kind is not set (2026-09-06)");
+  ok(/if\(types\[i\]==null\) rec\.evidence\[i\]=\{state:4, have:\{\}, need:\{\}, missing:\[\{what:"type-unset"\}\]\};/.test(tr) && /case "type-unset": return "needs the guitar’s kind — set it on the card/.test(blocks[4]),
+    "…an unset side is not measurable with 'set the guitar’s kind' as the item");
+  ok(/typesDiffer=both&&!!types\[0\]&&!!types\[1\]&&types\[0\]!==types\[1\];/.test(tr) && /if\(!slotType\(0\)\|\|!slotType\(1\)\) parts\.push\("Set each guitar’s kind on its card/.test(body("renderVerdict")),
+    "…the cross-type comparison waits until both kinds are set, and At a glance says what to do");
   ok(/def\.plain\?"same strings and scale":"not distinguishable"/.test(tr) && /def\.plain\?"different strings or scale"/.test(tr),
     "String stiffness gets the two plain words and nothing else");
   const defs = body("toneRowDefs");
@@ -215,7 +219,7 @@ section("E2.1 — a slot holds takes: one door, one array, no cycle in the seria
   ok(/async function analyzeSlot\(i,slot,seq,append\)/.test(b4) && /if\(append&&state\.slots\[i\]\) attachTake\(i,slot\);/.test(b4), "analyzeSlot has an append path that attaches instead of replacing");
   ok(/if\(!slot\.takes\) _bindTakes\(\[slot\]\);/.test(b4), "…and a re-analysis of the primary keeps its sibling takes");
   ok(/loadFileIntoSlot\(i,audio\[0\],\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take");
-  ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]="solid"; state\.slotPaths\[i\]=null; \}/.test(b4), "the name, the type and the path override stay on the slot when a take is added, and drop when the slot is replaced");
+  ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]=null; state\.slotPaths\[i\]=null; \}/.test(b4), "the name, the type and the path override stay on the slot when a take is added, and drop when the slot is replaced");
   const lr = body("landRecording");
   ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null, protocol:protocol\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
   const rt = body("removeTake");
@@ -246,7 +250,8 @@ section("E2.4–E2.6 — the card: name headline, take list, readiness, one Play
   const rc = body("renderCard"), th = body("transportHtml"), tr = body("takeReadiness"), b4 = blocks[4];
   ok(/<div class="filesub"><span class="filename"/.test(rc) && /class="slotname/.test(rc), "the name is the headline and the file sits under it");
   ok(/<div class="takelist">'\+takeRows\+adding\+addRow\+'<\/div>/.test(rc) && /data-act="addfile"/.test(rc), "a take list with + Add take (open or record)");
-  ok(/<label class="typelbl">Type <select class="slottype"/.test(rc), "the type select is labelled Type");
+  ok(/<label class="typelbl'\+\(slotType\(i\)\?"":" unset"\)\+'">Type <select class="slottype"/.test(rc) && /<option value=""'\+\(slotType\(i\)\?"":" selected"\)\+'>Not set — choose…<\/option>/.test(rc),
+    "the type select is labelled Type and starts at Not set (2026-09-06)");
   ok(/data-act="record" title="Record a take into this slot">● Record<\/button>':""\)\+\s*'<button class="iconbtn" data-act="clear"/.test(rc) && !/data-act="record"/.test(th), "● Record sits beside ⟳ Replace and ✕ Clear, not in the transport");
   ok(/data-act="playpause"/.test(th) && !/cardpause/.test(th) && !/type="range" class="seek"/.test(th), "one Play/Pause toggle, no separate pause button, no bare range");
   ok(/<canvas class="wave" data-seek/.test(th) && /seekCard\(i,\{value:waveSeekValue\(cv,e\)\},false\)/.test(b4) && /seekCard\(i,\{value:waveSeekValue\(d\.cv,e\)\},true\)/.test(b4),
@@ -276,7 +281,15 @@ section("E3 — the guided take: unlocks from TONE_EVIDENCE, the analysis onset 
     "the step advance counts onsets with the analysis's own detector on the analysis's own bands — one detector");
   ok(/if\(cap\.guide\) guidedTick\(cap,cards\[i\]\);/.test(b4), "…driven from the capture's existing tick, no new node and no new pass");
   const ga = body("_guideAdvance");
-  ok(/snr<REC_GUIDE_SNR_MIN/.test(ga) && /stopCapture\(false\);/.test(ga) && /const REC_GUIDE_SNR_MIN=40;/.test(b4), "a first played step under 40 dB above the measured floor stops the take with one sentence");
+  ok(/const REC_GUIDE_SNR_MIN=25, REC_GUIDE_WARN_S=25, REC_GUIDE_WAIT_S=45;/.test(b4) && !/snr<REC_GUIDE_SNR_MIN/.test(ga) && !/stopCapture/.test(ga),
+    "the advance no longer judges the take; the gate moved into the tick (2026-09-06)");
+  const gtk = body("guidedTick");
+  ok(/if\(!g\.heard\)\{[\s\S]*?g\.heard=g\.snr==null\|\|g\.snr>=REC_GUIDE_SNR_MIN;/.test(gtk) && /if\(g\.heard\)\{[\s\S]*?detectOnsets\(sb\.flux,sb\.frameRate\)\.length;/.test(gtk),
+    "notes are counted only once the guitar is heard REC_GUIDE_SNR_MIN dB above the measured floor — room noise cannot advance a step");
+  ok(/else if\(g\.elapsed>=REC_GUIDE_WAIT_S\)\{\s*_guideFail\(cap,"Stopped and discarded/.test(gtk) && /stopCapture\(false\);\s*cardUI\[i\]=\{mode:"arming",prev:prev,perm:"granted",msg:null,checking:false,fail:text\};/.test(body("_guideFail")),
+    "a played step that hears nothing for REC_GUIDE_WAIT_S s discards the take and re-arms the panel with the reason, never lands it");
+  ok(/g\.elapsed>=REC_GUIDE_WARN_S\) return "Nothing heard yet — stopping in "\+left\+" s/.test(body("_guideProgressText")) && /class="reccount" title="seconds left"/.test(body("guideHtml")),
+    "…the prompt warns before it stops, and a clock step shows a countdown");
   ok(/landRecording\(i,buf,cap\.proc,guideProtocol\(cap\)\);/.test(b4) && /protocol:protocol\|\|null \},seq,append\)/.test(b4) && /protocol:meta\.protocol\|\|null \}/.test(b4),
     "the landed take carries protocol {version, stepsDone, skipped} in its facts — and so in the snapshot");
   ok(/recGuided:!!state\.recGuided,/.test(body("_settingsPayload")) && /if\(typeof j\.recGuided==="boolean"\) state\.recGuided=j\.recGuided;/.test(b4), "the Guided switch is remembered additively; absent → on");
@@ -296,32 +309,37 @@ section("E4 — the Band Energy fold: one builder, two strips, a step line, the 
   // E4.1/E4.2/E4.3: every band number comes from bandTable(), which reads Q3's one floor predicate.
   const bt = body("bandRowsFor");
   ok(/nearFloorBands\(\)/.test(bt) && /bandPower\(/.test(bt) && /share/.test(bt) && /onFloor/.test(bt), "bandTable() is the one builder: shares, Δ and the floor from the same predicate the table used");
-  ok(!/function renderBandsTable\(/.test(html) && !/id="freqBands"/.test(html) && !/id="bandsTable"/.test(html), "the table renderer and the #freqBands sub-section are gone");
+  // 2026-09-06 (user test): the table came back as its own sub-section, on the same builder; the numbers left the strips.
+  ok(/id="freqBands" data-sub="bands"/.test(html) && /id="bandsTable"/.test(html) && /const t=bandTable\(\);/.test(body("renderBandsTable")) && !/bandPower\(/.test(body("renderBandsTable")),
+    "the Band energy table is back as a sub-section and renders bandTable()'s rows — never its own integral");
+  ok(/if\(!collState\.bands\) renderBandsTable\(\);/.test(body("drawAll")) && /bandsTable\.setAttribute\("data-nearfloor-rows", String\(t\.nFloor\)\)/.test(body("renderBandsTable")),
+    "…drawn with the plots, folded like them, and it reports the floored rows");
   ok(/bands:anyLoaded\(\)\?bandTable\(\):null/.test(body("buildSpecModel")) && /const bands=bandTable\(\);/.test(body("buildDiffModel")), "both plot models carry the builder's rows to block 3");
   ok(/const t=bandTable\(\);/.test(body("biggestRegionDelta")) && /const t=bandTable\(\);/.test(body("exportBandsCSV")) && /const t=bandTable\(\);/.test(body("exportBandsJSON")) && /const t=bandRowsFor\(\[r\]\), row=t\.rows\[0\];/.test(body("regionBandHtml")) && /return Object\.assign\(bandRowsFor\(vocab\.regions\),\{vocab\}\);/.test(body("bandTable")),
     "At a glance, both Bands exports and the region popover read the same builder");
   ok(/termContentHtml\(key, regionBandHtml\(key\)\)/.test(body("openPopover")) && /valsOverride\?valsOverride:vals\.length/.test(body("termSections")), "a region's glossary popover prints the table's row as its Current values — one tap down, nothing printed twice");
   // The strip: shares on the Spectrum, Δ on the Difference, skipped when narrow, never smeared.
   const lane = body("drawEqLane");
-  ok(/drawEqLane\(ctx, w, hits, model\.bands, "share"\)/.test(body("drawSpectrumScene")) && /drawEqLane\(ctx, w, hits, model\.bands, "delta"\)/.test(body("drawDiffScene")), "the Spectrum strip prints shares, the Difference strip prints Δ");
-  ok(/fmtPct\(row\.share\[i\]\)/.test(lane) && /fmtDb\(row\.d,1\)/.test(lane) && /total<\(x1-x0\)-10/.test(lane), "…with Q3's fmtPct and the plot's fmtDb, and a value wider than its region is skipped");
-  ok(/row\.onFloor\?cssRGBA\("ink-rgb",0\.3\)/.test(lane), "…a floored Δ prints faint on the strip");
+  ok(/drawEqLane\(ctx, w, hits\);/.test(body("drawSpectrumScene")) && /drawEqLane\(ctx, w, hits\);/.test(body("drawDiffScene")) && /^function drawEqLane\(ctx, w, hits\)\{/m.test(b3),
+    "the strips print no band numbers (2026-09-06) — the lane takes no rows");
+  ok(!/fmtPct\(/.test(lane) && !/fmtDb\(/.test(lane), "INVERTED: no share or Δ is printed on either strip");
   // The step line.
   const ds = body("drawDiffScene");
   ok(/model\.bands\.rows\.filter\(r=>r\.d!=null/.test(ds) && /ctx\.setLineDash\(r\.onFloor\?\[4,4\]:\[\]\);/.test(ds) && /r\.onFloor\?0\.28:0\.62/.test(ds), "the band-mean Δ step line draws over the curve, dashed [4,4] and faint where the whole band is under the floor — R5.5's own dressing");
   // E4.4: the fold key is gone; a stored one is ignored by the existing filter.
-  ok(!/bands:freqBands/.test(b4) && !/bands:false/.test(b4) && /if\(k in COLL_CARDS&&typeof j\[k\]==="boolean"\)/.test(b4), "gsCollapse/?open= no longer know 'bands'; an old stored key falls through the filter");
+  ok(/bands:freqBands/.test(b4) && /bands:false/.test(b4) && /if\(k in COLL_CARDS&&typeof j\[k\]==="boolean"\)/.test(b4), "gsCollapse/?open= know 'bands' again (2026-09-06)");
   // E4.5/E4.6: the chip on both plots drives setVocab(); Strings at the axis on both plots through one door; the card header is title and subtitle only.
   ok((html.match(/<select class="lanesel"/g) || []).length === 2 && /for\(const sel of \[vocabSel,vocabSelDiff\]\) sel\.addEventListener\("change",\(\)=>\{\s*setVocab\(sel\.value\);/.test(b4), "a .lanesel chip on each plot, both driving setVocab()");
   ok(/vocabSel\.value=v; vocabSelDiff\.value=v;/.test(body("setVocab")), "…setVocab syncs both chips");
-  ok((html.match(/class="stringsSw"/g) || []).length === 2 && /querySelectorAll\("\.stringsSw"\)\.forEach\(c=>c\.addEventListener\("change",\(\)=>setStrings\(c\.checked,true\)\)\)/.test(b4) && /if\(stg\) setStrings\(stg\[1\]==="1",false\);/.test(b4),
-    "Strings sits at the axis of each plot; both switches, and the ?strings= hook, go through setStrings()");
-  ok(/clearHarmonicsBtn\.hidden = !state\.strings \|\| !_hasAnyHarmonics\(\);/.test(body("syncClearHarmonicsBtn")) && /<div class="axisctl">\s*<label class="switch" id="stringsSwitch"[\s\S]{0,400}id="clearHarmonicsBtn" hidden/.test(html), "Clear harmonics renders only while a harmonic is on, beside the axis");
+  // 2026-09-06 (user test): "all the controls are on the top" — one Show strings switch in the card header, Clear harmonics beside it.
   const head = html.slice(html.indexOf('id="freqCard"'), html.indexOf('id="freqSpec"'));
-  ok(!/class="controls"/.test(head) && !/<select|<button|<input/.test(head), "the Frequency card header is title and subtitle only");
-  ok(/id="bandsCsvBtn"/.test(html.slice(html.indexOf('id="freqSpec"'), html.indexOf('id="freqDiff"'))), "the Bands CSV/JSON buttons live under the Spectrum exports");
-  ok(/PLOT\.mT=laneTwoRows\(\)\?LANE_TWO:LANE_ONE;/.test(body("syncLaneHeight")) && /const LANE_TOP=18, LANE_ROW=30, LANE_ONE=LANE_TOP\+40, LANE_TWO=LANE_TOP\+70;/.test(b3) && /#specCanvas\{ height:474px; \}/.test(html) && /#diffCanvas\{ height:250px; \}/.test(html),
-    "the lane is a chip row plus three text lines per region row: 58 px, or 88 for two rows — None keeps 58, and both canvases grew by the chip row so the plot rect did not shrink");
+  ok((html.match(/class="stringsSw"/g) || []).length === 1 && /<span class="lbl">Show strings<\/span>/.test(head) && /id="clearHarmonicsBtn" hidden/.test(head) && !/class="axisctl"/.test(html),
+    "Show strings and Clear harmonics sit in the Frequency card header; nothing sits on the axis row");
+  ok(/querySelectorAll\("\.stringsSw"\)\.forEach\(c=>c\.addEventListener\("change",\(\)=>setStrings\(c\.checked,true\)\)\)/.test(b4) && /if\(stg\) setStrings\(stg\[1\]==="1",false\);/.test(b4) && /clearHarmonicsBtn\.hidden = !state\.strings \|\| !_hasAnyHarmonics\(\);/.test(body("syncClearHarmonicsBtn")),
+    "…the switch and the ?strings= hook go through setStrings(); Clear harmonics renders only while a harmonic is on");
+  ok(/id="bandsCsvBtn"/.test(html.slice(html.indexOf('id="freqBands"'), html.indexOf('id="toneCard"'))), "the Bands CSV/JSON buttons live in the Band energy sub-section");
+  ok(/PLOT\.mT=laneTwoRows\(\)\?LANE_TWO:LANE_ONE;/.test(body("syncLaneHeight")) && /const LANE_TOP=18, LANE_ONE=LANE_TOP\+34, LANE_TWO=LANE_TOP\+48;/.test(b3) && /#specCanvas\{ height:474px; \}/.test(html) && /#diffCanvas\{ height:250px; \}/.test(html),
+    "the lane is the chip row plus M2.6c's two text lines per region row: 52 px, or 66 for two rows; the canvases keep the chip row");
 }
 
 section("E6 — the copy is frozen, the type has three values, the rows and the vocabulary follow it");
@@ -336,7 +354,8 @@ section("E6 — the copy is frozen, the type has three values, the rows and the 
   const copyText = block.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   ok(!/§|\.md\b|THEORY|ROADMAP/.test(copyText), "…and the prose never cites a document at the user");
   const b4 = blocks[4], b3 = blocks[3];
-  ok(/const SLOT_TYPES=\["solid","hollow","acoustic"\];/.test(b4) && /function slotType\(i\)\{ return normType\(state\.slotTypes\[i\]\); \}/.test(b4), "the type is three-valued through one normaliser");
+  ok(/const SLOT_TYPES=\["solid","hollow","acoustic"\];/.test(b4) && /function normType\(t\)\{ return SLOT_TYPES\.includes\(t\)\?t:null; \}/.test(b4) && /function slotType\(i\)\{ return normType\(state\.slotTypes\[i\]\); \}/.test(b4) && /slotTypes:\[null,null\], slotPaths:\[null,null\]/.test(b4),
+    "the type is three-valued plus not-set (null) through one normaliser, and a fresh slot is not set");
   ok(/state\.slotTypes\[i\]=normType\(st\.slotTypes\[i\]\);/.test(b4) && /state\.slotTypes\[i\]=normType\(f\.instrument\);/.test(b4), "the snapshot reader accepts acoustic on settings.slotTypes and on the file entry");
   ok(/slotPaths:\(state\.slotPaths\|\|\[null,null\]\)\.slice\(\)/.test(b4) && /if\(Array\.isArray\(st\.slotPaths\)\)/.test(b4), "the path override rides in the snapshot, additively, and is read back");
   ok(!/state\.slotTypes\[i\]=.*pathFor|slotTypes\[i\]=.*recordingPath/.test(b4), "INVERTED: nothing writes a detected path into the type");

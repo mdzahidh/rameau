@@ -389,11 +389,20 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .filesub .takecount{ font-size:11px; color:var(--dim); flex:none; }
 .typelbl{ font-size:11px; color:var(--dim); display:inline-flex; align-items:center; gap:4px; }
 .typelbl .slottype{ margin-right:0; }
+.typelbl.unset .slottype{ color:var(--ink); border-color:var(--hair2); font-style:italic; }  /* not set yet — the one control the tone rows are waiting on */
 /* E2.5: readiness — one dot and one phrase; the tap is the numbers */
-.recstep{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--mut); margin:6px 0; padding:8px 10px; border:1px solid var(--hair); border-radius:6px; background:var(--panel2); }
-.recstep .k{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); flex:none; }
-.recstep b{ color:var(--ink); font-weight:500; flex:1 1 200px; }
-.recstep .recprog{ font-variant-numeric:tabular-nums; color:var(--dim); flex:none; }
+/* The guided prompt reads as a prompt (user test 2026-09-06): one big bold line, the step
+   label small above it, progress + Skip on their own row below, a countdown where the step is
+   a clock. .warn is the "about to stop" state. */
+.recstep{ display:block; font-size:12px; color:var(--mut); margin:8px 0; padding:10px 12px; border:1px solid var(--hair); border-radius:6px; background:var(--panel2); }
+.recstep .k{ display:block; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-bottom:4px; }
+.recstep b{ display:block; color:var(--ink); font-weight:600; font-size:17px; line-height:1.3; }
+.recstep .recrow2{ display:flex; align-items:center; gap:10px; margin-top:6px; flex-wrap:wrap; }
+.recstep .recprog{ font-variant-numeric:tabular-nums; color:var(--dim); }
+.recstep .reccount{ font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); line-height:1; }
+.recstep.warn{ border-color:#d94a3d; }
+.recstep.warn .recprog{ color:#d94a3d; }
+.recnote.recfail{ color:#d94a3d; }
 .readiness{ font:inherit; font-size:11px; color:var(--mut); background:transparent; border:0; padding:0; cursor:help; display:inline-flex; align-items:center; gap:6px; margin-left:auto; flex:none; }
 .readiness:hover{ color:var(--ink); }
 .readiness .rdot{ width:9px; height:9px; border-radius:50%; background:#3aa55d; flex:none; }
@@ -432,7 +441,7 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
   border:1px solid var(--hair); border-radius:6px; padding:3px 6px; max-width:230px;
 }
 .recnote{ font-size:11px; color:var(--faint); line-height:1.45; text-align:center; }
-.recnote.recwarn{ color:var(--mut); }
+.recnote.recwarn{ color:var(--faint); font-size:10px; line-height:1.4; margin-top:2px; }  /* a disclaimer, set like one (2026-09-06) */
 /* The -12 dB tip sits next to the meter it is about, so it reads as instrument copy
    rather than as another caveat: full ink, and the same box as the note above it. */
 .recnote.rectip{ color:var(--ink); }
@@ -855,12 +864,11 @@ kbd{
 /* Spectrum + Difference carry the region lane across the top margin, and its
    labels are anchored to frequencies — they cannot slide out of the way. That
    corner of the plot itself is empty, so the buttons move into it instead.
-   --laneh follows PLOT.mT (58, or 88 for two-row vocabularies; syncLaneHeight). */
-.magbtn.inplot{ top:calc(var(--laneh, 58px) + 4px); right:22px; }
-/* E4.5/E4.6: the region vocabulary is the strip's leading element — a chip over the
-   lane's left end on both frequency plots — and Strings sits at the x-axis's left end,
-   with Clear harmonics beside it only while a harmonic is on. Neither is a card-header
-   control any more; the header is title and subtitle only. */
+   --laneh follows PLOT.mT (52, or 66 for two-row vocabularies; syncLaneHeight). */
+.magbtn.inplot{ top:calc(var(--laneh, 52px) + 4px); right:22px; }
+/* E4.5: the region vocabulary is the strip's leading element — a chip over the lane's
+   left end on both frequency plots. (Show strings + Clear harmonics went back to the card
+   header on 2026-09-06, user test: "all the controls are on the top".) */
 .lanesel{
   position:absolute; left:6px; top:1px; z-index:5; height:16px;
   font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-weight:600;
@@ -868,12 +876,6 @@ kbd{
   border-radius:6px; padding:0 4px; line-height:1.2;
 }
 .lanesel:hover{ color:var(--ink); border-color:var(--hair2); }
-/* The axis row: PLOT.mB holds Hz ticks (+7), string labels (+20, 14 px tall) and the
-   x-axis title (+34) — the controls sit on the title's row only, so they never cover a
-   string label. */
-.axisctl{ position:absolute; left:8px; bottom:2px; height:17px; z-index:5; display:flex; align-items:center; gap:10px; }
-.axisctl .switch .lbl{ font-size:10px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
-.axisctl .btn{ font-size:10px; padding:0 8px; height:17px; line-height:15px; border-radius:6px; }
 
 /* interactive zoom */
 .zoombox{
@@ -1011,7 +1013,13 @@ kbd{
       <div class="cardhead">
         <div>
           <div class="cardtitle">Frequency analysis</div>
-          <div class="cardsub">long-term average and difference — each plot names its regions in the strip above it and its strings on the axis below</div>
+          <div class="cardsub">long-term average, difference and band energy — each plot names its regions in the strip above it</div>
+        </div>
+        <div class="controls">
+          <div class="ctlgroup">
+            <label class="switch" id="stringsSwitch" title="Open-string fundamentals on the frequency axis of both plots (S)"><input type="checkbox" class="stringsSw" id="stringsToggle"><span class="tk"></span><span class="lbl">Show strings</span></label>
+            <button class="btn" id="clearHarmonicsBtn" hidden title="Hide all string harmonics">Clear harmonics</button>
+          </div>
         </div>
       </div>
       <div class="freq-sub foldable" id="freqSpec" data-sub="spec">
@@ -1037,19 +1045,13 @@ kbd{
               <button class="btn" id="pngBtn" disabled>PNG</button>
               <button class="btn" id="csvBtn" disabled>CSV</button>
               <button class="btn" id="jsonBtn" disabled>Snapshot</button>
-              <button class="btn" id="bandsCsvBtn" disabled title="Band energy per region of the active vocabulary, as the strip prints it">Bands CSV</button>
-              <button class="btn" id="bandsJsonBtn" disabled title="Band energy per region of the active vocabulary, as the strip prints it">Bands JSON</button>
             </div>
           </div>
         </div>
         <div class="subbody">
           <div class="plotwrap" id="specWrap">
             <button class="magbtn inplot" data-mag="spec" title="Magnify" aria-label="Magnify spectrum plot">⤢</button>
-            <select class="lanesel" id="vocabSel" aria-label="Frequency-region vocabulary" title="Which named regions the strip, the shading and the band numbers use"></select>
-            <div class="axisctl">
-              <label class="switch" id="stringsSwitch" title="Open-string fundamentals on the frequency axis (S)"><input type="checkbox" class="stringsSw" id="stringsToggle"><span class="tk"></span><span class="lbl">Strings</span></label>
-              <button class="btn" id="clearHarmonicsBtn" hidden title="Hide all string harmonics">Clear harmonics</button>
-            </div>
+            <select class="lanesel" id="vocabSel" aria-label="Frequency-region vocabulary" title="Which named regions the strip, the shading and the Band energy table use"></select>
             <canvas id="specCanvas"></canvas>
             <div class="xline" id="specXline"></div>
             <div class="readout" id="specReadout"></div>
@@ -1084,14 +1086,34 @@ kbd{
         <div class="subbody">
           <div class="plotwrap" id="diffWrap">
             <button class="magbtn inplot" data-mag="diff" title="Magnify" aria-label="Magnify difference plot">⤢</button>
-            <select class="lanesel" id="vocabSelDiff" aria-label="Frequency-region vocabulary" title="Which named regions the strip, the shading and the band numbers use"></select>
-            <div class="axisctl">
-              <label class="switch" title="Open-string fundamentals on the frequency axis (S)"><input type="checkbox" class="stringsSw" id="stringsToggleDiff"><span class="tk"></span><span class="lbl">Strings</span></label>
-            </div>
+            <select class="lanesel" id="vocabSelDiff" aria-label="Frequency-region vocabulary" title="Which named regions the strip, the shading and the Band energy table use"></select>
             <canvas id="diffCanvas"></canvas>
             <div class="xline" id="diffXline"></div>
             <div class="readout" id="diffReadout"></div>
           </div>
+        </div>
+      </div>
+      <!-- Band energy: the table came back on 2026-09-06 (user test: "cleaner UI"); the
+           numbers no longer print under the regions on the plots. Same builder, bandTable(). -->
+      <div class="freq-sub foldable" id="freqBands" data-sub="bands">
+        <div class="subhead">
+          <div class="headleft">
+            <button class="collbtn" data-coll="bands" aria-expanded="true" title="Collapse panel" aria-label="Collapse Band energy panel"></button>
+            <div>
+              <div class="cardtitle">Band energy</div>
+              <div class="cardsub" id="bandsSub">how much of each guitar's energy sits in each region · Δ in dB</div>
+            </div>
+          </div>
+          <div class="controls">
+            <div class="exports">
+              <button class="btn" id="bandsCsvBtn" disabled title="Band energy per region of the active vocabulary">CSV</button>
+              <button class="btn" id="bandsJsonBtn" disabled title="Band energy per region of the active vocabulary">JSON</button>
+            </div>
+          </div>
+        </div>
+        <div class="subbody">
+          <table class="datatable" id="bandsTable"></table>
+          <div class="tablefoot" id="bandsFoot"></div>
         </div>
       </div>
     </section>
@@ -4598,13 +4620,15 @@ function laneTwoRows(){
 // Difference), the boundary Hz — so a row is 30 px: 58 for one row, 88 for two. The chip
 // has its own row because region labels are frequency-anchored: a chip beside them would
 // sit on the lowest region (60–100 Hz spans ~90 px at 1440) and hide its label.
-const LANE_TOP=18, LANE_ROW=30, LANE_ONE=LANE_TOP+40, LANE_TWO=LANE_TOP+70;
+// LANE_TOP is the chip row (E4.5); below it the lane is M2.6c's again — one row 34 px, two
+// rows 48 — since the band numbers left the strip for the table (2026-09-06).
+const LANE_TOP=18, LANE_ONE=LANE_TOP+34, LANE_TWO=LANE_TOP+48;
 function syncLaneHeight(){
   PLOT.mT=laneTwoRows()?LANE_TWO:LANE_ONE;
   // .magbtn.inplot sits just under the lane, so it follows the lane's height
   document.documentElement.style.setProperty("--laneh", PLOT.mT+"px");
 }
-function drawEqLane(ctx, w, hits, bands, mode){
+function drawEqLane(ctx, w, hits){
   const vocab=VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq;
   const twoRows=laneTwoRows();
   ctx.save();
@@ -4614,11 +4638,10 @@ function drawEqLane(ctx, w, hits, bands, mode){
   // Boundary ticks collected per row so their Hz values can be printed below,
   // deduped where adjacent regions share an edge.
   const bounds=[[],[]];
-  const rowOf=r=>bands&&bands.rows?bands.rows.find(x=>x.r===r):null;
   for(const r of vocab.regions){
     const f0=regionF(r.f0), f1=regionF(r.f1);
     if(f1<=XV.f0 || f0>=XV.f1) continue;
-    const yMid=LANE_TOP+9.5+(r.row?LANE_ROW:0), yTick0=yMid-4, yTick1=yMid+4;
+    const yMid=LANE_TOP+(twoRows?(r.row?29.5:8.5):12.5), yTick0=yMid-4, yTick1=yMid+4;
     const x0=Math.max(xL, xOfF(f0,w)), x1=Math.min(xR, xOfF(f1,w));
     ctx.strokeStyle=cssRGBA("ink-rgb",0.18);
     ctx.beginPath();
@@ -4637,30 +4660,6 @@ function drawEqLane(ctx, w, hits, bands, mode){
       ctx.fillStyle=r.role?cssRGBA(ROLE_VAR[r.role],0.95):cssColor(r.strong?"ink":"dim");
       ctx.fillText(lab,cx,yMid);
       if(hits) hits.push({x:cx-tw/2-3, y:yMid-7, w:tw+6, h:14, term:r.key});
-      // E4.1/E4.2: the band-energy value under the name — the table's cell, in place.
-      // Spectrum: each loaded guitar's share in its own color. Difference: Δ A − B,
-      // colored by who is hotter, faint when the whole band sits under the floor.
-      // Skipped rather than smeared when the region is too narrow for it.
-      const row=rowOf(r);
-      if(row){
-        const yVal=yMid+11, parts=[];
-        if(mode==="delta"){
-          if(row.d!=null) parts.push({t:fmtDb(row.d,1), c:row.onFloor?cssRGBA("ink-rgb",0.3)
-            :row.d>0.75?COLORS[0]:row.d<-0.75?COLORS[1]:cssColor("dim")});
-        }else{
-          for(const i of [0,1]) if(row.share[i]!=null) parts.push({t:fmtPct(row.share[i]), c:COLORS[i]});
-        }
-        ctx.font=FONT_XXS;
-        const ws=parts.map(q=>ctx.measureText(q.t).width), gap=7;
-        const total=ws.reduce((a,b)=>a+b,0)+gap*Math.max(0,parts.length-1);
-        if(parts.length && total<(x1-x0)-10){
-          let x=cx-total/2;
-          parts.forEach((q,k)=>{ ctx.fillStyle=q.c; ctx.textAlign="left"; ctx.fillText(q.t,x,yVal); x+=ws[k]+gap; });
-          ctx.textAlign="center";
-          if(hits) hits.push({x:cx-total/2-3, y:yVal-6, w:total+6, h:12, term:r.key});
-        }
-        ctx.font=FONT_XS;
-      }
     }else{
       ctx.beginPath(); ctx.moveTo(x0+3,yMid); ctx.lineTo(x1-3,yMid); ctx.stroke();
     }
@@ -4671,7 +4670,7 @@ function drawEqLane(ctx, w, hits, bands, mode){
   ctx.font=FONT_XXS; ctx.fillStyle=cssColor("dim");
   for(let row=0;row<2;row++){
     if(!bounds[row].length) continue;
-    const yLab=LANE_TOP+31.5+(row?LANE_ROW:0);
+    const yLab=LANE_TOP+(twoRows?(row?39.5:18.5):23.5);
     bounds[row].sort((a,b)=>a.x-b.x);
     let lastRight=-Infinity;
     for(const b of bounds[row]){
@@ -4808,7 +4807,7 @@ function drawSpectrumScene(ctx, w, h, model, hits){
   drawRegionShading(ctx, w, h);
   drawAxes(ctx, w, h, model.yMin, model.yMax, model.yStep||10, "Level (dB)");
   const nCoin=drawStringAxis(ctx, w, h, model.markers, hits, model.coincidences);
-  drawEqLane(ctx, w, hits, model.bands, "share");
+  drawEqLane(ctx, w, hits);
   for(const c of model.curves){
     drawCurve(ctx, w, h, model.grid, c.db, model.yMin, model.yMax, c.color, 0.10);
   }
@@ -4855,7 +4854,7 @@ function drawDiffScene(ctx, w, h, model, hits){
   }
   drawAxisTitles(ctx, w, h, PLOT, "Frequency (Hz)", "Difference (dB)", 34);
   drawStringAxis(ctx, w, h, model.markers, hits, model.coincidences);
-  drawEqLane(ctx, w, hits, model.bands, "delta"); // lane + string labels are click targets here too
+  drawEqLane(ctx, w, hits); // lane + string labels are click targets here too
 
   const {grid, diff}=model;
   ctx.save();
@@ -5586,11 +5585,17 @@ function slotLabel(i){ return slotName(i)||SLOT_LETTER[i]; }
 // Instrument type per slot (THEORY §7.6.4/7.6.6): asked, never inferred — a solidbody
 // has no radiated body resonance to measure and a hollow body's LTAS carries its
 // modes where the pickup hump would be read. Cross-type pairs are never differenced.
-// E6.1: three values — solid | hollow (Hollowbody electric) | acoustic. Anything else is solid.
+// E6.1: three values — solid | hollow (Hollowbody electric) | acoustic. Since 2026-09-06
+// (user test) a fourth state, **not set** (null): a dropped file arrives with no kind, and
+// the panel must not present an assumed solidbody with the confidence of a chosen one. The
+// type-dependent rows render as not measurable with "set the guitar's kind" as the item,
+// and the cross-type comparison waits until both sides are set. Saved WAVs (rmau),
+// snapshots and the card's select still set it; nothing infers it.
 const SLOT_TYPES=["solid","hollow","acoustic"];
 const TYPE_WORD={solid:"solidbody", hollow:"hollow body", acoustic:"acoustic"};
-function normType(t){ return SLOT_TYPES.includes(t)?t:"solid"; }
+function normType(t){ return SLOT_TYPES.includes(t)?t:null; }
 function slotType(i){ return normType(state.slotTypes[i]); }
+function typeArticle(t){ return t==="acoustic"?"an ":"a "; }
 function setSlotType(i,t){
   state.slotTypes[i]=normType(t);
   syncVocabTuning(); // the Anatomy set follows the type (E6.6)
@@ -5659,7 +5664,7 @@ const state={ slots:[null,null], tuning:"estd", customOffset:0,
               slotNames:["",""],
               // Tone panel rework (THEORY §7): instrument type is intent, per slot; the
               // reliability bands are the one thing here that persists (gsSettings v5).
-              slotTypes:["solid","solid"], slotPaths:[null,null], toneRepeat:false, toneBands:{}, toneBandsAt:null };
+              slotTypes:[null,null], slotPaths:[null,null], toneRepeat:false, toneBands:{}, toneBandsAt:null };
 // M2.7: gate hook — ?refine=0 disables the zoom refine (never persisted, no UI)
 const _refineEnabled = !/[?&]refine=0(?:&|$)/i.test(location.search);
 // A pan or a wheel writes ZOOMS and redraws on every event, so the refine waits
@@ -5806,7 +5811,7 @@ async function loadFileIntoSlot(i,file,opts){
     catch(err){ toast("Snapshot: "+(err.message||"could not be read."),true); }
     return;
   }
-  if(!append){ state.slotNames[i]=""; state.slotTypes[i]="solid"; state.slotPaths[i]=null; }
+  if(!append){ state.slotNames[i]=""; state.slotTypes[i]=null; state.slotPaths[i]=null; }
   const seq=++loadSeq[i];
   if(append){ cardUI[i]={mode:"loaded", adding:{name:file.name,label:"Reading file…",frac:0.02}}; renderCard(i); }
   else { cardUI[i]={mode:"loading",name:file.name,label:"Reading file…",frac:0.02}; renderCard(i); }
@@ -6060,7 +6065,7 @@ const NOTE_MIN_GAP=0.45, NOTE_MAX_HEAVY=12;
 function clearSlot(i){
   loadSeq[i]++;
   state.slotNames[i]="";
-  state.slotTypes[i]="solid"; state.slotPaths[i]=null;
+  state.slotTypes[i]=null; state.slotPaths[i]=null;
   state.slots[i]=null;
   cardUI[i]={mode:"empty"};
   renderCard(i);
@@ -6563,9 +6568,10 @@ function drawAll(){
   // and the dashing is the whole disclosure.
   if(dm && dm.nNearFloor) diffCanvas.setAttribute("data-nearfloor", String(dm.nNearFloor));
   else diffCanvas.removeAttribute("data-nearfloor");
-  // E4.2: the rows Q3's table used to count now live on the Difference plot's step line.
+  // E4.2: the step line counts the floored bands too; the table reports the same count.
   if(dm && dm.bands.nFloor) diffCanvas.setAttribute("data-nearfloor-rows", String(dm.bands.nFloor));
   else diffCanvas.removeAttribute("data-nearfloor-rows");
+  if(!collState.bands) renderBandsTable();
   // E4.5: regions drawn by the active vocabulary (None → absent), so node can tell a
   // hidden strip from a blank page.
   const nReg=(VOCAB_BY_ID[VOCAB_ACTIVE]||VOCAB_BY_ID.eq).regions.length;
@@ -7184,6 +7190,45 @@ function bandRowsFor(regions){
   }
   return {rows,both,nFloor,floorDb:nfb?nfb.floorDb:null,lm,loaded:!!(s0||s1)};
 }
+// The Band energy table (back 2026-09-06). Every cell is bandTable()'s row — the same
+// numbers the region popover, the step line, At a glance and the Bands exports read — so
+// the table cannot disagree with the plots. Q3's floor disclosure rides on `onFloor`.
+function renderBandsTable(){
+  const t=bandTable();
+  if(!t.loaded){ bandsTable.innerHTML=""; bandsFoot.innerHTML=""; bandsTable.removeAttribute("data-nearfloor-rows"); return; }
+  const slots=[0,1].filter(i=>state.slots[i]);
+  const nCols=2+slots.length+(t.both?1:0);
+  let html='<thead><tr><th>Region</th><th class="rng">Range</th>'+
+    slots.map(i=>'<th>'+esc(slotDesc(i,16))+'</th>').join('')+
+    (t.both?'<th>Δ (A − B)</th>':'')+'</tr></thead><tbody>';
+  const vocab=t.vocab;
+  html+='<tr class="grp"><td colspan="'+nCols+'">'+esc(vocab.label)+(VOCAB_DESC[vocab.id]?' — '+esc(VOCAB_DESC[vocab.id]):'')+'</td></tr>';
+  for(const row of t.rows){
+    const r=row.r, label=r.label.charAt(0)+r.label.slice(1).toLowerCase();
+    let terms=termHtml(r.key,label);
+    if(r.role) terms+=' <span class="rolecell role-'+r.role+'">('+ROLE_TEXT[r.role]+')</span>';
+    let cells="";
+    for(const i of slots) cells+='<td>'+(row.share[i]==null?"—":fmtPct(row.share[i]))+'</td>';
+    if(t.both){
+      const d=row.d;
+      const cls=row.onFloor?"delta-floor":(d>0.75?"delta-a":(d<-0.75?"delta-b":"delta-0"));
+      const tip=row.onFloor?' title="Both recordings are below '+t.floorDb.toFixed(0)+' dB across this band — a difference of silences."':"";
+      cells+='<td class="'+cls+'"'+tip+'>'+(d==null?"—":fmtDb(d,1))+'</td>';
+    }
+    html+='<tr><td>'+terms+'</td><td class="rng">'+rangeStr(row.f0,row.f1)+'</td>'+cells+'</tr>';
+  }
+  if(!t.rows.length) html+='<tr><td colspan="'+nCols+'" class="rng">No regions — pick a vocabulary on the plot’s chip.</td></tr>';
+  bandsTable.innerHTML=html+"</tbody>";
+  let foot="Shares are of each recording’s own 60 Hz–20 kHz energy, so a louder take gets no advantage. ";
+  if(vocab.id==="eq"||vocab.id==="mix") foot+="These regions tile the whole range, so shares add up to about 100 %.";
+  else if(vocab.id==="solo") foot+="These regions leave 1.2–2 kHz unnamed on purpose, so shares won’t add up to 100 %.";
+  else if(vocab.id==="anatomy") foot+="Anatomy zones overlap and leave gaps, so shares won’t add up to 100 %. String-derived bounds follow the tuning selector.";
+  if(t.both) foot+=t.lm?" Δ is band level A − B after the "+fmtDb(t.lm,2)+" level-match on B.":" Δ is raw band level A − B (level-match off).";
+  if(t.nFloor) foot+=" Faint Δ = both recordings sit below "+t.floorDb.toFixed(0)+" dB across the whole band (≈ inaudible) — a difference of silences, not a tone difference.";
+  bandsFoot.innerHTML=foot;
+  if(t.nFloor) bandsTable.setAttribute("data-nearfloor-rows", String(t.nFloor));
+  else bandsTable.removeAttribute("data-nearfloor-rows");
+}
 // The table's row, one tap down: appended to a region's glossary popover (E4.3).
 function regionBandHtml(key){
   const r=regionForKey(key); if(!r) return "";
@@ -7392,7 +7437,7 @@ function toneRowDefs(){
        return b.join(" · "); }},
   ];
   // E6.1: Body voice is the headline row when a hollow or acoustic guitar is loaded.
-  if([0,1].some(i=>state.slots[i]&&slotType(i)!=="solid")){ const k=defs.findIndex(d=>d.term==="body-resonance"); if(k>0) defs.unshift(defs.splice(k,1)[0]); }
+  if([0,1].some(i=>state.slots[i]&&(slotType(i)==="hollow"||slotType(i)==="acoustic"))){ const k=defs.findIndex(d=>d.term==="body-resonance"); if(k>0) defs.unshift(defs.splice(k,1)[0]); }
   return defs;
 }
 function _pitchReason(s){ const m=s.metrics; if(!m.notes) return "analysed before the comb check existed"; return m.pitched?"":"no note passed the comb check"; }
@@ -7444,7 +7489,7 @@ function _fmtDelta(d,def){ if(d.log) return "×"+Math.pow(2,Math.abs(d.d)).toFix
 const ROOM_ROWS=new Set(["overtone-sustain","bloom","f0-decay","neck-sustain"]);
 function toneRecords(){
   _liveBands=null;
-  const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&types[0]!==types[1];
+  const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&!!types[0]&&!!types[1]&&types[0]!==types[1];
   // E6.4: the resolved path rides on the metrics so comparability and the glossary read one value.
   for(let i=0;i<2;i++){ const s=state.slots[i]; if(s&&s.metrics){ s.metrics.path=pathFor(i); s.metrics.pathSet=!!(state.slotPaths&&state.slotPaths[i]); } }
   const compat=both?comparability(state.slots[0].metrics||{},state.slots[1].metrics||{}):[];
@@ -7456,14 +7501,16 @@ function toneRecords(){
     return toneEvidenceOf(s.metrics, openMidis, state.a4, (o&&o.metrics)?o.metrics:null); });
   const out=[];
   for(const def of toneRowDefs()){
-    // A row bound to some kinds of guitar is hidden — not a pointer — when no loaded slot is one of them.
-    if(def.types&&![0,1].some(i=>state.slots[i]&&applies(def,i))) continue;
+    // A row bound to some kinds of guitar is hidden — not a pointer — when no loaded slot is one of
+    // them. A slot whose kind is not set keeps the row, collapsed to the instruction (2026-09-06).
+    if(def.types&&![0,1].some(i=>state.slots[i]&&(applies(def,i)||types[i]==null))) continue;
     const rec={group:def.g, key:def.term, name:def.name, unit:def.unit, def, a:null, b:null, aText:"", bText:"", detail:["",""],
                reason:["",""], light:[null,null], band:null, verdict:null, blocked:blocked[def.term]||null, evidence:[null,null], state:4, missing:[]};
     for(let i=0;i<2;i++){
       const s=state.slots[i]; if(!s||!s.metrics) continue;
       if(def.types&&!applies(def,i)){ // the other kind: no shared meaning on this side (E6.6)
-        if(both) rec.evidence[i]={state:4, have:{}, need:{}, missing:[{what:"type", other:types[i]}]};
+        if(types[i]==null) rec.evidence[i]={state:4, have:{}, need:{}, missing:[{what:"type-unset"}]};
+        else if(both) rec.evidence[i]={state:4, have:{}, need:{}, missing:[{what:"type", other:types[i]}]};
         continue;
       }
       let v=null; try{ v=def.val(s,i); }catch(_e){}
@@ -7527,6 +7574,7 @@ function missingPhrase(x, def){
     case "band": return "the gap is inside the audit's own spread ("+_fmtBand(x.log?{oct:x.need}:{abs:x.need},def||{})+") — a second take of either guitar would settle it";
     case "analysis": return "re-analyse the take — it was measured before this row existed";
     case "room": return "the room outlasts the note here (tail "+(x.tail||0).toFixed(1)+" s against "+(x.note||0).toFixed(1)+" s) — this decay is the room's, not the string's";
+    case "type-unset": return "needs the guitar’s kind — set it on the card (solidbody, hollow body or acoustic)";
     case "type": return "not shared — "+(x.other==="solid"?"a solidbody":"a "+(TYPE_WORD[x.other]||x.other))+" has no "+(def?def.name.toLowerCase():"such row")+" to compare";
     case "value": return x.reason||"not measurable on this take";
     default: return "needs "+x.what;
@@ -7639,7 +7687,7 @@ function renderToneRows(){
     // E5.1: the labels on the surface; the measured gaps sit behind the term's tap.
     const bits=fails.map(c=>c.label);
     toneCompat.innerHTML='<b>These two takes are not directly comparable</b> — '+
-      (typesDiffer?"one is "+(types[0]==="acoustic"?"an ":"a ")+TYPE_WORD[types[0]]+" and one "+(types[1]==="acoustic"?"an ":"a ")+TYPE_WORD[types[1]]+", so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
+      (typesDiffer?"one is "+typeArticle(types[0])+TYPE_WORD[types[0]]+" and one "+typeArticle(types[1])+TYPE_WORD[types[1]]+", so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
       (bits.length?"the "+bits.join(", ")+(bits.length>1?" differ":" differs")+" too much. Rows those affect show no verdict; "+termHtml("level-match","level-match")+" cannot fix that — see "+termHtml("comparability","what a fair comparison needs")+".":"");
     toneCompat.style.display="";
   } else toneCompat.style.display="none";
@@ -7762,7 +7810,8 @@ function renderVerdict(){
     parts.push("Drop a second recording of the same riff to unlock the comparison views.");
   }else{
     // E6.6: a cross-type pair opens by saying so — the rows compare what the two share.
-    if(slotType(0)!==slotType(1)) parts.push("Different kinds of guitar — "+(slotType(0)==="acoustic"?"an ":"a ")+TYPE_WORD[slotType(0)]+" and "+(slotType(1)==="acoustic"?"an ":"a ")+TYPE_WORD[slotType(1)]+" — comparing what they share.");
+    if(!slotType(0)||!slotType(1)) parts.push("Set each guitar’s kind on its card — solidbody, hollow body or acoustic — and the instrument rows below open up; until then only what needs no kind is compared.");
+    else if(slotType(0)!==slotType(1)) parts.push("Different kinds of guitar — "+typeArticle(slotType(0))+TYPE_WORD[slotType(0)]+" and "+typeArticle(slotType(1))+TYPE_WORD[slotType(1)]+" — comparing what they share.");
     const g=state.lmOffset;
     if(g!=null&&isFinite(g)){
       if(Math.abs(g)>=0.5){
@@ -7944,9 +7993,9 @@ function copyEqSettings(){
 // E4 (2026-09-05): `bands` is gone — the Band Energy sub-section folded into the two
 // frequency plots. A stored gsCollapse `bands` key is ignored by the `k in COLL_CARDS`
 // filter below, not migrated.
-const COLL_CARDS={ spec:freqSpec, diff:freqDiff, tone:toneCard,
+const COLL_CARDS={ spec:freqSpec, diff:freqDiff, bands:freqBands, tone:toneCard,
                    eq:eqCard, sgram:sgramCard, env:envCard };
-const COLL_DEFAULT={ spec:false, diff:false, tone:false, eq:true, sgram:true, env:true };
+const COLL_DEFAULT={ spec:false, diff:false, bands:false, tone:false, eq:true, sgram:true, env:true };
 const collState=Object.assign({},COLL_DEFAULT);
 const collTouched={};   // only these keys persist
 function applyCollapse(){
@@ -7996,6 +8045,7 @@ function updateVisibility(){
   // empty state (what to do next, demo pair, links to the two guides)
   freqCard.style.display="";
   freqDiff.style.display=both?"":"none";
+  freqBands.style.display=n?"":"none";
   specEmpty.style.display=n?"none":"";
   magBtns.forEach(b=>{
     if(b.dataset.mag==="spec") b.style.display=n?"":"none";
@@ -8148,7 +8198,6 @@ function renderCard(i){
           '<select id="recchan'+i+'" data-recchan'+(n?"":" disabled")+'>'+recChanOptions()+'</select>'+
           '<button class="iconbtn" data-act="recheck" title="Listen again for the channels this device carries">↻ Re-check</button></div>'+
         '<div class="recnote">'+esc(note)+'</div>'+
-        '<div class="recnote recwarn">'+esc(warn)+'</div>'+
         '<div class="recrow"><div class="levelmeter"><div class="levelbar"><i></i><b></b></div>'+
           '<span class="levelpeak" title="Peak level of this input, dB re full scale">—</span></div></div>'+
         // The gain that matters is set before the take, on the amp or the interface, so the
@@ -8157,7 +8206,9 @@ function renderCard(i){
         '<div class="recnote rectip">Play as loud as you mean to record, then set the gain on '+
           'your interface or amp so the meter peaks around <b>−12 dB</b> — the mark on the bar — '+
           'with peaks safely under 0. Leave it there for the other guitar.</div>'+
-        '<div class="recrow"><label class="switch" title="Step-by-step prompts: silence, open strings, a neck walk, anchors'+(slotType(i)!=="solid"?", a tap test":"")+' — each step labelled by the rows it unlocks. Off records a free take."><input type="checkbox" data-recguided'+(state.recGuided?" checked":"")+'><span class="tk"></span><span class="lbl">Guided</span></label>'+
+        '<div class="recnote recwarn">'+esc(warn)+'</div>'+
+        (ui.fail?'<div class="recnote recfail">'+esc(ui.fail)+'</div>':"")+
+        '<div class="recrow"><label class="switch" title="Step-by-step prompts: silence, open strings, a neck walk, anchors'+((slotType(i)==="hollow"||slotType(i)==="acoustic")?", a tap test":"")+' — each step labelled by the rows it unlocks. Off records a free take."><input type="checkbox" data-recguided'+(state.recGuided?" checked":"")+'><span class="tk"></span><span class="lbl">Guided</span></label>'+
           '<span class="recnote" style="margin:0">'+(state.recGuided?"prompts advance as you play; skip any step":"a free take — the rows it supports fill in afterwards")+'</span></div>'+
         '<div class="recrow"><button class="btn" data-act="recstart">● Start recording</button></div>';
     }
@@ -8229,7 +8280,8 @@ function renderCard(i){
     '<span class="slotname'+(slotName(i)?'':' unset')+'" title="Click to rename">'+
     esc(slotName(i)||("Guitar "+SLOT_LETTER[i]))+'</span>'+
     '<span class="fileacts">'+
-    '<label class="typelbl">Type <select class="slottype" title="What kind of guitar this is — sets which resonance the Tone character panel measures">'+
+    '<label class="typelbl'+(slotType(i)?"":" unset")+'">Type <select class="slottype" title="What kind of guitar this is — sets which resonance the Tone character panel measures. Not set until you choose.">'+
+    '<option value=""'+(slotType(i)?"":" selected")+'>Not set — choose…</option>'+
     '<option value="solid"'+(slotType(i)==="solid"?" selected":"")+'>Solidbody electric</option>'+
     '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollowbody electric</option>'+
     '<option value="acoustic"'+(slotType(i)==="acoustic"?" selected":"")+'>Acoustic</option></select></label>'+
@@ -8247,9 +8299,10 @@ function renderCard(i){
 // ---- E2.5: readiness — one dot, one phrase, from evidenceFor over every row ----
 function takeReadiness(rec,i){
   const m=rec.metrics||{};
-  const defs=toneRowDefs().filter(d=>!d.text&&(!d.type||d.type===slotType(i)));
+  const t=slotType(i);
+  const defs=toneRowDefs().filter(d=>!d.text&&(!d.types||t==null||d.types.includes(t)||(d.piezo&&t==="acoustic")));
   const ev=toneEvidenceOf(m, tuningMidi(state.tuning,state.customOffset), state.a4, null);
-  const rows=defs.map(d=>({def:d, e:evidenceFor(d.term,ev)}));
+  const rows=defs.map(d=>({def:d, e:(d.types&&t==null)?{state:4, have:{}, need:{}, missing:[{what:"type-unset"}]}:evidenceFor(d.term,ev)}));
   const supported=rows.filter(r=>r.e.state<=2).length, total=rows.length;
   let level="good", head="Good take";
   if(m.clipped){ level="bad"; head="Clipped"; }
@@ -8257,7 +8310,7 @@ function takeReadiness(rec,i){
   else if(m.snr!=null&&m.snr<35){ level="warn"; head="Noisy background"; }
   else if(m.levelPeak!=null&&m.levelPeak<-24){ level="warn"; head="Quiet take"; }
   if(level==="good"&&supported<total*0.5){ level="warn"; }
-  return {level, head, supported, total, rows, phrase:head+" · supports "+supported+" of "+total+" rows"};
+  return {level, head, supported, total, rows, phrase:head+" · supports "+supported+" of "+total+" rows"+(t==null?" · set the guitar’s kind":"")};
 }
 function openReadinessPop(i,k,anchor){
   const t=slotTakes(i)[k]; if(!t) return;
@@ -8299,7 +8352,16 @@ function drawWave(i){
   ctx.fillStyle=cssRGBA("ink-rgb",.28);
   for(const t of (s.tvis.onsets||[])){ const x=Math.round(t/dur*w); ctx.fillRect(x,0,1,4); ctx.fillRect(x,h-4,1,4); }
   const pos=Math.min(dur,cardSeek[i]?cardPos[i]:cardPosNow(i));
-  if(dur>0){ const x=Math.round(pos/dur*w); ctx.fillStyle=cssColor("slot-c"); ctx.fillRect(x,0,2,h); }
+  if(dur>0){
+    // The playhead used to be a 2 px line in the guitar's colour over a waveform of the same
+    // weight — invisible in a dense take (user test 2026-09-06). Now: a panel-coloured halo so
+    // the head is read against a clear gap, a 3 px bar, and a wedge at each end.
+    const x=Math.round(pos/dur*w)+0.5;
+    ctx.fillStyle=cssColor("panel"); ctx.fillRect(x-4,0,8,h);
+    ctx.fillStyle=cssColor("slot-c"); ctx.fillRect(x-1.5,0,3,h);
+    ctx.beginPath(); ctx.moveTo(x-5.5,0); ctx.lineTo(x+5.5,0); ctx.lineTo(x,6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x-5.5,h); ctx.lineTo(x+5.5,h); ctx.lineTo(x,h-6); ctx.closePath(); ctx.fill();
+  }
 }
 // ---------- E3: the guided take ----------
 // An ordered step table over M5's capture. Each step's `unlocks` names the tone rows its
@@ -8311,35 +8373,52 @@ function drawWave(i){
 // detector; until then a mic step is never active).
 const REC_PROTOCOL_VERSION=1;
 const REC_PROTOCOL=[
-  {id:"silence", name:"silence", prompt:"Don't play for three seconds — this sets the noise floor.", unlocks:[], when:"always", advance:"seconds:3"},
-  {id:"open", name:"open strings", prompt:"Pluck the six open strings one at a time, low to high, and let each ring to silence.", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6"},
-  {id:"walk", name:"neck walk", prompt:"Neck walk: frets 0, 3, 5, 7, 9 and 12 on every string, about a second and a half each.", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36"},
-  {id:"anchors", name:"anchors", prompt:"Anchors: the 5th fret on each string, three plucks each — medium pick, over the neck pickup.", unlocks:["attack-spectrum","bloom"], when:"always", advance:"onsets:18"},
-  {id:"tap", name:"tap test", prompt:"Mute the strings with your palm and knock the bridge three times.", unlocks:["body-resonance"], when:"hollow", advance:"taps:3"},
-  {id:"mic", name:"mic placement", prompt:"Mark where the microphone stands — it must not move for the other guitar.", unlocks:[], when:"mic", advance:"seconds:3"},
+  {id:"silence", name:"silence", prompt:"Don’t play. Three seconds of quiet sets the noise floor.", unlocks:[], when:"always", advance:"seconds:3"},
+  {id:"open", name:"open strings", prompt:"Pluck the six open strings, low to high. Let each ring out.", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6"},
+  {id:"walk", name:"neck walk", prompt:"Frets 0, 3, 5, 7, 9 and 12 on every string, about 1½ s each.", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36"},
+  {id:"anchors", name:"anchors", prompt:"5th fret on each string, three plucks each. Medium pick, neck pickup.", unlocks:["attack-spectrum","bloom"], when:"always", advance:"onsets:18"},
+  {id:"tap", name:"tap test", prompt:"Palm-mute the strings and knock the bridge three times.", unlocks:["body-resonance"], when:"hollow", advance:"taps:3"},
+  {id:"mic", name:"mic placement", prompt:"Note where the mic stands. It must not move for the other guitar.", unlocks:[], when:"mic", advance:"seconds:3"},
 ];
 for(const st of REC_PROTOCOL) for(const k of st.unlocks) if(!TONE_EVIDENCE[k]) throw new Error("REC_PROTOCOL step "+st.id+" unlocks an unknown row: "+k);
-const REC_GUIDE_SNR_MIN=40;   // dB above the measured floor the open strings must reach, or the take is stopped
+// A played step counts notes only once the guitar is heard REC_GUIDE_SNR_MIN dB above the
+// floor the silence step measured — below that, room noise would advance the step on its own
+// and the take would be judged on nothing (user test 2026-09-06: "stopped immediately"). 25 dB
+// is the E1 manifest's usable minimum (TONE_EVIDENCE snr.min; the noise-floor row calls less
+// than that "very noisy"), not the 35 the full rows want — the take lands and the rows say
+// how sure they are. A step that has heard nothing for REC_GUIDE_WARN_S warns, and gives up
+// at REC_GUIDE_WAIT_S; the take is then discarded with the reason on the panel, never landed.
+const REC_GUIDE_SNR_MIN=25, REC_GUIDE_WARN_S=25, REC_GUIDE_WAIT_S=45;
 state.recGuided=true;         // the Guided switch; remembered in gsSettings (additive key)
 function guidedStepsFor(i){
   const t=slotType(i);
   // E6.7: the mic-placement step lights up for a take that will go through a microphone —
   // an acoustic (unless its existing take reads as piezo), or a slot whose take already reads as mic.
   const mic=pathFor(i)==="mic"||(t==="acoustic"&&pathFor(i)!=="piezo");
-  return REC_PROTOCOL.filter(st=>st.when==="always"||(st.when==="hollow"&&t!=="solid")||(st.when==="mic"&&mic));
+  return REC_PROTOCOL.filter(st=>st.when==="always"||(st.when==="hollow"&&(t==="hollow"||t==="acoustic"))||(st.when==="mic"&&mic));
 }
 function _guideProgressText(g){
-  const st=g.steps[g.idx]; if(!st) return "All steps done — stop when you're ready, or keep playing.";
+  const st=g.steps[g.idx]; if(!st) return "All steps done — stop when you’re ready, or keep playing.";
   const [kind,n]=st.advance.split(":");
-  if(kind==="seconds") return Math.min(+n,Math.floor(g.elapsed))+" / "+n+" s";
+  if(kind==="seconds") return "";   // the countdown says it
+  if(!g.heard){
+    const left=Math.max(0,Math.ceil(REC_GUIDE_WAIT_S-g.elapsed));
+    if(g.elapsed>=REC_GUIDE_WARN_S) return "Nothing heard yet — stopping in "+left+" s unless the guitar sounds (Skip keeps the take going)";
+    if(g.snr!=null&&isFinite(g.snr)) return "Waiting for the guitar — "+Math.max(0,g.snr).toFixed(0)+" dB above the background so far, "+REC_GUIDE_SNR_MIN+" needed";
+    return "Waiting for the guitar…";
+  }
   return g.count+" / "+n+(kind==="taps"?" knocks":" notes");
 }
 function guideHtml(cap){
   const g=cap.guide; if(!g) return "";
   const st=g.steps[g.idx];
-  return '<div class="recstep">'+(st?'<span class="k">Step '+(g.idx+1)+' of '+g.steps.length+' · '+esc(st.name)+'</span><b>'+esc(st.prompt)+'</b>':'<b>'+esc(_guideProgressText(g))+'</b>')+
+  const warn=!!(st&&st.advance.indexOf("seconds:")!==0&&!g.heard&&g.elapsed>=REC_GUIDE_WARN_S);
+  const secs=st&&st.advance.indexOf("seconds:")===0?Math.max(0,Math.ceil(+st.advance.split(":")[1]-g.elapsed)):null;
+  return '<div class="recstep'+(warn?" warn":"")+'">'+
+    (st?'<span class="k">Step '+(g.idx+1)+' of '+g.steps.length+' · '+esc(st.name)+'</span><b>'+esc(st.prompt)+'</b>':'<b>'+esc(_guideProgressText(g))+'</b>')+
+    '<div class="recrow2">'+(secs!=null?'<span class="reccount" title="seconds left">'+secs+'</span>':"")+
     '<span class="recprog">'+(st?esc(_guideProgressText(g)):"")+'</span>'+
-    (st?'<button class="iconbtn" data-act="recskip" title="Skip this step — the rows it feeds stay at whatever the rest supports">Skip</button>':"")+'</div>';
+    (st?'<button class="iconbtn" data-act="recskip" title="Skip this step — the rows it feeds stay at whatever the rest supports">Skip</button>':"")+'</div></div>';
 }
 // Called from the capture's own 100 ms tick. Cheap ticks count the clock; every fifth one
 // re-runs the onset detector over the step's samples so far.
@@ -8353,9 +8432,21 @@ function guidedTick(cap,card){
     else if((++g.ticks)%5===0){
       const x=_guideStepSamples(cap);
       if(x&&x.length>4096){
-        const sb=stftBands(x,rate,[[60,200],[200,1200],[2000,6000]]);
-        g.count=detectOnsets(sb.flux,sb.frameRate).length;
-        if(g.count>=+n) _guideAdvance(cap,false);
+        // Level gate first: notes are counted only once the guitar is heard above the floor.
+        if(!g.heard){
+          const rms=shortTermRms(x,rate); let pk=-Infinity; for(let k=0;k<rms.length;k++) if(rms[k]>pk) pk=rms[k];
+          g.snr=g.floorDb!=null?pk-g.floorDb:null;
+          g.heard=g.snr==null||g.snr>=REC_GUIDE_SNR_MIN;
+        }
+        if(g.heard){
+          const sb=stftBands(x,rate,[[60,200],[200,1200],[2000,6000]]);
+          g.count=detectOnsets(sb.flux,sb.frameRate).length;
+          if(g.count>=+n){ _guideAdvance(cap,false); }
+        } else if(g.elapsed>=REC_GUIDE_WAIT_S){
+          _guideFail(cap,"Stopped and discarded — nothing was heard "+REC_GUIDE_SNR_MIN+" dB above the background for "+REC_GUIDE_WAIT_S+" s"+
+            (g.snr!=null&&isFinite(g.snr)?" (best was "+Math.max(0,g.snr).toFixed(0)+" dB)":"")+". Bring the noise down or the guitar up, check the meter, and start again.");
+          return;
+        }
       }
     }
   }
@@ -8374,19 +8465,16 @@ function _guideAdvance(cap,skipped){
     const x=_guideStepSamples(cap); let ss=0; for(let k=0;k<x.length;k++) ss+=x[k]*x[k];
     g.floorDb=x.length?10*Math.log10(Math.max(ss/x.length,1e-20)):null;
   }
-  if(!skipped&&st.advance.indexOf("onsets:")===0&&g.floorDb!=null&&g.snrChecked!==true){
-    // The first played step judges the take against the floor the silence measured.
-    g.snrChecked=true;
-    const x=_guideStepSamples(cap); const rms=shortTermRms(x,rate); let pk=-Infinity; for(let k=0;k<rms.length;k++) if(rms[k]>pk) pk=rms[k];
-    const snr=pk-g.floorDb;
-    if(isFinite(snr)&&snr<REC_GUIDE_SNR_MIN){
-      stopCapture(false);
-      toast("Stopped — the guitar sat only "+snr.toFixed(0)+" dB above the background; bring the noise down or the guitar up and record again.",true);
-      return;
-    }
-  }
   (skipped?g.skipped:g.done).push(st.id);
-  g.idx++; g.stepStart=cap.total; g.acc.length=0; g.count=0; g.ticks=0; g.elapsed=0;
+  g.idx++; g.stepStart=cap.total; g.acc.length=0; g.count=0; g.ticks=0; g.elapsed=0; g.heard=false; g.snr=null;
+}
+// A guided take that fails is discarded, not landed (user request 2026-09-06): the panel comes
+// back armed with the reason where the Start button is, so the next attempt is one click.
+function _guideFail(cap,text){
+  const i=cap.i, prev=cap.prev;
+  stopCapture(false);
+  cardUI[i]={mode:"arming",prev:prev,perm:"granted",msg:null,checking:false,fail:text};
+  renderCard(i);
 }
 function guidedSkip(){ const cap=recCap; if(cap&&cap.guide) _guideAdvance(cap,true); }
 function guideProtocol(cap){
@@ -8449,8 +8537,10 @@ function recConstraints(deviceId,wantChannels){
   return {audio:a};
 }
 async function recOpen(deviceId){
-  const tries=[recConstraints(deviceId,REC_MAX_CH), recConstraints(deviceId,0),
-               {audio: deviceId?{deviceId:{exact:deviceId}}:true}];
+  // Both tries carry the three processing flags — a bare {audio:true} fallback used to sit
+  // third, and a stream opened through it would have echo cancellation on (found 2026-09-06).
+  // Boolean constraints are "ideal", never a reason to reject, so nothing is lost by keeping them.
+  const tries=[recConstraints(deviceId,REC_MAX_CH), recConstraints(deviceId,0)];
   let last=null;
   for(const c of tries){
     try{ return await navigator.mediaDevices.getUserMedia(c); }
@@ -8477,18 +8567,62 @@ function recCtxFor(rate){
   if(rate>0){ try{ return new AC({sampleRate:rate}); }catch(_e){} }
   return new AC();
 }
+// ---------- one stream, one context, for the page session (2026-09-06) ----------
+// Every getUserMedia() is a chance for the browser to ask again: Chrome on a file:// page
+// keeps no grant between calls, Safari asks per call unless a stream from the grant is still
+// live. The panel used to open the device four times — the permission check, the channel
+// probe, the pre-roll monitor and the take — and stop it in between, so the user was asked
+// up to four times per take and again for the next one. Now the first grant's stream is held
+// for the whole page session and every phase draws on it; a new stream is opened only when
+// the device changes. The same for the AudioContext: one, reused, never closed between phases
+// (Safari caps a page at a handful of contexts, and the playback context was starving).
+// The cost is honest: the browser's "microphone in use" indicator stays on while the page is
+// open after the first grant. Released on pagehide.
+const recLive={ stream:null, deviceId:undefined, ctx:null };
+function recStreamLive(st){ return !!st && st.getAudioTracks().some(t=>t.readyState==="live"); }
+function recRelease(){
+  const st=recLive.stream; recLive.stream=null; recLive.deviceId=undefined;
+  if(st) st.getTracks().forEach(t=>{ try{ t.stop(); }catch(_e){} });
+}
+async function recAcquire(deviceId){
+  const want=deviceId||null;
+  if(recLive.stream && recLive.deviceId===want && recStreamLive(recLive.stream)) return recLive.stream;
+  recRelease();
+  const stream=await recOpen(want);
+  const t=stream.getAudioTracks()[0];
+  // What landed, not what was asked: if a processor is reported on, ask once more on the live
+  // track (Safari reports none of the three; Chrome honours the request). recTrackInfo records
+  // the final answer on the take either way.
+  if(t&&t.applyConstraints&&t.getSettings){
+    const set=t.getSettings()||{};
+    if(set.echoCancellation===true||set.noiseSuppression===true||set.autoGainControl===true){
+      try{ await t.applyConstraints({echoCancellation:false, noiseSuppression:false, autoGainControl:false}); }catch(_e){}
+    }
+  }
+  if(t&&t.addEventListener) t.addEventListener("ended",()=>{ if(recLive.stream===stream){ recLive.stream=null; recLive.deviceId=undefined; } });
+  recLive.stream=stream; recLive.deviceId=want;
+  return stream;
+}
+function recCtxGet(rate){
+  const c=recLive.ctx;
+  if(c&&c.state!=="closed"&&(!(rate>0)||c.sampleRate===rate)) return c;
+  if(c){ try{ c.close(); }catch(_e){} }
+  recLive.ctx=recCtxFor(rate);
+  return recLive.ctx;
+}
+window.addEventListener("pagehide",()=>{ recRelease(); if(recLive.ctx){ try{ recLive.ctx.close(); }catch(_e){} recLive.ctx=null; } });
 
 async function probeDeviceChannels(deviceId){
-  let stream=null, ctx=null;
+  let src=null, sp=null, sink=null;
   try{
-    stream=await recOpen(deviceId);
+    const stream=await recAcquire(deviceId);
     const inf=recTrackInfo(stream);
     let heard=0;
     try{
-      ctx=recCtxFor(inf.rate);
+      const ctx=recCtxGet(inf.rate);
       if(ctx.state==="suspended"){ try{ await ctx.resume(); }catch(_e){} }
-      const src=ctx.createMediaStreamSource(stream);
-      const sp=ctx.createScriptProcessor(4096,REC_MAX_CH,1);
+      src=ctx.createMediaStreamSource(stream);
+      sp=ctx.createScriptProcessor(4096,REC_MAX_CH,1);
       sp.channelInterpretation="discrete";
       sp.onaudioprocess=e=>{
         const b=e.inputBuffer;
@@ -8500,18 +8634,17 @@ async function probeDeviceChannels(deviceId){
         }
         const o=e.outputBuffer.getChannelData(0); for(let k=0;k<o.length;k++) o[k]=0;
       };
-      const sink=ctx.createGain(); sink.gain.value=0;
+      sink=ctx.createGain(); sink.gain.value=0;
       src.connect(sp); sp.connect(sink); sink.connect(ctx.destination);
       await new Promise(r=>setTimeout(r,REC_PROBE_MS));
-      sp.onaudioprocess=null;
-      try{ src.disconnect(); sp.disconnect(); sink.disconnect(); }catch(_e){}
     }catch(_e){}
     const n=Math.max(1,Math.min(REC_MAX_CH,Math.max(heard,inf.claimed)));
     recState.chanByDevice[recChanKey(deviceId)]=n;
     return n;
   } finally {
-    if(stream) stream.getTracks().forEach(t=>{ try{ t.stop(); }catch(_e){} });
-    if(ctx){ try{ ctx.close(); }catch(_e){} }
+    // The graph goes; the stream and the context stay for the monitor and the take.
+    if(sp) sp.onaudioprocess=null;
+    try{ if(src) src.disconnect(); if(sp) sp.disconnect(); if(sink) sink.disconnect(); }catch(_e){}
   }
 }
 
@@ -8558,8 +8691,14 @@ async function queryRecPerm(i){
 }
 async function requestMicAccess(i){
   try{
-    const s=await navigator.mediaDevices.getUserMedia({audio:true});
-    s.getTracks().forEach(t=>{ try{ t.stop(); }catch(_e){} });
+    const st=await recAcquire(state.recDevice);
+    // Chrome grants per device and then lists it as "Default input" until something names it
+    // (user test 2026-09-06): the track's own settings say which device was opened, so the
+    // panel selects that one and the held stream is filed under its id.
+    if(!state.recDevice){
+      const tr=st.getAudioTracks()[0], set=(tr&&tr.getSettings)?(tr.getSettings()||{}):{};
+      if(set.deviceId&&set.deviceId!=="default"){ state.recDevice=set.deviceId; recLive.deviceId=set.deviceId; saveSettings(); }
+    }
   }catch(err){
     if(cardUI[i].mode==="arming"){ cardUI[i].perm="denied"; cardUI[i].msg=recPermMessage(err); renderCard(i); }
     return;
@@ -8711,8 +8850,7 @@ function stopMonitor(){
   if(m.timer) clearInterval(m.timer);
   try{ m.sp.onaudioprocess=null; }catch(_e){}
   try{ m.src.disconnect(); m.sp.disconnect(); m.sink.disconnect(); }catch(_e){}
-  try{ m.stream.getTracks().forEach(t=>{ t.onended=null; t.stop(); }); }catch(_e){}
-  try{ m.ctx.close(); }catch(_e){}
+  // The stream and the context are the page session's (recLive) — not stopped here.
 }
 function syncMonitor(i){
   const ui=cardUI[i];
@@ -8730,18 +8868,14 @@ function syncMonitor(i){
 }
 async function _startMonitor(i,key,seq){
   const deviceId=state.recDevice, sel=state.recChannel|0;
-  const stream=await recOpen(deviceId);
+  const stream=await recAcquire(deviceId);
   const stale=()=>seq!==recMonSeq||recState.active!=null||!!recCap||
                   !(cardUI[i]&&cardUI[i].mode==="arming");
-  if(stale()){ try{ stream.getTracks().forEach(t=>t.stop()); }catch(_e){} return; }
+  if(stale()) return;
   const inf=recTrackInfo(stream);
-  const ctx=recCtxFor(inf.rate);
+  const ctx=recCtxGet(inf.rate);
   if(ctx.state==="suspended"){ try{ await ctx.resume(); }catch(_e){} }
-  if(stale()){
-    try{ stream.getTracks().forEach(t=>t.stop()); }catch(_e){}
-    try{ ctx.close(); }catch(_e){}
-    return;
-  }
+  if(stale()) return;
   const known=recState.chanByDevice[recChanKey(deviceId)]||0;
   const nch=Math.max(1,Math.min(REC_MAX_CH,Math.max(known,inf.claimed,sel)));
   const src=ctx.createMediaStreamSource(stream);
@@ -8771,7 +8905,7 @@ async function _startMonitor(i,key,seq){
     const o=e.outputBuffer.getChannelData(0); for(let k=0;k<N;k++) o[k]=0;
   };
   src.connect(sp); sp.connect(sink); sink.connect(ctx.destination);
-  if(inf.track) inf.track.onended=()=>{ if(recMon===mon) stopMonitor(); };
+  if(inf.track&&inf.track.addEventListener) inf.track.addEventListener("ended",()=>{ if(recMon===mon) stopMonitor(); });
   recMon=mon;
   mon.timer=setInterval(()=>{
     if(recMon!==mon) return;
@@ -8781,9 +8915,9 @@ async function _startMonitor(i,key,seq){
 }
 
 async function _startCapture(i,deviceId,sel,prev){
-  const stream=await recOpen(deviceId);
+  const stream=await recAcquire(deviceId);
   const inf=recTrackInfo(stream);
-  const ctx=recCtxFor(inf.rate);
+  const ctx=recCtxGet(inf.rate);
   if(ctx.state==="suspended"){ try{ await ctx.resume(); }catch(_e){} }
   const known=recState.chanByDevice[recChanKey(deviceId)]||0;
   // The pick is part of the width: asking for channel 7 sizes the node to 7 inputs, so
@@ -8800,7 +8934,7 @@ async function _startCapture(i,deviceId,sel,prev){
               stream:stream, ctx:ctx, src:src, sp:sp, sink:sink,
               chunks:[], total:0, t0:Date.now(), timer:null, stopping:false, heard:false,
               mPk:0, mSq:0, mN:0, pkHold:-100, pkHoldT:0, proc:inf.proc,
-              guide:state.recGuided?{steps:guidedStepsFor(i), idx:0, stepStart:0, acc:[], count:0, ticks:0, elapsed:0, done:[], skipped:[], floorDb:null}:null };
+              guide:state.recGuided?{steps:guidedStepsFor(i), idx:0, stepStart:0, acc:[], count:0, ticks:0, elapsed:0, done:[], skipped:[], floorDb:null, heard:false, snr:null}:null };
   // Reduce online, so a long take stays bounded: 10 ch x 48 kHz x 4 B is 1.9 MB/s.
   // With <=2 channels and no channel picked we keep both, so the Mid/L/R segment
   // behaves exactly as it does for a dropped stereo file.
@@ -8838,7 +8972,7 @@ async function _startCapture(i,deviceId,sel,prev){
   // A ScriptProcessorNode only runs while it reaches the destination; the gain is zero
   // so nothing is monitored back through the speakers into the mic.
   src.connect(sp); sp.connect(sink); sink.connect(ctx.destination);
-  if(inf.track) inf.track.onended=()=>{ if(recCap===cap) stopCapture(true); };
+  if(inf.track&&inf.track.addEventListener) inf.track.addEventListener("ended",()=>{ if(recCap===cap) stopCapture(true); });
   recCap=cap;
   if(cardUI[i].mode==="recording"){
     cardUI[i].starting=false; cardUI[i].nch=nch; cardUI[i].ch=use;
@@ -8866,12 +9000,10 @@ function stopCapture(save){
   if(cap.timer) clearInterval(cap.timer);
   try{ cap.sp.onaudioprocess=null; }catch(_e){}
   try{ cap.src.disconnect(); cap.sp.disconnect(); cap.sink.disconnect(); }catch(_e){}
-  try{ cap.stream.getTracks().forEach(t=>{ t.onended=null; t.stop(); }); }catch(_e){}
   const i=cap.i;
-  // Built while the capture context is still alive: its rate is the rate that made
-  // these samples, so nothing has to be re-decoded or resampled.
+  // Built on the capture context, whose rate is the rate that made these samples, so
+  // nothing has to be re-decoded or resampled. Stream and context stay for the next take.
   const buf=(save&&cap.heard)?_takeBuffer(cap):null;
-  try{ cap.ctx.close(); }catch(_e){}
   cap.chunks.length=0;
   if(!buf){
     loadSeq[i]++;   // nothing partial survives a discard
@@ -8935,12 +9067,11 @@ function stopPlayback(){
 function startPlayback(i,f0,f1,onstop,off){
   stopPlayback();
   if(!canPlay(i)) return false;
-  if(!playCtx){
+  if(!playCtx||playCtx.state==="closed"){
     const AC=window.AudioContext||window.webkitAudioContext;
     if(!AC) return false;
     playCtx=new AC();
   }
-  if(playCtx.state==="suspended") playCtx.resume();
   const s=state.slots[i];
   const buf=playCtx.createBuffer(1,s.samples.length,s.info.sampleRate);
   buf.getChannelData(0).set(s.samples);
@@ -8967,7 +9098,15 @@ function startPlayback(i,f0,f1,onstop,off){
   const o=Math.max(0,Math.min(off||0,buf.duration));
   playCur={src,onstop,i,off:o,t0:playCtx.currentTime};
   src.onended=()=>{ if(playCur&&playCur.src===src){ playCur=null; if(onstop) onstop(); } };
-  src.start(0,o);
+  // Safari (user report 2026-09-06: "the audio sometimes doesn't play"): a webkit context
+  // that has gone "suspended" or "interrupted" (a recording graph took the device, a tab
+  // switch, an idle timeout) plays nothing if the source is started before resume() has
+  // settled — start() is not queued behind it. So the source starts inside the resume
+  // promise when the context is not running, and t0 is taken at the real start so the
+  // playhead and the seek stay honest. Chrome runs the same path and never waits.
+  const begin=()=>{ if(playCur&&playCur.src===src){ playCur.t0=playCtx.currentTime; try{ src.start(0,o); }catch(_e){ playCur=null; if(onstop) onstop(); } } };
+  if(playCtx.state==="running") begin();
+  else { let pr=null; try{ pr=playCtx.resume(); }catch(_e){} (pr&&pr.then?pr:Promise.resolve()).then(begin,begin); }
   return true;
 }
 // Region audition: any glossary key that is a vocabulary region gets ▶ buttons
@@ -9098,7 +9237,7 @@ function seekCard(i,el,commit){
   cardPos[i]=pos;
   const tt=cards[i].querySelector(".ttime");
   if(tt) tt.textContent=fmtElapsed(pos*1000)+" / "+fmtElapsed(dur*1000);
-  if(!commit) return;
+  if(!commit){ drawWave(i); return; }   // the head follows the pointer; the take restarts only on release
   if(cardPlaying(i)) startCardPlay(i,pos);
   else syncTransport(i);
 }
@@ -9833,7 +9972,7 @@ function saveTake(i,k){
     const name=slotName(i), type=slotType(i), pr=t.info&&t.info.protocol;
     const fn=takeFileName(i,k);
     const meta={ name:name||undefined, date:new Date().toISOString().slice(0,10), software:APP_NAME,
-      comment:"take "+((k||0)+1)+" · "+TYPE_WORD[type]+(pr?" · guided v"+pr.version:""),
+      comment:"take "+((k||0)+1)+" · "+(TYPE_WORD[type]||"kind not set")+(pr?" · guided v"+pr.version:""),
       rmau:{ app:APP_NAME, name:name||"", type, take:(k||0), protocol:pr||null, processing:(t.info&&t.info.processing)||null,
              path:(state.slotPaths&&state.slotPaths[i])||null, onsets:t.tvis&&t.tvis.onsets?t.tvis.onsets.map(x=>Math.round(x*1000)/1000):null,
              sampleRate:t.audioBuf.sampleRate } };
@@ -10411,7 +10550,7 @@ function applySnapshot(snap){
   // hand-edited or partial snapshot still names its guitars) — settings first.
   state.slotNames=["",""];
   if(Array.isArray(st.slotNames)) for(let i=0;i<2;i++) state.slotNames[i]=_clip(String(st.slotNames[i]||""),SLOT_NAME_MAX);
-  state.slotTypes=["solid","solid"]; state.slotPaths=[null,null];
+  state.slotTypes=[null,null]; state.slotPaths=[null,null];
   if(Array.isArray(st.slotTypes)) for(let i=0;i<2;i++) state.slotTypes[i]=normType(st.slotTypes[i]);
   if(Array.isArray(st.slotPaths)) for(let i=0;i<2;i++) state.slotPaths[i]=(["di","mic","piezo"].includes(st.slotPaths[i]))?st.slotPaths[i]:null;
   for(const f of snap.files.slice(0,2)){

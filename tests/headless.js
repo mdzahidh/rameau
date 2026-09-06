@@ -209,10 +209,11 @@ section("E4.5 — None is a real vocabulary: no regions, no strip, the plot stil
   const mix = dom(BASE + "&pop=coin0"); // the launch the ✦ popover section already pays for
   ok(/data-regions="7"/.test((mix.match(/<canvas[^>]*id="specCanvas"[^>]*>/) || [""])[0]),
     "…while the default Band-mix vocabulary draws its seven");
-  ok((page.match(/<select class="lanesel"/g) || []).length === 2 && !/id="freqBands"/.test(page),
-    "the vocabulary chip sits on both plots and the Band energy sub-section is gone");
+  // 2026-09-06 (user test): the Band energy table is back as a sub-section; Show strings is a header control again.
+  ok((page.match(/<select class="lanesel"/g) || []).length === 2 && /id="freqBands"/.test(page) && /<table class="datatable" id="bandsTable">\s*<thead>/.test(page),
+    "the vocabulary chip sits on both plots and the Band energy table renders under them");
   const head = page.slice(page.indexOf('id="freqCard"'), page.indexOf('id="freqSpec"'));
-  ok(!/<select|<button|<input/.test(head), "the Frequency card header carries no control");
+  ok(/id="stringsToggle"/.test(head) && /Show strings/.test(head) && !/<select/.test(head), "the Frequency card header carries Show strings and nothing else that selects");
 }
 
 section("the threshold is not an artefact of its own value");
