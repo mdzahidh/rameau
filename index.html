@@ -3407,8 +3407,7 @@ function fitParametricEq(freqs, targetDb, device){
   // choices; per candidate the gain is a clamped least-squares projection of
   // the residual onto the unit shape, scored on the exact model; the winner's
   // gain is then ternary-refined. One init sweep + two refinement sweeps.
-  for(let sweep=0; sweep<3; sweep++){
-    for(let i=0;i<nb;i++){
+  const fitBand = (i)=>{
       const spec = device.bands[i], st = state[i];
       for(let k=0;k<n;k++) total[k] -= bandCur[i][k];
       setTrim();
@@ -3474,7 +3473,33 @@ function fitParametricEq(freqs, targetDb, device){
         total[k] += bandCur[i][k];
       }
       setTrim();
+  };
+  const sseNow = ()=>{ let s=0; for(let k=0;k<n;k++){ const e = targetDb[k] - (total[k] + trim); s += e*e; } return s; };
+  for(let sweep=0; sweep<3; sweep++) for(let i=0;i<nb;i++) fitBand(i);
+  // Release pass. Coordinate descent stalls where two bands have split one
+  // feature between them (measured: a +6 dB / 1 kHz / Q 1.4 bump, exactly
+  // representable by the MID band alone, was fit as LOW at its 500 Hz limit
+  // plus a Q 2.8 MID plus a HIGH shoulder — no single-band step can undo the
+  // split, and more sweeps do not move it). So each band in turn is zeroed,
+  // the others refit around the hole, the band refit last, and the result
+  // kept only if the total error fell. Worst-point error on six synthetic
+  // targets fell 1.02 → 0.80 dB (bump), 0.96 → 0.14 (two bumps),
+  // 0.90 → 0.33 (three bands) on the Empress model; RMS fell on every target
+  // for both devices. The fit is cached per data change, so the extra sweeps
+  // (≈ 2–4× the time, under a quarter second) never run on a redraw.
+  const snapshot = ()=>({ st:state.map(x=>({...x})), bc:bandCur.map(a=>a.slice()), tot:total.slice(), trim });
+  const restore = (sn)=>{ state.forEach((x,j)=>Object.assign(x, sn.st[j])); bandCur.forEach((a,j)=>a.set(sn.bc[j])); total.set(sn.tot); trim = sn.trim; };
+  for(let round=0; round<3; round++){
+    let improved = false;
+    for(let i=0;i<nb;i++){
+      const before = snapshot(), sBefore = sseNow();
+      for(let k=0;k<n;k++) total[k] -= bandCur[i][k];
+      bandCur[i].fill(0); state[i].gainDb = 0; setTrim();
+      for(let j=0;j<nb;j++) if(j!==i) fitBand(j);
+      fitBand(i);
+      if(sseNow() < sBefore - 1e-6) improved = true; else restore(before);
     }
+    if(!improved) break;
   }
   let s2 = 0;
   for(let k=0;k<n;k++){ const e = targetDb[k] - (total[k] + trim); s2 += e*e; }

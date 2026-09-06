@@ -893,14 +893,16 @@ build educational copy from it, never re-derive from scratch.
   first, never lecture — curiosity clicks the ✦. **Delegation shape, proven at gates 3, 4
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
-- The gate: `./tests/verify.sh` — dsp **216**, r3 42, r4 60, m27 51, r5 **332**, **e 183**, headless **73**
-  (eight steps since E1; `--node` skips the headless step).
-  **Step 1 is red on master and has been since `ac65835` "EQ match: fit
-  each band inside its neighbours, in increasing frequency"** — the single-peak recovery bound
-  `ok(mx < 1.0)` at [tests/dsp.test.js:547](tests/dsp.test.js#L547) went 0.999 → 1.022 dB there
-  (bisected; every commit before it passes, every one after fails). Block-0 EQ math, unrelated to
-  any later work; awaiting the user's call on fitting vs. re-justifying the bound. Steps 2–7 and
-  all four tamper guards (`tests/` untouched, all three frozen copy SHAs) are green.
+- The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 183**, headless **73**
+  (eight steps since E1; `--node` skips the headless step). **All node suites green since the
+  EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
+  "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went
+  0.999 → 1.022 dB there. The bound was not the defect: the fitter was in a local minimum on
+  both sides of that commit (a bump the MID band can make alone was split across three bands).
+  `fitParametricEq` now ends in a **release pass** (zero a band, refit the others, keep only if
+  the error fell); the bound is **tightened to 0.85** (measured 0.798), six relational ceilings
+  pin the new fitter at or under the greedy one's RMS for both parametric devices, and a
+  source-read contract pins the keep-only-if-better rule. See ARCHITECTURE "EQ match".
   `tests/dsp.test.js` includes the M2.6e switch CSS contract and the R1.3
   snapshot back-compat guard, extracted from `index.html` and mutation-checked. Demo pair verified end-to-end
   against a numeric probe of the full pipeline; every view since M2 verified by headless

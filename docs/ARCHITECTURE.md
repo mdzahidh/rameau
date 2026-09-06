@@ -134,8 +134,17 @@ power with the same full-scale-sine convention as Welch → resample each frame 
   `fitGraphicEq` = least-squares init (`lsqSolve`, normal equations with the trim as an
   extra flat column) + per-band ternary coordinate descent under the gain clamp;
   `fitParametricEq` = greedy: for each band, scan log-spaced centers × the device's Q
-  choices, project the optimal gain in closed form, take the best triple, then a second
-  refinement pass over all bands. The trim absorbs the broadband level difference —
+  choices, project the optimal gain in closed form, take the best triple, then two
+  refinement sweeps over all bands, **then a release pass** (2026-09-05): each band in
+  turn is zeroed, the others refit around the hole, the band refit last, and the result
+  kept only if the total error fell. Coordinate descent stalls where two bands have split
+  one feature — measured: a +6 dB / 1 kHz / Q 1.4 bump, exactly representable by the MID
+  band alone, was fit as LOW at its 500 Hz limit + a Q 2.8 MID + a HIGH shoulder, and
+  twelve sweeps moved nothing — and the release pass is the standard escape. It does not
+  reach the exact solution (the trim is always the mean residual and couples with the
+  bands; a joint gain-and-trim solve helped some targets and hurt others, so it was left
+  alone), but RMS fell on all twelve target×device rows measured and the fit is cached per
+  data change, so the 2–4× cost never runs on a redraw. The trim absorbs the broadband level difference —
   that's what a level knob is for — except ParaEQ's boost-only trim, which is clamped
   to 0…+30 dB and lets the residual report the consequence.
 - **Device table** (`EQ_DEVICES`): GE-7 (7 bands, ±15, Q 1.41), M108S (10 bands, ±12),

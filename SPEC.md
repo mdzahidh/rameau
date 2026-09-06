@@ -3023,3 +3023,37 @@ tomorrow — here or in a DAW — already knowing what it is.
   default region vocabulary (E5.4: Band mix vs EQ speak vs None); String stiffness as a row vs
   popover-only; *Save as bands* as a button vs an export; whether `Guided` should default on for
   a slot that already holds a take.
+
+## 2026-09-05 — EQ match: the release pass, and a bound tightened rather than loosened (reviewer; user approved the recommendation)
+
+The gate's step 1 had been red since 2026-08-27: the single-peak recovery bound
+(`mx < 1.0` dB) read 1.022 after "fit each band inside its neighbours". Probed before deciding:
+
+- **The bound was met by a local minimum all along.** The target — a +6 dB / 1 kHz / Q 1.4 bump
+  — is exactly representable by the Empress MID band alone (error exactly zero under the app's
+  own model). The greedy fitter never found it, before (0.999) or after (1.022) the ordering
+  commit: LOW is fit first and takes the lower shoulder at its 500 Hz limit, MID then adapts to
+  the remainder with Q 2.8, HIGH takes the upper shoulder, and no single-band step can undo the
+  split. Twelve sweeps instead of three change nothing to three decimals. Band order was not the
+  cause — a leverage-ordered first sweep lands in the same place.
+- **The fix is a release pass**, the standard escape from a stalled coordinate descent: after
+  the sweeps, each band in turn is zeroed, the others refit around the hole, the band refit last,
+  and the result kept only if the total error fell; up to three rounds, stopping when a round
+  improves nothing. Measured on six synthetic targets × two parametric devices: RMS residual
+  fell on all twelve rows; worst-point error fell on ten and rose by under 0.1 dB on two Logic
+  rows (tilt 0.917 → 0.993, three-band 1.312 → 1.346) where the RMS still fell. Bump: 1.022 →
+  0.798 dB; two bumps 0.962 → 0.144; three bands 0.902 → 0.325 (Empress). Fit time 15 → 35 ms
+  (Empress), 45 → 190 ms (Logic); the fit is cached per data change, never re-run on a redraw.
+- **Not done, and why:** a joint gain-and-trim least-squares per candidate (the trim is always
+  the mean residual, which couples with the bands and is why the exact solution is still not
+  reached) took two-bumps to 0.002 on the Empress but worsened two Logic rows by up to 0.4 dB
+  RMS — left alone rather than traded. This changes the EQ settings the app suggests, always
+  toward a lower residual against the same target.
+- **Gate:** `tests/dsp.test.js` 217 → **236** — the bump bound **tightened to 0.85**, six
+  relational ceilings (release-pass RMS ≤ the greedy fitter's, measured and written into the
+  test), determinism per target, and a source-read contract on the keep-only-if-better line.
+  Mutation-checked by disabling the pass: the 0.85 bound goes red; the ceilings are met by
+  equality, by design — they guard against a fitter *worse* than greedy, not against the pass
+  being removed. Node gate all green; no headless step touched (block-0 math only, no pixel
+  moves except the EQ card's fitted curve).
+

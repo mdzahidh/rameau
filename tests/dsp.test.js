@@ -546,7 +546,10 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
     const resp = D.eqSettingsResponseDb(grid, fit);
     let mx = 0;
     for (let k = 0; k < grid.length; k++) mx = Math.max(mx, Math.abs(resp[k] - target[k]));
-    ok(mx < 1.0, "max deviation from the bump target bounded", mx.toFixed(3) + " dB");
+    // 1.0 was met at 0.999 by a local minimum (LOW at its 500 Hz limit + a Q 2.8 MID
+    // + a HIGH shoulder) and lost at 1.022 when band centres were ordered; the release
+    // pass in fitParametricEq takes it to 0.798. Tightened, not loosened.
+    ok(mx < 0.85, "max deviation from the bump target bounded", mx.toFixed(3) + " dB");
     let bi = 0;
     for (let i = 1; i < 3; i++)
       if (Math.abs(fit.bands[i].gainDb) > Math.abs(fit.bands[bi].gainDb)) bi = i;
@@ -564,6 +567,39 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
       fitL.residualRms.toFixed(3) + " dB rms");
     const fitP2 = D.fitParametricEq(grid, target, dev);
     ok(JSON.stringify(fit) === JSON.stringify(fitP2), "parametric fit is deterministic");
+  }
+
+  // ---- fitParametricEq release pass: never worse than the greedy fitter it replaces ----
+  // Ceilings are the shipped fitter's RMS residuals (measured 2026-09-05, three greedy
+  // sweeps and no release pass) on six synthetic targets; the release pass must not
+  // exceed any of them. Relational, so the fitter can improve without a retune here.
+  {
+    const grid = D.makeLogGrid(160, 60, 20000);
+    const mk = f => { const t = new Float64Array(grid.length); for (let k = 0; k < grid.length; k++) t[k] = f(grid[k]); return t; };
+    const P = D.eqPeakingDb;
+    const targets = [
+      ["bump 1 kHz +6 Q1.4", mk(f => P(f, 1000, 6, 1.4)), 0.287, 0.163],
+      ["cut 300 Hz -4 Q0.7", mk(f => P(f, 300, -4, 0.7)), 0.001, 0.198],
+      ["two bumps 200/+4, 3k/-5", mk(f => P(f, 200, 4, 1.4) + P(f, 3000, -5, 1.4)), 0.347, 0.321],
+      ["tilt 120/+3, 6k/+4 Q0.7, trim -2", mk(f => -2 + P(f, 120, 3, 0.7) + P(f, 6000, 4, 0.7)), 0.527, 0.347],
+      ["bump + trim 5", mk(f => 5 + P(f, 1000, 6, 1.4)), 0.287, 0.163],
+      ["three: 100/+3, 800/-6 Q2.8, 5k/+4", mk(f => P(f, 100, 3, 1.4) + P(f, 800, -6, 2.8) + P(f, 5000, 4, 1.4)), 0.421, 0.403],
+    ];
+    for (const [name, t, ceilE, ceilL] of targets) {
+      const fe = D.fitParametricEq(grid, t, D.EQ_DEVICE_BY_ID.paraeq);
+      const fl = D.fitParametricEq(grid, t, D.EQ_DEVICE_BY_ID.logicChEq);
+      ok(fe.residualRms <= ceilE + 1e-3, "Empress rms not worse than the greedy fitter: " + name,
+        fe.residualRms.toFixed(3) + " vs " + ceilE);
+      ok(fl.residualRms <= ceilL + 1e-3, "Logic rms not worse than the greedy fitter: " + name,
+        fl.residualRms.toFixed(3) + " vs " + ceilL);
+      const f2 = D.fitParametricEq(grid, t, D.EQ_DEVICE_BY_ID.paraeq);
+      ok(JSON.stringify(fe) === JSON.stringify(f2), "parametric fit is deterministic: " + name);
+    }
+    const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+    const i0 = src.indexOf("function fitParametricEq(");
+    const fnBody = src.slice(i0, src.indexOf("\nfunction ", i0 + 10));
+    ok(/if\(sseNow\(\) < sBefore - 1e-6\) improved = true; else restore\(before\);/.test(fnBody),
+      "the release pass keeps a refit only when the total error fell, else restores");
   }
 
   // ---- M2.5 sgramDifference: onset-aligned A−B, level offset, NaN rules ----
