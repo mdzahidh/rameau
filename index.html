@@ -9189,10 +9189,14 @@ function syncTransport(i){
   if(b){
     const g=playGainDb(i);
     b.classList.toggle("playing",on);
-    b.textContent=on?(g?"⏸ Pause · "+fmtDb(g,1):"⏸ Pause"):"▶ Play";
+    // Write only on change: this runs on the 100 ms tick, and replacing the button's text
+    // node under a pressed pointer ate the click — the user had to leave the button and come
+    // back before Pause worked (report 2026-09-06). Same for the clock.
+    const label=on?(g?"⏸ Pause · "+fmtDb(g,1):"⏸ Pause"):"▶ Play";
+    if(b.textContent!==label) b.textContent=label;
   }
   const tt=tr.querySelector(".ttime");
-  if(tt) tt.textContent=fmtElapsed(pos*1000)+" / "+fmtElapsed(dur*1000);
+  if(tt){ const t=fmtElapsed(pos*1000)+" / "+fmtElapsed(dur*1000); if(tt.textContent!==t) tt.textContent=t; }
   drawWave(i);
 }
 function stopPlayTick(){ if(playTick){ clearInterval(playTick); playTick=null; } }
