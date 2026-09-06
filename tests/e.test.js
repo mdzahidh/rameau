@@ -10,7 +10,7 @@ const dspSrc = blocks[0];
 const modFile = path.join(os.tmpdir(), "rameau_e_under_test.js");
 fs.writeFileSync(modFile, dspSrc + `
 module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes,
-  tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO, wavWrite, wavReadInfo, wavFileSlug, sniffAudioInfo };
+  tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, meanPowerSpectra, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO, wavWrite, wavReadInfo, wavFileSlug, sniffAudioInfo };
 `);
 const D = require(modFile);
 
@@ -296,7 +296,7 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
   ok(/measured:true, live:true/.test(tb), "a live band is a measured band — it opens the verdict door");
   ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /v:Math\.max\(a\.v,b\.v\)/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and take the larger spread");
   ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(t\);/.test(lv), "…and every take's value comes from the same def.val the panel prints");
-  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr) && !/toneRepeatToggle/.test(html),
+  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=\(lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr) && !/toneRepeatToggle/.test(html),
     "the switch is gone (2026-09-06); a status line says where the bands come from, and Save follows it");
   ok(!/kind:"repeat"/.test(tr), "the old repeat-mode verdict is gone — live bands flow through the one door");
   ok(/for\(const k in lv\.bands\)/.test(sv) && /state\.toneBands\[k\]=\{v:lv\.bands\[k\]\.v\};/.test(sv), "Save persists the live spreads");
@@ -469,6 +469,45 @@ section("E7 — the name in the file: a WAV round trip, the sniffer unmoved, the
   const lf = body("loadFileIntoSlot");
   ok(/wavReadInfo\(buf\)/.test(lf) && /if\(inam&&!slotName\(i\)&&state\.slots\[i\]\) setSlotName\(i,inam\);/.test(lf), "on load INAM prefills an unnamed slot through the one name writer, and never overwrites a name");
   ok(/if\(rm&&!append\)\{ if\(rm\.type\) state\.slotTypes\[i\]=normType\(rm\.type\);/.test(lf) && /protocol:rm&&rm\.protocol\?rm\.protocol:null/.test(lf), "…rmau restores type and path on a fresh slot only, and the protocol rides on the take");
+}
+
+section("2026-09-06 — a stack of takes is shown as its mean; the time views follow the selected take");
+{
+  // Block 0: the mean of Welch spectra — equal weight per take, on the first take's grid, frames summed.
+  const A={power:Float64Array.from([1,2,3,4]), df:10, frames:5}, B={power:Float64Array.from([3,2,1,0]), df:10, frames:7};
+  const m1=D.meanPowerSpectra([A]);
+  ok(m1.power===A.power && m1.df===10 && m1.frames===5, "the mean of one take is that take (byte-identical views for a single take)");
+  const m2=D.meanPowerSpectra([A,B]);
+  ok(Array.from(m2.power).join()==="2,2,2,2" && m2.frames===12 && m2.df===10, "two takes at one Δf: the arithmetic mean of power, frames summed", Array.from(m2.power).join());
+  const C={power:Float64Array.from([0,2,4,6,8,10,12,14]), df:5, frames:1}; // the same line sampled twice as finely
+  const m3=D.meanPowerSpectra([A,C]);
+  ok(Array.from(m3.power).map(x=>+x.toFixed(6)).join()==="0.5,3,5.5,8", "a take at another Δf is interpolated in power onto the first take's grid", Array.from(m3.power).join());
+  const Dd={power:Float64Array.from([10,10]), df:10, frames:1};
+  ok(Array.from(D.meanPowerSpectra([A,Dd]).power).join()==="5.5,6,6.5,7", "…and held at its last bin above its own Nyquist");
+  // Wiring: the stash, the mean in place, the views.
+  const b1=blocks[1], b3=blocks[3], b4=blocks[4];
+  ok(/if\(!slot\.own\)\{ const spec=\{\}; for\(const k of SPEC_METRIC_KEYS\) spec\[k\]=m\[k\]; slot\.own=\{welch:slot\.welch, fixed6db:slot\.fixed6db, spec\}; \}/.test(body("computeSpectralExtras")), "computeSpectralExtras stashes the take's own analysis once");
+  ok(/slot\.own=null;[^\n]*\n\s*computeSpectralExtras\(slot\);/.test(body("analyzeSlot")) && /refreshSlotMean\(i\);\n\s*cardUI\[i\]=\{mode:"loaded"\};/.test(body("analyzeSlot")), "a re-analysis stashes afresh, and every landing refreshes the mean");
+  const rm=body("refreshSlotMean");
+  ok(/prim\.welch=meanPowerSpectra\(specs\); computeSpectralExtras\(prim\); prim\.meanOf=specs\.length;/.test(rm) && /prim\.welch=prim\.own\.welch; prim\.fixed6db=prim\.own\.fixed6db; Object\.assign\(prim\.metrics,prim\.own\.spec\); prim\.meanOf=0;/.test(rm) && /prim\._dispCache=null; state\._eqFit=null;/.test(rm),
+    "take 0 carries the mean spectrum and the metrics measured on it, or its own again when the stack shrinks to one; the display cache and the EQ fit are dropped");
+  ok(/refreshSlotMean\(i\);/.test(body("removeTake")) && /state\.slots\[i\]=recs\[0\];\n\s*refreshSlotMean\(i\);/.test(body("applySnapshot")), "removing a take and restoring a snapshot refresh the mean too");
+  ok(/const s=ownView\(s0\);/.test(body("exportSnapshot")||b4) , "the snapshot writes take 0 as analysed on its own, never the mean");
+  // Time views read the selected take.
+  for (const fn of ["bothSgLoaded","sgramScale","sgramView","sgramModelFor","buildEnvModel"]) ok(/viewRec\(/.test(body(fn)) && !/state\.slots\[[ij]\]\.tvis|const s=state\.slots\[i\], tv=/.test(body(fn)), fn+" reads viewRec, never state.slots[i].tvis");
+  ok(/const s=viewRec\(i\), tv=s&&s\.tvis;\n\s*if\(!tv\|\|!tv\.sg\)\{ hide\(\); return; \}/.test(b4), "…and so does the spectrogram crosshair");
+  ok(/requestDraw\(\);\s*\/\/ the spectrogram and the envelope follow the selection\n\s*renderAnalysis\(\);/.test(body("selectTake")), "selecting a take redraws the time views and re-renders the panel");
+  // Chips name their source.
+  ok(/return t\+meanNote\(\);/.test(body("statusText")) && /" = mean of "\+slotMeanOf\(i\)\+" takes"/.test(body("meanNote")) && /"take "\+k\+" of "\+n/.test(body("takeNote")), "the spectrum chip says 'mean of N takes'; the time views say 'take k of N'");
+  ok(/name:slotFull\(i,80\)\+takeNote\(i," · "\)/.test(body("sgramModelFor")) && /label:slotFull\(i,26\)\+takeNote\(i," · "\)/.test(body("buildEnvModel")), "…on the spectrogram title and the envelope legend");
+  // Tone panel: means for note-based rows, the mean spectrum for spectral rows, the selected take for Take rows.
+  const tr=body("toneRecords"), defs=body("toneRowDefs");
+  const per=[...defs.matchAll(/term:"([\w-]+)", name:"[^"]+",(?: plain:true,)? perTake:true/g)].map(m=>m[1]).sort().join();
+  ok(per==="attack-spectrum,bloom,body-resonance,dynamic-range,even-odd,f0-decay,harmonic-richness,inharmonicity,neck-sustain,overtone-sustain,residual", "perTake on the eleven note-based rows — Pickup voice and Brightness read the mean spectrum", per);
+  ok(/const tv=def\.text\?viewRec\(i\):s;/.test(tr) && /perVals=takes\.map\(t=>\{ let x=null; try\{ x=def\.val\(ownView\(t\),i\); \}/.test(tr) && /v=def\.log\?Math\.exp\(ok\.reduce\(\(a,x\)=>a\+Math\.log\(x\),0\)\/ok\.length\):ok\.reduce\(\(a,x\)=>a\+x,0\)\/ok\.length;/.test(tr),
+    "Take rows read the selected take; perTake rows average each take's own value, geometric on a log axis");
+  ok(/d="mean over "\+nT\+" takes \("\+perVals\.map\(fm\)\.join\(" · "\)\+"\)"/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints and lists the per-take values");
+  ok(/Values: means over each guitar's takes; the Take rows read the selected take/.test(body("renderToneRows")), "the panel's status line says so once");
 }
 
 section("E6 — block 0: the tap read, the room in a decay, the recording path");

@@ -3206,3 +3206,45 @@ pass with the node gate between tasks and the full gate once at the end.
 dropped `glance`, a renamed *By ear* section each caught); the ear pairs measured with an
 independent FFT script (`scratchpad`, not shipped); the full gate once at the end of the batch.
 Recording and E4–E7 remain untested by the user.
+
+## 2026-09-06 — A stack of takes is shown as its mean; the time views follow the selected take (user decision, reviewer-built; branch `e-feedback`)
+
+The user asked what adding a take changed. Until now: everything but the tone bands read take 0,
+and selecting a take on the card only changed what played. The user's call, after the two
+options were laid out: **the default is the average of a guitar's takes for everything that
+has no time axis; the spectrogram (and, added on review, the envelope) show one selected take
+per guitar.** Also the add row now reads *+ Add another take of this guitar*.
+
+**How the mean is made.** `meanPowerSpectra(specs)` in block 0: the power of each take's Welch
+spectrum, equal weight per take, on the first take's Δf (a take at another sample rate is
+interpolated linearly in power, held at its last bin above its own Nyquist); `frames` is the
+sum. Take 0 — the object the whole app already reads as `state.slots[i]` — **carries the mean in
+place** (`refreshSlotMean(i)`, called on every landing, removal and snapshot restore), and
+`computeSpectralExtras` is re-run on it, so the plots, the Band energy table, the near-floor
+mask, level match, the EQ fit, the peak dots and the spectral tone rows all read the mean
+through the code they had. Each take keeps its own analysis under `own` (stashed once by
+`computeSpectralExtras`; `SPEC_METRIC_KEYS` names what a spectrum decides); `ownView(t)` is a
+take as analysed alone, which the reliability bands and the snapshot writer read. **One take is
+byte-identical to before.**
+
+**Tone rows, three ways.** A spectral row (Pickup voice, Brightness) reads the mean spectrum. A
+note-based row (`perTake:true` — the eleven rows built from notes) is the mean of the per-take
+values, geometric on a log axis, with every take's value listed in the readout. A Take row is a
+fact about one recording and reads the **selected** take. The panel's status line says so once
+when a guitar has more than one take. The reliability bands are unchanged: still the spread
+between a guitar's own takes.
+
+**Time views.** `viewRec(i)` is the selected take; `bothSgLoaded`, `sgramScale`, `sgramView`,
+`sgramModelFor`, the crosshair, the zoom bounds, `buildEnvModel` and `updateVisibility` read
+it. Selecting a take redraws them. The spectrum chip says `A = mean of 3 takes`; the
+spectrogram title and the envelope legend say `take 2 of 3`.
+
+**Left open, flagged:** the band could shrink as takes accumulate (the mean's uncertainty is
+smaller than one take's spread); the note matching in Sustain still matches each take against
+the other guitar's take 0; snapshots do not carry the selection (a snapshot slot has no audio,
+so nothing there depends on it).
+
+**Verification, in proportion:** four block-0 math assertions plus fourteen source contracts
+in `tests/e.test.js` (219 → **241**), three mutation-checked (the crosshair reading the slot
+again, the mean not divided, the Take rows not following the selection — each caught); node
+gate green; the full gate once at the end of the batch.

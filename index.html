@@ -1754,6 +1754,30 @@ function makeLogGrid(n, f0, f1){
   return g;
 }
 // Linear interpolation in the dB domain from native bins onto a grid.
+// The mean of several takes' Welch spectra (2026-09-06, user: a guitar with several takes is
+// shown as their average everywhere a long-term view allows it). Power is averaged, equal
+// weight per take, on the first spectrum's frequency grid — a take at another sample rate
+// has another Δf and is interpolated linearly in power onto it (held at its last bin above
+// its own Nyquist). `frames` is the sum, so the footer still says how much audio was averaged.
+// The metrics computeSpectralExtras derives from a spectrum — the ones a take's `own` stash keeps.
+const SPEC_METRIC_KEYS=["centroid","tilt","peaks","rumble","air","top","hump"];
+function meanPowerSpectra(specs){
+  const base=specs[0]; if(!base) return null;
+  if(specs.length===1) return {power:base.power, df:base.df, frames:base.frames};
+  const n=base.power.length, df=base.df, out=new Float64Array(n); let frames=0;
+  for(const sp of specs){
+    frames+=sp.frames|0;
+    if(sp.df===df&&sp.power.length===n){ for(let k=0;k<n;k++) out[k]+=sp.power[k]; continue; }
+    const P=sp.power, m=P.length;
+    for(let k=0;k<n;k++){
+      const x=k*df/sp.df; let j=Math.floor(x);
+      if(j>=m-1){ out[k]+=P[m-1]; continue; }
+      const t=x-j; out[k]+=P[j]*(1-t)+P[j+1]*t;
+    }
+  }
+  for(let k=0;k<n;k++) out[k]/=specs.length;
+  return {power:out, df, frames};
+}
 function resampleToGrid(db, df, grid){
   const out=new Float64Array(grid.length);
   for(let i=0;i<grid.length;i++){
@@ -5700,6 +5724,27 @@ function bothLoaded(){ return !!(state.slots[0]&&state.slots[1]); }
 // one door onto that list.
 function slotTakes(i){ const s=state.slots[i]; return s?(s.takes||[s]):[]; }
 function _bindTakes(recs){ for(const r of recs) Object.defineProperty(r,"takes",{value:recs, enumerable:false, writable:true, configurable:true}); return recs; }
+// A guitar with several takes is shown as their MEAN wherever the view is time-invariant
+// (user, 2026-09-06): take 0 — the object the whole app reads as `state.slots[i]` — carries
+// the mean spectrum and the spectral metrics measured on it, while every take keeps its own
+// analysis under `own` (stashed by computeSpectralExtras the first time it runs). `ownView(t)`
+// is a take as analysed on its own; for a sibling that is the take itself. The spectrogram,
+// the envelope and the card transport are time views and follow the SELECTED take instead
+// (`viewRec`). One take is byte-identical to before: the mean of one is itself.
+function ownView(t){
+  if(!t||!t.own||t.own.welch===t.welch) return t;
+  const m=Object.assign({},t.metrics,t.own.spec);
+  return Object.assign(Object.create(t),{welch:t.own.welch, fixed6db:t.own.fixed6db, metrics:m});
+}
+function refreshSlotMean(i){
+  const takes=slotTakes(i), prim=takes[0]; if(!prim||!prim.own) return;
+  const specs=takes.filter(t=>t.own&&t.own.welch).map(t=>t.own.welch);
+  if(specs.length<2){ prim.welch=prim.own.welch; prim.fixed6db=prim.own.fixed6db; Object.assign(prim.metrics,prim.own.spec); prim.meanOf=0; }
+  else { prim.welch=meanPowerSpectra(specs); computeSpectralExtras(prim); prim.meanOf=specs.length; }
+  prim._dispCache=null; state._eqFit=null;
+}
+function slotMeanOf(i){ const s=state.slots[i]; return s&&s.meanOf>1?s.meanOf:0; }
+function viewRec(i){ return (typeof playRec==="function"&&playRec(i))||state.slots[i]; }
 function attachTake(i,rec){
   const prim=state.slots[i];
   if(!prim){ _bindTakes([rec]); state.slots[i]=rec; return; }
@@ -5714,6 +5759,7 @@ function removeTake(i,k){
   stopPlayback();
   arr.splice(k,1); _bindTakes(arr);
   state.slots[i]=arr[0];
+  refreshSlotMean(i);
   if(selTake[i]>=arr.length) selTake[i]=arr.length-1; else if(selTake[i]>k) selTake[i]--;
   cardPos[i]=0;
   renderCard(i);
@@ -5884,6 +5930,7 @@ async function analyzeSlot(i,slot,seq,append){
     slot.welch=await welch(slot.samples,slot.info.sampleRate,8192,4096,
       f=>{ if(seq===loadSeq[i]) setCardProgress(i,"Averaging spectrum…",0.15+f*0.55); });
     if(seq!==loadSeq[i]) return;
+    slot.own=null; // a re-analysis (channel pick) measures afresh; the stash below is this take's own
     computeSpectralExtras(slot);
     setCardProgress(i,"Timing, harmonics & dynamics…",0.8);
     await new Promise(r=>setTimeout(r,0));
@@ -5903,6 +5950,7 @@ async function analyzeSlot(i,slot,seq,append){
     slot._dispCache=null;
     if(append&&state.slots[i]) attachTake(i,slot);
     else { if(!slot.takes) _bindTakes([slot]); state.slots[i]=slot; }   // a re-analysis (channel pick) keeps its sibling takes
+    refreshSlotMean(i);
     cardUI[i]={mode:"loaded"};
     renderCard(i);
     afterDataChange(true);
@@ -5947,6 +5995,8 @@ function computeSpectralExtras(slot){
   // THEORY §7.6.4: the pickup's RLC hump over the local trend, always measured, shown
   // for solidbody slots (a hollow body's LTAS carries its modes in the same window).
   m.hump=ltasHump(power,df,800,8000);
+  // The take's own analysis, kept when take 0 later carries the mean of its stack.
+  if(!slot.own){ const spec={}; for(const k of SPEC_METRIC_KEYS) spec[k]=m[k]; slot.own={welch:slot.welch, fixed6db:slot.fixed6db, spec}; }
 }
 
 async function computeTimeMetrics(slot, onProgress){
@@ -6245,7 +6295,17 @@ function zoomNoteFor(key){
 function statusText(){
   let t=state.smooth?("1/"+state.smooth+"-oct smoothing"):"smoothing off";
   if(state.lm&&state.lmOffset!=null&&bothLoaded()) t+=" · level-match "+fmtDb(state.lmOffset,1)+" on B";
-  return t;
+  return t+meanNote();
+}
+// The averaged views say so on their chip; the time views say which take they show.
+function meanNote(){
+  const parts=[0,1].filter(i=>slotMeanOf(i)).map(i=>slotLabel(i)+" = mean of "+slotMeanOf(i)+" takes");
+  return parts.length?" · "+parts.join(", "):"";
+}
+function takeNote(i,sep){
+  const n=slotTakes(i).length; if(n<2) return "";
+  const k=(typeof selTake!=="undefined"?selTake[i]:0)+1;
+  return (sep||"")+"take "+k+" of "+n;
 }
 function tuningMarkers(){
   return tuningMidi(state.tuning,state.customOffset).map((mi,si)=>{
@@ -6316,9 +6376,11 @@ function buildSpecModel(forExport){
            bands:anyLoaded()?bandTable():null }; // E4.1: the strip prints each region's shares
 }
 function diffVisible(){ return bothLoaded(); }
+// The spectrogram and the envelope have a time axis, so they cannot average a stack of
+// takes: they read the SELECTED take of each guitar (viewRec), as the card transport does.
 function bothSgLoaded(){
-  return !!(state.slots[0]&&state.slots[0].tvis&&state.slots[0].tvis.sg&&
-            state.slots[1]&&state.slots[1].tvis&&state.slots[1].tvis.sg);
+  const a=viewRec(0), b=viewRec(1);
+  return !!(a&&a.tvis&&a.tvis.sg&&b&&b.tvis&&b.tvis.sg);
 }
 function sgLmDb(){
   // the one global level-match switch, seen from the spectrogram: the same
@@ -6329,7 +6391,7 @@ function sgramScale(){
   // one color scale shared by A and B, anchored to the louder file's hottest cell
   let top=-Infinity;
   for(let i=0;i<2;i++){
-    const s=state.slots[i];
+    const s=viewRec(i);
     if(!(s&&s.tvis&&s.tvis.sg)) continue;
     const m=s.tvis.sg.maxDb+(i===1?sgLmDb():0);
     if(m>top) top=m;
@@ -6342,16 +6404,16 @@ function sgramView(i){
   // Display-time window for pane i. Free mode: each pane fills its own width.
   // "file": both panes share [0, max duration]. "onset": display t = 0 at each
   // file's first onset, window covering both files' pre- and post-onset extents.
-  const tv=state.slots[i].tvis, dur=tv.sg.duration;
+  const tv=viewRec(i).tvis, dur=tv.sg.duration;
   if(state.sgAlign==="off"||!bothSgLoaded()) return {T0:0,T1:dur,d0:0};
   if(state.sgAlign==="file"){
     let T1=0;
-    for(let j=0;j<2;j++) T1=Math.max(T1,state.slots[j].tvis.sg.duration);
+    for(let j=0;j<2;j++) T1=Math.max(T1,viewRec(j).tvis.sg.duration);
     return {T0:0,T1,d0:0};
   }
   let T0=0,T1=0;
   for(let j=0;j<2;j++){
-    const t=state.slots[j].tvis;
+    const t=viewRec(j).tvis;
     T0=Math.min(T0,-t.firstOnset);
     T1=Math.max(T1,t.sg.duration-t.firstOnset);
   }
@@ -6365,7 +6427,7 @@ function sgramZoomWin(key,T0,T1){
            F0:z&&z.y0!=null?z.y0:FMIN, F1:z&&z.y0!=null?z.y1:FMAX };
 }
 function sgramModelFor(i,scale){
-  const s=state.slots[i], tv=s&&s.tvis;
+  const s=viewRec(i), tv=s&&s.tvis;
   if(!tv||!tv.sg) return null;
   const off=i===1?sgLmDb():0;
   const cm=state.sgCmap||CMAP_NAMES[0];
@@ -6457,7 +6519,7 @@ function sgramModelFor(i,scale){
   return { sg:sgToUse, image:imageToUse,
     view:{T0:zw.T0,T1:zw.T1,d0:view.d0}, fWin:{F0:zw.F0,F1:zw.F1},
     zoomNote:zoomNoteFor(zKey),
-    name:slotFull(i,80), color:COLORS[i], onsets:tv.onsets,
+    name:slotFull(i,80)+takeNote(i," · "), color:COLORS[i], onsets:tv.onsets,
     dbMax:scale.dbMax, dbMin:scale.dbMin, comb, clusters,
     a4:state.a4, scrim:state.sgScrim, focus:state.sgFocus, dim:state.sgDim,
     cmap:cm, track:state.sgTrack, dash:(SG_DASHES[state.sgDash]||SG_DASHES.dash).pat,
@@ -6473,9 +6535,9 @@ function sgramModelFor(i,scale){
 function buildEnvModel(){
   const curves=[]; let tMin=0, tMax=0;
   for(let i=0;i<2;i++){
-    const s=state.slots[i], tv=s&&s.tvis;
+    const s=viewRec(i), tv=s&&s.tvis;
     if(!tv) continue;
-    curves.push({label:slotFull(i,26), color:COLORS[i],
+    curves.push({label:slotFull(i,26)+takeNote(i," · "), color:COLORS[i],
       env:tv.env, rate:tv.envRate, t0:tv.firstOnset, onsets:tv.onsets});
     tMin=Math.min(tMin,-tv.firstOnset);
     tMax=Math.max(tMax,s.duration-tv.firstOnset);
@@ -6760,7 +6822,7 @@ function attachSgramCrosshair(wrap,canvas,xline,readout,pane,hitsFn){
   wrap.addEventListener("mousemove",e=>{
     const i=pane();
     if(i==null){ hide(); return; }
-    const s=state.slots[i], tv=s&&s.tvis;
+    const s=viewRec(i), tv=s&&s.tvis;
     if(!tv||!tv.sg){ hide(); return; }
     const sg=s._sgShown||tv.sg;   // what the pane actually drew: base or refined
     const rect=canvas.getBoundingClientRect();
@@ -6938,7 +7000,7 @@ function zoomAxes(key){
     ax.yF0=-m.resp.yMax; ax.yF1=m.resp.yMax;
   }else if(key==="sga"||key==="sgb"){
     // spectrogram panes: x = display time (linear s), y = frequency (log Hz)
-    const i=key==="sga"?0:1, s=state.slots[i];
+    const i=key==="sga"?0:1, s=viewRec(i);
     if(!(s&&s.tvis&&s.tvis.sg)) return null;
     const v=sgramView(i);
     return {logX:false, logY:true,
@@ -7358,7 +7420,7 @@ function toneRowDefs(){
      fmt:(v,s)=>fmtHz(v),
      detail:(v,s)=>fmtDb(s.metrics.hump.db,1)+" over the trend"+(s.metrics.hump.q?" · Q "+s.metrics.hump.q.toFixed(1)+" (the bar is the −3 dB width)":""),
      reason:s=>s.metrics.hump?"no clear peak in 0.8–8 kHz":"no spectrum"},
-    {g:"sound", term:"body-resonance", name:"Body voice", types:["hollow","acoustic"], glance:true,
+    {g:"sound", term:"body-resonance", name:"Body voice", perTake:true, types:["hollow","acoustic"], glance:true,
      unit:"frequency of the body's air resonance — the strongest 70–130 Hz peak, from a tap on the bridge when the take has one",
      how:"From a tap (an onset with no pitch that decays fast): its first 0.25 s, Welch-averaged, the peak between 70 and 130 Hz and its Q from the −3 dB width. Without a tap, and labelled as such: the most prominent 70–130 Hz peak of the whole take's average spectrum.",
      ear:{hi:"a higher hum sits under the A string — a tighter, smaller-box low end", lo:"a lower hum sits under the low E — the boomy, big-box low end"},
@@ -7370,7 +7432,7 @@ function toneRowDefs(){
        const q=x=>x&&x.q?"Q "+x.q.toFixed(1)+(x.qMax&&x.q>=x.qMax*0.9?" (at the ceiling of "+x.qMax.toFixed(0)+" — at least this)":""):"";
        return "tap test · air "+fmtHz(t.f)+" "+q(t)+(t.top?" · top "+fmtHz(t.top.f)+" "+q(t.top):" · no top mode found 140–260 Hz")+" · "+E6_COPY.tap.detail; },
      reason:()=>"no peak found 70–130 Hz"},
-    {g:"sound", term:"inharmonicity", name:"String stiffness", plain:true,
+    {g:"sound", term:"inharmonicity", name:"String stiffness", plain:true, perTake:true,
      unit:"inharmonicity B of the open E and A strings — how far their overtones run sharp, fitted over the first 12 partials, the two averaged",
      how:"For the open E and the open A: the frequencies of partials 1–12 fitted to f_n = n·f₀·√(1 + B·n²), one B per string, and the mean of the two. It needs 12 accepted partials on each string to count as measured.",
      ear:{hi:"stiffer strings put a faint piano-like shimmer on a chord — the high overtones sit a little sharp and beat against the tuning", lo:"more supple strings sound purer and sweeter up top — a chord's overtones line up"},
@@ -7380,7 +7442,7 @@ function toneRowDefs(){
      fmt:(v,s)=>(v*1e4).toFixed(2)+" ×10⁻⁴",
      detail:(v,s)=>openStringNotes(s.metrics).filter(n=>(n.si===0||n.si===1)&&n.nB>=6).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+(n.B*1e4).toFixed(2)+" ×10⁻⁴ over "+n.nB+" partials"+(n.rmsCents!=null?" · ±"+n.rmsCents.toFixed(1)+" ¢":"")).join(" · "),
      reason:s=>s.metrics.notes?"open E and A not found in this take":"analysed before this row existed"},
-    {g:"ring", term:"overtone-sustain", name:"Overtone ring", glance:true,
+    {g:"ring", term:"overtone-sustain", name:"Overtone ring", perTake:true, glance:true,
      unit:"seconds for the upper partials (3–8) to fall 20 dB — geometric mean over the open strings, or over every pitched note",
      how:"Each partial 3–8 tracked at its own (inharmonic) frequency, frame by frame, from the onset peak until it has fallen 25 dB or the next note begins; the time each takes to fall 20 dB; the geometric mean over those partials and over the open strings the take contains (every pitched note when it holds fewer than two).",
      ear:{hi:"the upper harmonics keep singing under the note — the guitar sounds alive to the end of a held chord", lo:"the shimmer goes first and the note dulls to its fundamental while it is still sounding"},
@@ -7390,7 +7452,7 @@ function toneRowDefs(){
      detail:(v,s)=>{ const {notes,matched}=_instNotes(s.metrics); const ls=notes.filter(n=>n.partials).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+n.partials.map(t=>t==null?"—":t.toFixed(1)).join(" / ")+" s");
        return "partials 3–8, time to fall 20 dB, geometric mean"+(matched?" over the open strings":" over pitched notes")+(ls.length?" · per note (partials 1–8): "+ls.join(" · "):""); },
      reason:s=>s.metrics.notes?"no note long enough to fit":"analysed before this row existed"},
-    {g:"ring", term:"bloom", name:"Bloom", glance:true,
+    {g:"ring", term:"bloom", name:"Bloom", perTake:true, glance:true,
      unit:"when a note's decay turns from its fast first fall to its slow tail — the knee time, median over notes that fit two stages",
      how:"Each note's broadband level in dB, 10 ms frames, from the onset peak to −30 dB, fitted as two straight lines with one knee placed where the residual is smallest. A note counts when the knee removes 40 % of the one-line residual and the early slope is at least 1.5× the late one; the row prints the median knee time and both slopes.",
      ear:{hi:"a late turn: the note drops for a moment and then seems to hold — what players call bloom, or natural compression", lo:"an early turn: the note settles into its long tail almost at once and reads as steady rather than swelling"},
@@ -7400,7 +7462,7 @@ function toneRowDefs(){
      fmt:(v,s)=>"turns at "+fmtMs(v),
      detail:(v,s)=>{ const b=slotBloom(s.metrics); return b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · median over "+b.n+(b.n===1?" note":" notes")+" that fit two stages"; },
      reason:s=>s.metrics.notes?"one slope fits — no knee":"analysed before this row existed"},
-    {g:"ring", term:"neck-sustain", name:"Dead spots", glance:true,
+    {g:"ring", term:"neck-sustain", name:"Dead spots", perTake:true, glance:true,
      unit:"seconds for the fundamental to fall 20 dB — median over every pitched note; a note under a third of its neighbours is flagged",
      how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak and the time it takes to fall 20 dB. The row prints the median; a note under one third of the median of the notes within an octave of it (at least three) is flagged by name as a candidate dead spot.",
      ear:{hi:"an even neck — every note rings out about as long as its neighbours", lo:"a dead spot — one note thuds and dies while the ones around it ring on"},
@@ -7411,7 +7473,7 @@ function toneRowDefs(){
      detail:(v,s)=>{ const m=s.metrics, fl=(m.neckFlags||[]).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref));
        return "median over "+m.neckN+" notes · "+(fl.length?fl.join(" · "):"none flagged"); },
      reason:s=>s.metrics.notes?"fewer than 6 notes with a measurable decay":"analysed before this row existed"},
-    {g:"ring", term:"f0-decay", name:"Sustain", glance:true,
+    {g:"ring", term:"f0-decay", name:"Sustain", perTake:true, glance:true,
      unit:"seconds for the fundamental to fall 20 dB — median over the notes both takes share, matched by pitch",
      how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak until it has fallen 25 dB or the next note begins, and the time it takes to fall 20 dB. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, so an open E is only ever measured against an open E; the row prints the median.",
      ear:{hi:"the note hangs in the air — you can hold it, bend it, let it sing before the next one", lo:"the note is gone sooner — it drops away and you have to keep the line moving"},
@@ -7431,7 +7493,7 @@ function toneRowDefs(){
      val:s=>s.metrics.centroid,
      fmt:(v,s)=>fmtHz(v),
      detail:(v,s)=>"spectral centroid of the whole take"+(s.metrics.tilt!=null?" · tilt "+s.metrics.tilt.toFixed(1)+" dB/oct":"")},
-    {g:"sound", term:"even-odd", name:"Even / odd balance",
+    {g:"sound", term:"even-odd", name:"Even / odd balance", perTake:true,
      unit:"energy in the even harmonics (2, 4 … 10) against the odd (3, 5 … 9), in dB — median over comb-checked notes",
      how:"From the harmonic peaks of every note that passes the pitch check: 10·log₁₀ of the summed power of harmonics 2, 4, 6, 8, 10 over that of 3, 5, 7, 9; the median over notes. Positive means even-dominant.",
      ear:{hi:"even-heavy: sweet, consonant, organ-like — the octave and the fifth ride on the note", lo:"odd-heavy: hollow, reedy, a little clarinet — the twelfth and the seventeenth come forward"},
@@ -7441,7 +7503,7 @@ function toneRowDefs(){
      fmt:v=>fmtDb(v,1),
      detail:(v,s)=>(v>0.5?"even-leaning":(v<-0.5?"odd-leaning":"balanced"))+" · median over "+s.metrics.pitched+" comb-checked notes",
      reason:s=>_pitchReason(s)},
-    {g:"sound", term:"harmonic-richness", name:"Harmonic richness",
+    {g:"sound", term:"harmonic-richness", name:"Harmonic richness", perTake:true,
      unit:"energy in harmonics 2–10 against the fundamental, in dB — median over comb-checked notes",
      how:"For every note that passes the pitch check: the Welch spectrum over the note, the peaks at h·f₀ ± 3.5 % for h = 1…10, and 10·log₁₀ of the summed power of harmonics 2–10 over the fundamental's; the median over notes.",
      ear:{hi:"rich, jangly, brassy — the note is more overtone than fundamental", lo:"pure, plain, hollow — mostly the note itself, like a flute, or a bass through a dark amp"},
@@ -7450,7 +7512,7 @@ function toneRowDefs(){
      val:s=>s.metrics.richness, fmt:v=>fmtDb(v,1),
      detail:(v,s)=>"harmonics 2–10 against the fundamental · median over "+s.metrics.pitched+" comb-checked notes",
      reason:s=>_pitchReason(s)},
-    {g:"sound", term:"attack-spectrum", name:"Pick attack",
+    {g:"sound", term:"attack-spectrum", name:"Pick attack", perTake:true,
      unit:"brightness of the first 10 ms against the ring 300–500 ms later, in octaves — median over the longest notes",
      how:"For the longest notes that pass the pitch check: the spectral centroid of the first 10 ms after the onset and the centroid 300–500 ms later, log₂ of their ratio; the median over notes. Positive means the attack is brighter than the ring.",
      ear:{hi:"a click on the front of every note — a thin pick, a hard edge, the nail", lo:"a soft front — a thick rounded pick, the thumb; the note just appears"},
@@ -7477,14 +7539,14 @@ function toneRowDefs(){
      detail:(v,s)=>{ const m=s.metrics, b=[]; if(m.levelRms!=null) b.push("RMS "+m.levelRms.toFixed(1)+" dBFS"); if(m.levelPeak!=null) b.push("peak "+m.levelPeak.toFixed(1)+" dBFS");
        if(m.noiseFloor!=null) b.push("floor "+m.noiseFloor.toFixed(0)+" dBFS"); if(m.snr!=null) b.push("SNR "+m.snr.toFixed(0)+" dB");
        if(m.clipped) b.push("clipped — "+m.clipCount+" samples"); return b.join(" · "); }},
-    {g:"take", term:"dynamic-range", name:"Dynamic range",
+    {g:"take", term:"dynamic-range", name:"Dynamic range", perTake:true,
      unit:"95th minus 10th percentile of the 50 ms levels above the floor, in dB — the loud-to-quiet spread of the performance",
      how:"RMS in 50 ms frames, 25 ms hop; frames above the noise floor + 8 dB count as active; the 95th minus the 10th percentile of their levels, in dB.",
      sens:{k:"take", note:"a fact about the performance and the floor — a −60 dBFS floor took 4.7 dB off it in the audit (THEORY §7.4)"},
      lo:4, hi:30, ticks:["4 dB","30 dB"], more:"wider",
      val:s=>s.metrics.dr, fmt:v=>v.toFixed(1)+" dB",
      detail:()=>"95th − 10th percentile of 50 ms RMS frames above the floor + 8 dB"},
-    {g:"take", term:"residual", name:"Between notes",
+    {g:"take", term:"residual", name:"Between notes", perTake:true,
      unit:"the quietest 50 ms in each gap of 0.3 s or more against the note before it, in dB — median over gaps",
      how:"RMS in 50 ms frames, 25 ms hop; for every gap of at least 0.3 s between onsets, the gap's minimum minus the peak of the note before it; the median over gaps.",
      sens:{k:"take", note:"it rises with the room and the mic's distance (THEORY §7.6.9); a DI take has only the string's own ring and the noise floor here"},
@@ -7588,10 +7650,23 @@ function toneRecords(){
         else if(both) rec.evidence[i]={state:4, have:{}, need:{}, missing:[{what:"type", other:types[i]}]};
         continue;
       }
-      let v=null; try{ v=def.val(s,i); }catch(_e){}
+      // A stack of takes (2026-09-06): a Take row describes the SELECTED take (it is a fact
+      // about one recording); a spectral row reads take 0, which carries the mean spectrum;
+      // a note-based row (`perTake`) is the mean of the per-take values — geometric on a log
+      // axis — with each take's own number kept for the readout.
+      const takes=slotTakes(i), nT=takes.length;
+      const tv=def.text?viewRec(i):s;
+      let v=null, perVals=null;
+      if(def.text){ try{ v=def.val(tv,i); }catch(_e){} }
+      else if(def.perTake&&nT>1){
+        perVals=takes.map(t=>{ let x=null; try{ x=def.val(ownView(t),i); }catch(_e){} return (x==null||!isFinite(x)||(def.log&&x<=0))?null:x; });
+        const ok=perVals.filter(x=>x!=null);
+        if(ok.length) v=def.log?Math.exp(ok.reduce((a,x)=>a+Math.log(x),0)/ok.length):ok.reduce((a,x)=>a+x,0)/ok.length;
+      }
+      else { try{ v=def.val(s,i); }catch(_e){} }
       if(def.text){ rec[i?"bText":"aText"]=v||""; rec.evidence[i]={state:v?2:4, have:{}, need:{}, missing:v?[]:[{what:"value", reason:"nothing to report"}]};
-        try{ rec.detail[i]=def.detail?def.detail(v,s):""; }catch(_e){ rec.detail[i]=""; }
-        try{ rec.light[i]=def.light?def.light(s,i):null; }catch(_e){ rec.light[i]=null; } continue; }
+        try{ rec.detail[i]=(nT>1?takeNote(i)+" · ":"")+(def.detail?def.detail(v,tv):""); }catch(_e){ rec.detail[i]=""; }
+        try{ rec.light[i]=def.light?def.light(tv,i):null; }catch(_e){ rec.light[i]=null; } continue; }
       const ev=evidenceFor(def.term, evs[i]);
       if(v==null||!isFinite(v)||(def.log&&v<=0)){
         rec.reason[i]=(def.reason?def.reason(s):"")||"not measurable on this take";
@@ -7604,7 +7679,10 @@ function toneRecords(){
       if(ROOM_ROWS.has(def.term)&&s.metrics.room&&s.metrics.room.outlasts){ ev.state=Math.max(ev.state,3); ev.missing=ev.missing.concat([{what:"room", tail:s.metrics.room.t20, note:s.metrics.room.noteT20}]); }
       rec.evidence[i]=ev;
       rec[i?"b":"a"]=v; rec[i?"bText":"aText"]=def.fmt(v,s);
-      try{ rec.detail[i]=def.detail?def.detail(v,s):""; }catch(_e){ rec.detail[i]=""; }
+      try{ let d=def.detail?def.detail(v,perVals?ownView(viewRec(i)):s):"";
+        if(perVals){ const fm=x=>x==null?"—":(def.fmt?def.fmt(x,s):String(x)); d="mean over "+nT+" takes ("+perVals.map(fm).join(" · ")+")"+(d?" · for "+takeNote(i)+": "+d:""); }
+        else if(!def.text&&slotMeanOf(i)) d="from the mean spectrum of "+slotMeanOf(i)+" takes"+(d?" · "+d:"");
+        rec.detail[i]=d; }catch(_e){ rec.detail[i]=""; }
     }
     if(def.piezo&&[0,1].some(i=>state.slots[i]&&types[i]==="acoustic"&&applies(def,i))) rec.name="Pickup voice (piezo)";
     if(!def.text&&!def.noband) rec.band=toneBandFor(def.term);
@@ -7784,9 +7862,10 @@ function renderToneRows(){
   // disabled since E2, a status light dressed as a control. The status is said in words.
   const lv=liveToneBands();
   state.toneRepeat=lv.ready;
-  toneBandsStatus.textContent=lv.ready?"Reliability: measured from the takes on the cards"
+  toneBandsStatus.textContent=(lv.ready?"Reliability: measured from the takes on the cards"
     :state.toneBandsAt?"Reliability: bands saved "+new Date(state.toneBandsAt).toLocaleDateString()
-    :"Reliability: provisional until each guitar has two takes";
+    :"Reliability: provisional until each guitar has two takes")
+    +([0,1].some(i=>slotTakes(i).length>1)?" · Values: means over each guitar's takes; the Take rows read the selected take":"");
   toneSaveBandsBtn.disabled=!lv.ready;
 }
 // Two takes of each guitar → the spread per row is its band, live (liveToneBands). Save
@@ -8156,7 +8235,7 @@ function updateVisibility(){
   envSub.textContent=both
     ? "amplitude envelope in dB re full scale, A/B aligned at each file's first onset · tick marks show detected onsets"
     : "amplitude envelope in dB re full scale · tick marks show detected onsets";
-  const hasT=[0,1].map(i=>!!(state.slots[i]&&state.slots[i].tvis&&state.slots[i].tvis.sg));
+  const hasT=[0,1].map(i=>{ const s=viewRec(i); return !!(s&&s.tvis&&s.tvis.sg); });
   const missT=[0,1].filter(i=>state.slots[i]&&!hasT[i]);
   sgramCard.style.display=n?"":"none";
   envCard.style.display=n?"":"none";
@@ -9259,6 +9338,8 @@ function selectTake(i,k){
   if(cardPlaying(i)) stopPlayback();
   selTake[i]=k; cardPos[i]=0;
   renderCard(i);
+  requestDraw();      // the spectrogram and the envelope follow the selection
+  renderAnalysis();   // so do the Take rows of the tone panel
 }
 let playKeepPos=false, playTick=null;
 function cardDur(i){
@@ -10412,8 +10493,9 @@ function exportJSON(){
   if(!anyLoaded()) return;
   const files=[];
   for(let i=0;i<2;i++){
-    const s=state.slots[i];
-    if(!s) continue;
+    const s0=state.slots[i];
+    if(!s0) continue;
+    const s=ownView(s0); // take 0 as analysed on its own, never the mean of its stack
     const p=s.welch.power, db=new Array(p.length);
     for(let k=0;k<p.length;k++) db[k]=Math.round(powerToDb(p[k])*100)/100;
     // E2: further takes of the same guitar ride additively as takes[] — a v1 reader
@@ -10677,6 +10759,7 @@ function applySnapshot(snap){
     if(f.path&&["di","mic","piezo"].includes(f.path)) state.slotPaths[i]=f.path;
     _bindTakes(recs);
     state.slots[i]=recs[0];
+    refreshSlotMean(i);
     cardUI[i]={mode:"loaded"};
     renderCard(i);
   }

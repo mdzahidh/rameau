@@ -2151,6 +2151,44 @@ term is not, and prose in `ear`/`sens` must not spell those words with a hyphen.
 `.tonename small` unit line is read by `toneRowHtml` after the tag, so a tag must stay
 inline (`display:inline-block`) or the unit drops a line.
 
+## A stack of takes is its mean (2026-09-06)
+
+**Rule.** A guitar's takes are averaged wherever the view is time-invariant; a time view
+shows one selected take. Nothing else about the pipeline changed, which is the point of how
+it is done.
+
+- **The mean lives in take 0.** `state.slots[i]` was always take 0 with its siblings in a
+  non-enumerable `takes` array. `refreshSlotMean(i)` writes `meanPowerSpectra(own spectra)`
+  into take 0's `welch`, re-runs `computeSpectralExtras` on it (so `fixed6db`, `peaks`,
+  `centroid`, `tilt`, `hump`, `air`, `top`, `rumble` are measured on the mean) and sets
+  `meanOf`. Every consumer of `state.slots[i].welch/fixed6db/metrics` therefore reads the
+  mean without knowing — the LTAS plots, `displayedDb`, `nearFloorBands`, `bandTable`,
+  `afterDataChange`'s level-match offset, `eqFitData`, `annotationsFor`. With one take,
+  `refreshSlotMean` restores the take's own fields, so a single take is byte-identical.
+- **`own` is the escape hatch.** `computeSpectralExtras` stashes `{welch, fixed6db, spec}`
+  the first time it runs on an object (`analyzeSlot` clears it before a re-analysis).
+  `ownView(t)` returns a prototype-chained view of a take with its own spectrum and
+  spectral metrics restored — for a sibling that is the take itself. The reliability bands
+  (`liveToneBands`, through `def.val(ownView(t))` in `toneRecords`' perTake path) and the
+  snapshot writer read own views: **a band measured against the mean would be biased toward
+  zero, and a snapshot must round-trip each take as analysed.**
+- **Time metrics are never averaged across takes.** Notes cannot be merged across takes, so
+  a note-based row (`perTake:true`) averages the per-take *values*, geometric on a log axis,
+  and lists them; the take's own detail (per-note list) is printed for the selected take.
+  Take 0's `metrics` keeps its own time metrics — only the `SPEC_METRIC_KEYS` are replaced —
+  so `evidenceFor`, `comparability` and every note-based `val` on take 0 still see one take.
+- **`viewRec(i)` is the one door for time views.** It is `playRec(i)` (the card's selection)
+  with a fallback to the slot, defined in block 1 next to `slotTakes` and guarded so block 3
+  can call it before block 4 has run. Every reader of `tvis` in the spectrogram and envelope
+  paths goes through it; the M2.7 refine cache and `_sgShown` live on the take object, so a
+  switch costs one draw, not one FFT.
+
+**Traps.** `computeSpectralExtras` is in block 4 and the E2 test extracts it alone, so
+anything it references must be in block 0 (that is why `SPEC_METRIC_KEYS` lives there).
+`exportJSON` must read `ownView(state.slots[i])`, or a snapshot writes the mean as take 0 and
+loads back as a stack whose first take is already an average. `meanOf` is only ever set on
+take 0; a sibling's is undefined.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

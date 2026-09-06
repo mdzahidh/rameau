@@ -2361,6 +2361,14 @@ across takes, one over every note plus the flags) — one row or two. **Next:** 
 recording first (M5 capture and the guided take in Chrome and Safari), then E4–E7 and the EQ
 release pass, all still untested — then merge `e-feedback` to master.
 
+### 2026-09-06 — takes averaged; time views follow the selection ✅ BUILT (branch `e-feedback`)
+
+*User decision after the question "when we add a new take, are the spectrum, band energy
+re-computed?" — SPEC.md 2026-09-06 (a stack of takes is shown as its mean).* Everything
+without a time axis reads the mean of a guitar's takes; the spectrogram and the envelope read
+the selected take; chips name the source. **Open:** shrink the band as takes accumulate;
+Sustain's note matching against the other guitar's take 0 only.
+
 # Gated — do not start without explicit user go-ahead
 
 - **M3 — live input.** Still owes the task-based entry points deferred from M2.

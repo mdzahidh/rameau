@@ -920,6 +920,18 @@ build educational copy from it, never re-derive from scratch.
   now matches THEORY §7.6.3 (two-stage decay, not a swell). SPEC.md 2026-09-06 (second batch)
   has the row-by-row audit table. `tests/e.test.js` **219**. Awaiting the user's test —
   recording and E4–E7 still untested.
+- **Takes averaged; time views follow the selection BUILT (2026-09-06, branch `e-feedback`, user
+  decision).** A guitar with several takes is shown as the **mean of its takes** wherever the
+  view has no time axis: `meanPowerSpectra()` (block 0) averages power per take on take 0's Δf;
+  **take 0 carries the mean in place** (`refreshSlotMean(i)` on every landing / removal /
+  snapshot restore, then `computeSpectralExtras` on it), so plots, Band energy, the floor mask,
+  level match, EQ fit and the spectral tone rows read it unchanged; each take keeps its own
+  analysis under `own` (`ownView(t)`), which the bands and the snapshot writer read. Note-based
+  tone rows (`perTake:true`) print the mean of per-take values (geometric on log axes) and list
+  each take; Take rows read the **selected** take. The **spectrogram and envelope follow the
+  selected take** (`viewRec(i)` at every `tvis` reader; `selectTake` redraws). Chips: `A = mean
+  of 3 takes` on the spectrum, `take 2 of 3` on the time views. One take is byte-identical.
+  The add row reads *+ Add another take of this guitar*. `tests/e.test.js` **241**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -934,7 +946,7 @@ build educational copy from it, never re-derive from scratch.
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
 - The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 187**, headless **73**
-  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp 236, e **219**. **All node suites green since the
+  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp 236, e **241**. **All node suites green since the
   EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
   "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went
   0.999 → 1.022 dB there. The bound was not the defect: the fitter was in a local minimum on
