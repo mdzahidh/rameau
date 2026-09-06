@@ -219,9 +219,10 @@ section("E2.1 — a slot holds takes: one door, one array, no cycle in the seria
   ok(/async function analyzeSlot\(i,slot,seq,append\)/.test(b4) && /if\(append&&state\.slots\[i\]\) attachTake\(i,slot\);/.test(b4), "analyzeSlot has an append path that attaches instead of replacing");
   ok(/if\(!slot\.takes\) _bindTakes\(\[slot\]\);/.test(b4), "…and a re-analysis of the primary keeps its sibling takes");
   ok(/loadFileIntoSlot\(i,audio\[0\],\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take");
-  ok(/if\(!append\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]=null; state\.slotPaths\[i\]=null; \}/.test(b4), "the name, the type and the path override stay on the slot when a take is added, and drop when the slot is replaced");
+  ok(/if\(!append&&!\(opts&&opts\.keep\)\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]=null; state\.slotPaths\[i\]=null; \}/.test(b4), "the name, the type and the path override stay on the slot when a take is added or replaced from the stack (opts.keep), and drop when a new guitar replaces the slot");
   const lr = body("landRecording");
-  ok(/const append=!!state\.slots\[i\];/.test(lr) && /processing:proc\|\|null, protocol:protocol\|\|null \},seq,append\)/.test(lr), "a recorded take into a loaded slot is another take of that guitar");
+  ok(/const append=!!state\.slots\[i\]&&!keep;/.test(lr) && /if\(pr&&pr\.replace!=null&&slotTakes\(i\)\.length>1\) removeTake\(i,pr\.replace\);/.test(lr) && /processing:proc\|\|null, protocol:protocol\|\|null \},seq,append\)/.test(lr),
+    "a recorded take into a loaded slot is another take of that guitar; recorded from a row it replaces that row's take (2026-09-06)");
   const rt = body("removeTake");
   ok(/if\(arr\.length===1\)\{ clearSlot\(i\); return; \}/.test(rt) && /state\.slots\[i\]=arr\[0\];/.test(rt), "removing the last take clears the slot; removing take 0 promotes take 1");
 }
@@ -240,7 +241,8 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
   ok(/measured:true, live:true/.test(tb), "a live band is a measured band — it opens the verdict door");
   ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /v:Math\.max\(a\.v,b\.v\)/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and take the larger spread");
   ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(t\);/.test(lv), "…and every take's value comes from the same def.val the panel prints");
-  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneRepeatToggle\.disabled=true;/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr), "the switch is set by the app and disabled; Save follows it");
+  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr) && !/toneRepeatToggle/.test(html),
+    "the switch is gone (2026-09-06); a status line says where the bands come from, and Save follows it");
   ok(!/kind:"repeat"/.test(tr), "the old repeat-mode verdict is gone — live bands flow through the one door");
   ok(/for\(const k in lv\.bands\)/.test(sv) && /state\.toneBands\[k\]=\{v:lv\.bands\[k\]\.v\};/.test(sv), "Save persists the live spreads");
 }
@@ -248,11 +250,15 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
 section("E2.4–E2.6 — the card: name headline, take list, readiness, one Play/Pause, the waveform");
 {
   const rc = body("renderCard"), th = body("transportHtml"), tr = body("takeReadiness"), b4 = blocks[4];
-  ok(/<div class="filesub"><span class="filename"/.test(rc) && /class="slotname/.test(rc), "the name is the headline and the file sits under it");
-  ok(/<div class="takelist">'\+takeRows\+adding\+addRow\+'<\/div>/.test(rc) && /data-act="addfile"/.test(rc), "a take list with + Add take (open or record)");
+  ok(/class="slotname/.test(rc) && !/class="filesub"/.test(rc) && /const s=playRec\(i\)\|\|state\.slots\[i\], info=s\.info/.test(rc), "the name is the headline; the file lives in its take row and the facts line describes the selected take (2026-09-06)");
+  ok(/<div class="takelist">'\+takeRows\+adding\+addRow\+'<\/div>/.test(rc) && /data-act="addfile"/.test(rc) && /<div class="takerow takeadd"><span class="k">New take<\/span>/.test(rc), "a stack of takes with a New take row (open or record)");
+  ok(/data-act="replace" data-take="'\+k\+'" title="Replace this take with a file">Open file/.test(rc) && /data-act="record" data-take="'\+k\+'" title="Replace this take with a new recording">● Record/.test(rc) && /data-act="cleartake" data-take="'\+k\+'"/.test(rc),
+    "…every row carries Open file, Record and Remove, and the first two replace that row's take");
+  ok(/\(t===sel\?" sel":""\)/.test(rc) && /if\(row&&!e\.target\.closest\("button"\)\)\{ selectTake\(i,\+row\.dataset\.take\); return; \}/.test(b4) && /startPlayback\(i,null,null,\(\)=>cardPlayStopped\(i\),o,playRec\(i\)\)/.test(body("startCardPlay")) && /const s=playRec\(i\); if\(!s\|\|!s\.tvis\) return;/.test(body("drawWave")),
+    "…one transport per card: a row click selects the take, and Play, the waveform and the seek address the selected one");
   ok(/<label class="typelbl'\+\(slotType\(i\)\?"":" unset"\)\+'">Type <select class="slottype"/.test(rc) && /<option value=""'\+\(slotType\(i\)\?"":" selected"\)\+'>Not set — choose…<\/option>/.test(rc),
     "the type select is labelled Type and starts at Not set (2026-09-06)");
-  ok(/data-act="record" title="Record a take into this slot">● Record<\/button>':""\)\+\s*'<button class="iconbtn" data-act="clear"/.test(rc) && !/data-act="record"/.test(th), "● Record sits beside ⟳ Replace and ✕ Clear, not in the transport");
+  ok(!/data-act="record"/.test(th) && !/data-act="replace" data-take="0" title="Replace with another file"/.test(rc) && /data-act="clear" title="Clear this card/.test(rc), "the head keeps only ✕ Clear; Record and Replace live on the take rows, never in the transport");
   ok(/data-act="playpause"/.test(th) && !/cardpause/.test(th) && !/type="range" class="seek"/.test(th), "one Play/Pause toggle, no separate pause button, no bare range");
   ok(/<canvas class="wave" data-seek/.test(th) && /seekCard\(i,\{value:waveSeekValue\(cv,e\)\},false\)/.test(b4) && /seekCard\(i,\{value:waveSeekValue\(d\.cv,e\)\},true\)/.test(b4),
     "the waveform seeks through the same seekCard(): preview while down, commit on release");

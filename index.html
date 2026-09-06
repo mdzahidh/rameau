@@ -403,6 +403,7 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .recstep.warn{ border-color:#d94a3d; }
 .recstep.warn .recprog{ color:#d94a3d; }
 .recnote.recfail{ color:#d94a3d; }
+.tonestatus{ font-size:11px; color:var(--dim); white-space:nowrap; }
 .readiness{ font:inherit; font-size:11px; color:var(--mut); background:transparent; border:0; padding:0; cursor:help; display:inline-flex; align-items:center; gap:6px; margin-left:auto; flex:none; }
 .readiness:hover{ color:var(--ink); }
 .readiness .rdot{ width:9px; height:9px; border-radius:50%; background:#3aa55d; flex:none; }
@@ -416,6 +417,13 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .takerow .takedur{ font-variant-numeric:tabular-nums; color:var(--dim); flex:none; }
 .takerow .takeacts{ display:flex; gap:3px; flex:none; }
 .takerow .takeacts .iconbtn{ padding:1px 6px; font-size:10.5px; }
+.takerow[data-take]{ cursor:pointer; padding:3px 6px; margin:0 -6px; border-radius:5px; }
+.takerow[data-take]:hover{ background:var(--panel2); }
+.takerow.sel{ background:var(--panel2); box-shadow:inset 2px 0 0 var(--slot-c); }
+.takerow .takeprim{ font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-left:6px; }
+.takerow.takeadd{ cursor:default; color:var(--dim); }
+.takerow.takeadd:hover{ background:transparent; }
+.takerow.takeadd .k{ font-size:11px; }
 .takerow.adding .progresswrap{ flex:1; margin:0; }
 .takeadd{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--dim); margin-top:2px; }
 .takeadd .k{ margin-right:2px; }
@@ -1129,8 +1137,8 @@ kbd{
           </div>
         </div>
         <div class="controls">
-          <div class="ctlgroup" title="Load two takes of the same guitar: every row then shows how far its number moved, and Save keeps that as the row's reliability band">
-            <label class="switch" id="toneRepeatSwitch"><input type="checkbox" id="toneRepeatToggle"><span class="tk"></span><span class="lbl">Same guitar, two takes</span></label>
+          <div class="ctlgroup" title="Two takes of each guitar measure how far every row moves on its own; Save keeps that as the rows' reliability bands">
+            <span class="tonestatus" id="toneBandsStatus"></span>
             <button class="btn" id="toneSaveBandsBtn" disabled title="Keep these spreads as the reliability bands">Save as bands</button>
           </div>
           <div class="exports">
@@ -5696,6 +5704,7 @@ function removeTake(i,k){
   stopPlayback();
   arr.splice(k,1); _bindTakes(arr);
   state.slots[i]=arr[0];
+  if(selTake[i]>=arr.length) selTake[i]=arr.length-1; else if(selTake[i]>k) selTake[i]--;
   cardPos[i]=0;
   renderCard(i);
   afterDataChange(true);
@@ -5727,7 +5736,7 @@ const diffSub=el("diffSub"), diffWrap=el("diffWrap"),
       diffCanvas=el("diffCanvas"), diffXline=el("diffXline"), diffReadout=el("diffReadout");
 // aliases for pre-M2.6f card IDs (now sub-sections inside #freqCard)
 const diffCard=freqDiff, specCard=freqSpec;
-const toneCard=el("toneCard"), toneRows=el("toneRows"), toneCompat=el("toneCompat"), toneRepeatToggle=el("toneRepeatToggle"), toneSaveBandsBtn=el("toneSaveBandsBtn"),
+const toneCard=el("toneCard"), toneRows=el("toneRows"), toneCompat=el("toneCompat"), toneBandsStatus=el("toneBandsStatus"), toneSaveBandsBtn=el("toneSaveBandsBtn"),
       prosePara=el("prosePara"), toneNote=el("toneNote");
 const sgramCard=el("sgramCard"), sgramNote=el("sgramNote"), sgramSub=el("sgramSub"),
       sgramWraps=[el("sgramWrapA"),el("sgramWrapB")],
@@ -5811,7 +5820,9 @@ async function loadFileIntoSlot(i,file,opts){
     catch(err){ toast("Snapshot: "+(err.message||"could not be read."),true); }
     return;
   }
-  if(!append){ state.slotNames[i]=""; state.slotTypes[i]=null; state.slotPaths[i]=null; }
+  // opts.keep (2026-09-06): replacing a take from the card's stack keeps the name, type and
+  // path — the card is that guitar, and a new take of it is not a new guitar.
+  if(!append&&!(opts&&opts.keep)){ state.slotNames[i]=""; state.slotTypes[i]=null; state.slotPaths[i]=null; }
   const seq=++loadSeq[i];
   if(append){ cardUI[i]={mode:"loaded", adding:{name:file.name,label:"Reading file…",frac:0.02}}; renderCard(i); }
   else { cardUI[i]={mode:"loading",name:file.name,label:"Reading file…",frac:0.02}; renderCard(i); }
@@ -6063,7 +6074,7 @@ async function computeTimeMetrics(slot, onProgress){
 const NOTE_MIN_GAP=0.45, NOTE_MAX_HEAVY=12;
 
 function clearSlot(i){
-  loadSeq[i]++;
+  loadSeq[i]++; selTake[i]=0;
   state.slotNames[i]="";
   state.slotTypes[i]=null; state.slotPaths[i]=null;
   state.slots[i]=null;
@@ -7700,12 +7711,13 @@ function renderToneRows(){
       (bits.length?"the "+bits.join(", ")+(bits.length>1?" differ":" differs")+" too much. Rows those affect show no verdict; "+termHtml("level-match","level-match")+" cannot fix that — see "+termHtml("comparability","what a fair comparison needs")+".":"");
     toneCompat.style.display="";
   } else toneCompat.style.display="none";
-  // E2.3: "Same guitar, two takes" is set by the app — on when both slots hold two or
-  // more takes — and is no longer a control. Save keeps the live bands across sessions.
+  // The "Same guitar, two takes" switch is gone (user, 2026-09-06): it had been app-set and
+  // disabled since E2, a status light dressed as a control. The status is said in words.
   const lv=liveToneBands();
   state.toneRepeat=lv.ready;
-  toneRepeatToggle.checked=lv.ready;
-  toneRepeatToggle.disabled=true;
+  toneBandsStatus.textContent=lv.ready?"Reliability: measured from the takes on the cards"
+    :state.toneBandsAt?"Reliability: bands saved "+new Date(state.toneBandsAt).toLocaleDateString()
+    :"Reliability: provisional until each guitar has two takes";
   toneSaveBandsBtn.disabled=!lv.ready;
 }
 // Two takes of each guitar → the spread per row is its band, live (liveToneBands). Save
@@ -8245,8 +8257,8 @@ function renderCard(i){
   // loaded (E2.4): the name is the headline, the file sits small and grey under it, the
   // takes are a list with a readiness dot each, and the transport is one Play/Pause plus
   // the waveform. ● Record lives beside ⟳ Replace: both act on the slot, not the sound.
-  const s=state.slots[i], info=s.info, m=s.metrics||{};
   const takes=slotTakes(i);
+  const s=playRec(i)||state.slots[i], info=s.info, m=s.metrics||{};   // the facts line describes the selected take
   const parts=[esc(String(info.container))];
   parts.push(termHtml("sample-rate",rateK(info.sampleRate)));
   if(info.bitDepth!=null) parts.push(esc(typeof info.bitDepth==="number"?info.bitDepth+"-bit":String(info.bitDepth)));
@@ -8265,26 +8277,30 @@ function renderCard(i){
     const b=(mo,lb)=>'<button data-ch="'+mo+'" class="'+(s.channelMode===mo?"on":"")+'">'+lb+'</button>';
     chseg='<div class="seg" title="Channel used for analysis">'+b("mid","Mid")+b("left","L")+b("right","R")+'</div>';
   }
-  // E2.5: one dot and one phrase per take; the numbers are the tap.
-  const rd=takeReadiness(s,i);
-  const readiness='<button class="readiness '+rd.level+'" data-ready="0" title="What this take supports — click for the numbers"><span class="rdot"></span>'+esc(rd.phrase)+'</button>';
+  // The card is a stack of takes (user request 2026-09-06): the head is the guitar — chip,
+  // name, kind — and every row is one take with its own Open file / Record (which REPLACE that
+  // take) and Remove; a last, empty row adds. One transport for the card plays the selected
+  // row. Take 0 is the one the plots and rows read, and its row says so.
+  const sel=playRec(i);
+  const rec=recSupported();
   const takeRows=takes.map((t,k)=>{
-    const r=k===0?rd:takeReadiness(t,i);
+    const r=takeReadiness(t,i);
     const dur=t.duration!=null&&isFinite(t.duration)?(t.duration>=10?Math.round(t.duration)+" s":t.duration.toFixed(1)+" s"):"";
     const save=(t.kind==="recording"&&t.audioBuf)?'<button class="iconbtn" data-act="save" data-take="'+k+'" title="Save as '+esc(takeFileName(i,k))+' — a 32-bit float WAV at its own sample rate, the guitar\u2019s name written into it">⭳ Save</button>':"";
-    return '<div class="takerow'+(k===0?" primary":"")+'" data-take="'+k+'">'+
+    return '<div class="takerow'+(k===0?" primary":"")+(t===sel?" sel":"")+'" data-take="'+k+'" title="'+(t===sel?"Selected — the transport plays this take":"Click to select this take for playback")+'">'+
       '<button class="readiness '+r.level+'" data-ready="'+k+'" title="'+esc(r.phrase)+' — click for the numbers"><span class="rdot"></span></button>'+
-      '<span class="takename" title="'+esc(t.name)+'">'+esc(t.name)+'</span>'+
+      '<span class="takename" title="'+esc(t.name)+'">'+esc(t.name)+(k===0&&takes.length>1?' <span class="takeprim" title="The plots and the tone rows read this take; the others feed the reliability bands">measured</span>':"")+'</span>'+
       '<span class="takedur">'+dur+'</span>'+
       '<span class="takeacts">'+save+
-      '<button class="iconbtn" data-act="replace" data-take="'+k+'" title="Replace this take with another file">⟳</button>'+
-      '<button class="iconbtn" data-act="cleartake" data-take="'+k+'" title="'+(takes.length>1?"Remove this take":"Clear this slot")+'">✕</button></span></div>';
+      '<button class="iconbtn" data-act="replace" data-take="'+k+'" title="Replace this take with a file">Open file</button>'+
+      (rec?'<button class="iconbtn" data-act="record" data-take="'+k+'" title="Replace this take with a new recording">● Record</button>':"")+
+      '<button class="iconbtn" data-act="cleartake" data-take="'+k+'" title="'+(takes.length>1?"Remove this take":"Remove the only take — clears the card")+'">✕</button></span></div>';
   }).join("");
   const adding=ui.adding?'<div class="takerow adding"><span class="takename">'+esc(ui.adding.name||"")+'</span>'+
     '<div class="progresswrap"><div class="progressbar"><i style="width:'+Math.round((ui.adding.frac||0)*100)+'%"></i></div><div class="progresslabel">'+esc(ui.adding.label||"")+'</div></div></div>':"";
-  const addRow=ui.adding?"":'<div class="takeadd"><span class="k">+ Add take</span>'+
-    '<button class="iconbtn" data-act="addfile" title="Another recording of the same guitar — the reliability bands measure themselves from two">Open file…</button>'+
-    (recSupported()?'<button class="iconbtn" data-act="record" title="Record another take of this guitar">● Record…</button>':"")+'</div>';
+  const addRow=ui.adding?"":'<div class="takerow takeadd"><span class="k">New take</span><span class="takename"></span><span class="takeacts">'+
+    '<button class="iconbtn" data-act="addfile" title="Another recording of the same guitar — the reliability bands measure themselves from two">Open file</button>'+
+    (rec?'<button class="iconbtn" data-act="record" title="Record another take of this guitar">● Record</button>':"")+'</span></div>';
   card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
     '<span class="slotname'+(slotName(i)?'':' unset')+'" title="Click to rename">'+
     esc(slotName(i)||("Guitar "+SLOT_LETTER[i]))+'</span>'+
@@ -8294,13 +8310,9 @@ function renderCard(i){
     '<option value="solid"'+(slotType(i)==="solid"?" selected":"")+'>Solidbody electric</option>'+
     '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollowbody electric</option>'+
     '<option value="acoustic"'+(slotType(i)==="acoustic"?" selected":"")+'>Acoustic</option></select></label>'+
-    '<button class="iconbtn" data-act="replace" data-take="0" title="Replace with another file">⟳ Replace</button>'+
-    (recSupported()?'<button class="iconbtn" data-act="record" title="Record a take into this slot">● Record</button>':"")+
-    '<button class="iconbtn" data-act="clear" title="Clear this slot">✕ Clear</button></span></div>'+
-    '<div class="filesub"><span class="filename" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+
-    (takes.length>1?'<span class="takecount">'+takes.length+' takes</span>':"")+readiness+'</div>'+
-    transportHtml(i)+
+    '<button class="iconbtn" data-act="clear" title="Clear this card — every take, the name and the kind">✕ Clear</button></span></div>'+
     '<div class="takelist">'+takeRows+adding+addRow+'</div>'+
+    transportHtml(i)+
     '<div class="fileinfo">'+parts.join('<span class="sep">·</span>')+'</div>'+
     (chseg||chips.length?'<div class="filemeta">'+chseg+chips.join("")+'</div>':"");
   drawWave(i);
@@ -8346,7 +8358,7 @@ function openReadinessPop(i,k,anchor){
 const WAVE_H=44, WAVE_HEAD={bright:"#0b5fff", dark:"#7CFC00"};
 function drawWave(i){
   const cv=cards[i].querySelector("canvas.wave"); if(!cv) return;
-  const s=state.slots[i]; if(!s||!s.tvis) return;
+  const s=playRec(i); if(!s||!s.tvis) return;
   const {ctx,w,h}=setupCanvas(cv);
   ctx.clearRect(0,0,w,h);
   const env=s.tvis.env, n=env.length, dur=cardDur(i);
@@ -8674,8 +8686,9 @@ function initRecDevices(){
   if(navigator.mediaDevices.addEventListener)
     navigator.mediaDevices.addEventListener("devicechange",refreshRecDevices);
 }
-function armRecording(i){
+function armRecording(i,replaceK){
   if(!recSupported()){ toast("This browser can't record audio.",true); return; }
+  pendingRec[i]=(replaceK!=null&&replaceK>=0)?{replace:replaceK}:null;
   if(recState.active!=null){ toast(slotLabel(recState.active)+" is recording — stop it first.",true); return; }
   // First arm builds the device list. Deliberately not at boot: enumerateDevices()
   // wakes the browser's audio service, and a page that never records should never
@@ -9034,7 +9047,12 @@ async function landRecording(i,buf,proc,protocol){
       "Change the device's rate in your system audio settings and record again.");
     return;
   }
-  const append=!!state.slots[i];
+  // A take recorded from a row that already holds one replaces it (remove, then append —
+  // the name stays); the stack's only take is replaced in place, identity kept.
+  const pr=pendingRec[i]; pendingRec[i]=null;
+  if(pr&&pr.replace!=null&&slotTakes(i).length>1) removeTake(i,pr.replace);
+  const keep=!!(pr&&pr.replace!=null&&state.slots[i]&&slotTakes(i).length===1);
+  const append=!!state.slots[i]&&!keep;
   if(append) cardUI[i]={mode:"loaded", adding:{name:name,label:"Measuring take…",frac:0.35}};
   else cardUI[i]={mode:"loading",name:name,label:"Measuring take…",frac:0.35};
   renderCard(i);
@@ -9056,8 +9074,8 @@ async function landRecording(i,buf,proc,protocol){
 // the file's own rate; the source node resamples to the output device. One
 // playback at a time, one lazily-created output context for the whole app.
 let playCtx=null, playCur=null;
-function canPlay(i){
-  const s=state.slots[i];
+function canPlay(i,rec){
+  const s=rec||state.slots[i];
   return !!(s&&s.samples&&s.samples.length&&s.info&&s.info.sampleRate>0);
 }
 // Same rule as the plots: level-match applies its offset to B only.
@@ -9073,15 +9091,15 @@ function stopPlayback(){
 // f0/f1 in Hz bound the audition band-pass; pass null for full-range playback.
 // The band edges are 4th-order Butterworth: two biquad sections per side with
 // Q 0.5412 / 1.3066 (poles at 22.5° and 67.5°), i.e. 24 dB/oct outside the band.
-function startPlayback(i,f0,f1,onstop,off){
+function startPlayback(i,f0,f1,onstop,off,rec){
   stopPlayback();
-  if(!canPlay(i)) return false;
+  const s=rec||state.slots[i];
+  if(!canPlay(i,s)) return false;
   if(!playCtx||playCtx.state==="closed"){
     const AC=window.AudioContext||window.webkitAudioContext;
     if(!AC) return false;
     playCtx=new AC();
   }
-  const s=state.slots[i];
   const buf=playCtx.createBuffer(1,s.samples.length,s.info.sampleRate);
   buf.getChannelData(0).set(s.samples);
   const src=playCtx.createBufferSource();
@@ -9157,11 +9175,22 @@ function setPopPlayUI(btn){
 // is a restart at a new one; `playKeepPos` is how the shared onstop tells those two
 // apart from a real Stop. Stop, natural end, Esc, a data change and the lm toggle
 // all arrive through stopPlayback() with the flag down, so they all reset the slider.
-const cardPos=[0,0], cardSeek=[false,false], pendingFile=[null,null];
+const cardPos=[0,0], cardSeek=[false,false], pendingFile=[null,null], pendingRec=[null,null];
+// The card is a stack of takes with one transport (user request 2026-09-06): the selected
+// take is the one Play, the waveform and the seek address. Session state, never persisted;
+// analysis still reads take 0 (the primary), which the row marks.
+const selTake=[0,0];
+function playRec(i){ const arr=slotTakes(i); if(!arr.length) return null; if(selTake[i]>=arr.length) selTake[i]=0; return arr[selTake[i]]; }
+function selectTake(i,k){
+  const arr=slotTakes(i); if(k<0||k>=arr.length||selTake[i]===k) return;
+  if(cardPlaying(i)) stopPlayback();
+  selTake[i]=k; cardPos[i]=0;
+  renderCard(i);
+}
 let playKeepPos=false, playTick=null;
 function cardDur(i){
-  const s=state.slots[i];
-  return canPlay(i)?s.samples.length/s.info.sampleRate:0;
+  const s=playRec(i);
+  return canPlay(i,s)?s.samples.length/s.info.sampleRate:0;
 }
 function cardPlaying(i){ return !!(playCur&&playCur.card&&playCur.i===i); }
 function cardPosNow(i){
@@ -9171,7 +9200,7 @@ function cardPosNow(i){
 // Built fresh on every renderCard, so a re-render restores the live position
 // instead of snapping the slider back to zero under a playing take.
 function transportHtml(i){
-  if(!canPlay(i)) return "";
+  if(!canPlay(i,playRec(i))) return "";
   const dur=cardDur(i), pos=Math.min(dur,cardPosNow(i)), on=cardPlaying(i), g=playGainDb(i);
   return '<div class="transport">'+
     '<button class="iconbtn cardplay'+(on?" playing":"")+'" data-act="playpause" title="'+(on?"Pause — the playhead keeps its place":"Play the analyzed mono mix"+(i===1?" — level-match gain applies when it’s on":""))+'">'+
@@ -9218,7 +9247,7 @@ function startCardPlay(i,off){
   let o=Math.max(0,Math.min(off||0,dur));
   if(dur>0&&dur-o<0.02) o=0;      // ▶ at the very end starts the take over
   playKeepPos=true;               // the stop inside startPlayback is not a Stop
-  const ok=startPlayback(i,null,null,()=>cardPlayStopped(i),o);
+  const ok=startPlayback(i,null,null,()=>cardPlayStopped(i),o,playRec(i));
   playKeepPos=false;
   if(!ok) return;
   playCur.card=true;              // a region audition of the same slot is not this
@@ -11052,7 +11081,6 @@ function boot(){
     const t=e.target.closest(".slottype"); if(t) setSlotType(i,t.value);
   }));
   // E2.3: the switch is read-only — the app sets it from the takes in the slots.
-  toneRepeatToggle.addEventListener("change",()=>{ renderToneRows(); });
   toneSaveBandsBtn.addEventListener("click", saveToneBands);
   if(debugLoadBtn) debugLoadBtn.addEventListener("click",()=>loadDemo());
   guideBtn.addEventListener("click",()=>guideModal.classList.add("open"));
@@ -11233,6 +11261,8 @@ function boot(){
       if(e.target.closest(".slotname-edit")) return;            // typing a name
       if(e.target.closest(".slotname")){ beginRename(i); return; }
       if(e.target.closest("select,input[type=range]")) return;   // the record panel's own controls, the seek slider
+      const row=e.target.closest(".takerow[data-take]");
+      if(row&&!e.target.closest("button")){ selectTake(i,+row.dataset.take); return; }
       const act=e.target.closest("[data-act]");
       if(act){
         const a=act.dataset.act;
@@ -11243,7 +11273,7 @@ function boot(){
         else if(a==="playpause"){ if(cardPlaying(i)) pauseCardPlay(i); else toggleCardPlay(i); }
         else if(a==="play") toggleCardPlay(i);
         else if(a==="pause") pauseCardPlay(i);
-        else if(a==="record") armRecording(i);
+        else if(a==="record") armRecording(i,tk);
         else if(a==="save") saveTake(i,tk||0);
         else if(a==="recperm") requestMicAccess(i);
         else if(a==="recheck") recheckRecChannels(i);
@@ -11297,6 +11327,7 @@ function boot(){
       // replaces the slot as before.
       if(pf&&pf.append&&state.slots[i]) loadFileIntoSlot(i,f,{append:true});
       else if(pf&&pf.replace!=null&&slotTakes(i).length>1){ removeTake(i,pf.replace); loadFileIntoSlot(i,f,{append:true}); }
+      else if(pf&&pf.replace!=null&&state.slots[i]) loadFileIntoSlot(i,f,{keep:true});   // the stack's only take: same guitar, new take
       else loadFileIntoSlot(i,f);
       fileInputs[i].value="";
     });
