@@ -306,7 +306,7 @@ section("E2.4–E2.6 — the card: name headline, take list, readiness, one Play
 {
   const rc = body("renderCard"), th = body("transportHtml"), tr = body("takeReadiness"), b4 = blocks[4];
   ok(/class="slotname/.test(rc) && !/class="filesub"/.test(rc) && /const s=playRec\(i\)\|\|state\.slots\[i\], info=s\.info/.test(rc), "the name is the headline; the file lives in its take row and the facts line describes the selected take (2026-09-06)");
-  ok(/<div class="takelist">'\+takeRows\+adding\+addRow\+'<\/div>/.test(rc) && /data-act="addfile"/.test(rc) && /<div class="takerow takeadd"><span class="k">New take<\/span>/.test(rc), "a stack of takes with a New take row (open or record)");
+  ok(/<div class="takelist">'\+takeRows\+adding\+addRow\+'<\/div>/.test(rc) && /data-act="addfile"/.test(rc) && /<div class="takerow takeadd"><span class="k">\+ Add another take of this guitar<\/span>/.test(rc), "a stack of takes with an add-another-take row (open or record)");
   ok(/data-act="replace" data-take="'\+k\+'" title="Replace this take with a file">Open file/.test(rc) && /data-act="record" data-take="'\+k\+'" title="Replace this take with a new recording">● Record/.test(rc) && /data-act="cleartake" data-take="'\+k\+'"/.test(rc),
     "…every row carries Open file, Record and Remove, and the first two replace that row's take");
   ok(/\(t===sel\?" sel":""\)/.test(rc) && /if\(row&&!e\.target\.closest\("button"\)\)\{ selectTake\(i,\+row\.dataset\.take\); return; \}/.test(b4) && /startPlayback\(i,null,null,\(\)=>cardPlayStopped\(i\),o,playRec\(i\)\)/.test(body("startCardPlay")) && /const s=playRec\(i\); if\(!s\|\|!s\.tvis\) return;/.test(body("drawWave")),

@@ -423,7 +423,7 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .takerow .takeprim{ font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-left:6px; }
 .takerow.takeadd{ cursor:default; color:var(--dim); }
 .takerow.takeadd:hover{ background:transparent; }
-.takerow.takeadd .k{ font-size:11px; }
+.takerow.takeadd .k{ font-size:11.5px; color:var(--mut); }
 .takerow.adding .progresswrap{ flex:1; margin:0; }
 .takeadd{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--dim); margin-top:2px; }
 .takeadd .k{ margin-right:2px; }
@@ -8367,9 +8367,9 @@ function renderCard(i){
   }).join("");
   const adding=ui.adding?'<div class="takerow adding"><span class="takename">'+esc(ui.adding.name||"")+'</span>'+
     '<div class="progresswrap"><div class="progressbar"><i style="width:'+Math.round((ui.adding.frac||0)*100)+'%"></i></div><div class="progresslabel">'+esc(ui.adding.label||"")+'</div></div></div>':"";
-  const addRow=ui.adding?"":'<div class="takerow takeadd"><span class="k">New take</span><span class="takename"></span><span class="takeacts">'+
-    '<button class="iconbtn" data-act="addfile" title="Another recording of the same guitar — the reliability bands measure themselves from two">Open file</button>'+
-    (rec?'<button class="iconbtn" data-act="record" title="Record another take of this guitar">● Record</button>':"")+'</span></div>';
+  const addRow=ui.adding?"":'<div class="takerow takeadd"><span class="k">+ Add another take of this guitar</span><span class="takename"></span><span class="takeacts">'+
+    '<button class="iconbtn" data-act="addfile" title="Open another recording of the same guitar — the reliability bands measure themselves from two">+ Open file</button>'+
+    (rec?'<button class="iconbtn" data-act="record" title="Record another take of this guitar">+ ● Record</button>':"")+'</span></div>';
   card.innerHTML='<div class="filehead"><span class="slotchip" title="'+esc(slotLabel(i))+' — click to rename or recolor">'+letter+'</span>'+
     '<span class="slotname'+(slotName(i)?'':' unset')+'" title="Click to rename">'+
     esc(slotName(i)||("Guitar "+SLOT_LETTER[i]))+'</span>'+
