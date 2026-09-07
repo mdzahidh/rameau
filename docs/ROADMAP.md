@@ -2391,6 +2391,14 @@ blocker); Save as bands folded into the JSON export; Guided on by default, remem
 button → GitHub issue form, prefilled setup, nothing sent by the page. **Closes** three of the four
 open taste calls (stiffness, Save as bands, Guided default); E5.4 default vocabulary stays open.
 
+### 2026-09-06 — visibility ✅ BUILT (branch `e-feedback`)
+
+*SPEC.md 2026-09-06 "Visibility".* Address on every export, Open Graph/Twitter metadata, Share
+image + Copy link, demo declares its kind, `?scrollto`/deferred `?feedback`, README led by
+screenshots, GitHub topics/description. **Owner:** social preview image, push, release tag,
+posts (communities, Show HN, video). **Open:** the demo pair's own floors differ by 38 dB, so
+the landing page opens on *Not directly comparable* — honest, but a first impression to revisit.
+
 # Gated — do not start without explicit user go-ahead
 
 - **M3 — live input.** Still owes the task-based entry points deferred from M2.

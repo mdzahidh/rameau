@@ -3434,3 +3434,42 @@ and six of six launches drew both panes afterwards. `tests/e.test.js` **287** pi
 **Verification, in proportion:** `tests/e.test.js` 287 → **298** (the row and Save removals are
 inverted contracts; the template's field ids, the URL shape, the no-audio rule and the new-tab rule
 are pinned), node gate green; the full gate once at the end of the day's batches.
+
+## 2026-09-06 — Visibility: the address on everything that leaves the page, a share image, link unfurls, a README led by screenshots (user request, reviewer-built; branch `e-feedback`)
+
+The user asked what the app itself and the repository can do for discoverability, then said
+*build all the in-app parts (including the links and names in exported data and PNGs), link
+sharing and the GitHub elements, README led by screenshots.* Built:
+
+- **One address, printed everywhere.** `APP_URL` / `APP_REPO` / `APP_HOST` beside `APP_NAME`.
+  Every PNG footer reads *made with Claude Rameau · mdzahidh.github.io/rameau*; every CSV header
+  carries `# <url> · source <repo>`; the JSON snapshot carries `url` and `repo`; the EQ "Copy
+  settings" text ends with the address. `FEEDBACK_REPO` is `APP_REPO`.
+- **A pasted link unfurls.** `<head>` gains a description, a canonical link, Open Graph (title,
+  description, url, 1200×630 image at `docs/img/og.png`) and a Twitter `summary_large_image` card;
+  the `<title>` says what the app does.
+- **Share.** Two buttons under At a glance: **Share image** builds a 1200×630 PNG — the same
+  spectrum scene the plot draws (`drawSpectrumScene` on `buildSpecModel(true)`), the At a glance
+  text wrapped beside it, the guitars' names, tuning and date, and the address — through the same
+  PNG path as every export; **Copy link** copies the app's address. Nothing is sent; no file name
+  is drawn (inverted contract).
+- **The demo declares its kind.** `loadDemo` sets both slots to solidbody: it is the app's own
+  material, and a first visitor should see the instrument rows open, not a request to set a kind.
+  (The demo pair still reads *Not directly comparable — noise floor 38 dB apart*: the two synths
+  really do have different floors. Left honest; flagged to the user.)
+- **Two landing hooks** for captures (`runLandingHooks()` at the end of `afterDataChange`):
+  `?scrollto=<id>` scrolls a card into view once both guitars have landed (a URL fragment cannot —
+  the cards are hidden at load), and `?feedback` now opens the dialog after the data it describes
+  exists. Session-only, no UI.
+- **README led by screenshots** (`docs/img/hero|tone|sgram|feedback|dark|spectrum.png`, captured
+  through headless Chrome at 1440 px, bright theme), the live link first, a *Feedback and bug
+  reports* section, the privacy section corrected — it claimed *no analytics*, and the page has
+  carried a DNT-aware Google tag since the rename; it now says exactly what that tag is and is not.
+- **GitHub:** topics set (`guitar, audio-analysis, spectrum-analyzer, web-audio, spectrogram, tone,
+  dsp, music, offline-first, single-file, luthier, harmonics`), description and homepage set through
+  `gh`. **Left for the owner:** upload `docs/img/og.png` as the repository's social preview
+  (Settings → General → Social preview — no API for it), push and tag a release, and post.
+
+**Verification, in proportion:** `tests/e.test.js` 298 → **305** (head metadata, the images in the
+repository, the footers/headers count, the share image's shape and the inverted no-network rule,
+the demo kind and the hooks); the screenshots read by eye; full gate at the end of the day.

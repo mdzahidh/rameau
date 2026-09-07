@@ -665,7 +665,7 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     ok(/<b>Not comparable<\/b>/.test(rv2) && /<b>Comparable, but not yet confidently<\/b>/.test(rv2) && /<b>Comparable<\/b>/.test(rv2) && /Before you compare, above/.test(rv2), "At a glance opens with one of three comparability lines that refer to the strip above");
     ok(!/level-match/.test(rv2) && !/lmOffset/.test(rv2), "INVERTED: the strip no longer rehashes the level gap");
     ok(/for\(const c of cands\) parts\.push\(c\.html\);/.test(rv2) && /"For the player: "/.test(rv2) && /is notably louder in the "/.test(rv2) && /else if\(fails\.length\|\|typesDiffer\)\{ \/\* said above/.test(rv2) && /The takes are not comparable as they stand — /.test(body("renderProse")) && /Math\.abs\(bd\.d\)>=3/.test(rv2), "then one sentence per verdict-backed difference, a notable region gap with its dB, and what it adds up to for the player");
-    ok(/renderAnalysis\(\);\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*drawAll\(\);\n\}/.test(body("afterDataChange")), "a landing draws synchronously after renderAnalysis — the first frame never waits on the compositor");
+    ok(/renderAnalysis\(\);\n\s*runLandingHooks\(\);\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*drawAll\(\);\n\}/.test(body("afterDataChange")), "a landing draws synchronously after renderAnalysis — the first frame never waits on the compositor");
     ok(/clear\("brightness"\)/.test(pc2) && /provided the same pick, pickup and phrase went into both/.test(pc2) && /score:sc\(r\)\*0\.5/.test(pc2), "brightness reaches the strip with its caveat in the sentence and ranked under the instrument rows");
     ok(/"× longer \("\+\s*fmtMs\(x\.vh\)\+" vs "\+fmtMs\(x\.vl\)\+"\), note for note\."/.test(pc2.replace(/\n/g, "")) && /who:x\.hi, tag:/.test(pc2), "Sustain prints the ratio and the two values a player would quote, and tags who for the closing line");
   }
@@ -682,12 +682,24 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     const fy = fs.readFileSync(path.join(__dirname, "..", ".github", "ISSUE_TEMPLATE", "feedback.yml"), "utf8");
     ok(/^\s+id: what$/m.test(fy) && /^\s+id: pro$/m.test(fy) && /^\s+id: setup$/m.test(fy) && /Do you play professionally\?/.test(fy) && /required: true/.test(fy.slice(fy.indexOf("id: what"), fy.indexOf("id: pro"))) && !/email/i.test(fy), "the GitHub issue form has a free-text description (required), the professional-musician question (optional) and the prefilled setup — and asks for no email");
     const fb = body("feedbackSetup"), fu = body("feedbackUrl"), of = body("openFeedback");
-    ok(/const FEEDBACK_REPO="https:\/\/github\.com\/mdzahidh\/rameau";/.test(b4) && /issues\/new\?template=feedback\.yml&setup="\+encodeURIComponent\(feedbackSetup\(\)\)/.test(fu), "the Feedback button opens the repository's issue form with the setup field prefilled by id");
+    ok(/const FEEDBACK_REPO=APP_REPO;/.test(b4) && /const APP_URL="https:\/\/mdzahidh\.github\.io\/rameau\/", APP_REPO="https:\/\/github\.com\/mdzahidh\/rameau"/.test(b4) && /issues\/new\?template=feedback\.yml&setup="\+encodeURIComponent\(feedbackSetup\(\)\)/.test(fu), "the Feedback button opens the repository's issue form with the setup field prefilled by id");
     ok(!/\.name\b|slotName|slotDesc|slotLabel|audioBuf|samples/.test(fb) && /navigator\.userAgent/.test(fb) && /takes\.length/.test(fb) && /pathFor\(i\)/.test(fb), "INVERTED: the setup text carries browser and take facts, never audio, file names or guitar names");
     ok(/<button class="btn cta" id="feedbackBtn"/.test(html) && /id="feedbackFootBtn"/.test(html) && /\.btn\.cta\{ color:var\(--switch-knob\); background:var\(--switch-on\);/.test(html), "one highlighted call-to-action button in the header (checked-switch fill, never a guitar accent), and a footer link");
     const fm = html.slice(html.indexOf('id="feedbackModal"'), html.indexOf("<!-- recording guide -->"));
     ok(/id="feedbackOpen" href="#" target="_blank" rel="noopener"/.test(fm) && !/fetch\(|XMLHttpRequest/.test(fb + fu + of), "INVERTED: the form opens in a new tab and the page sends nothing itself");
     ok(/if\(feedbackModal\.classList\.contains\("open"\)\) return feedbackModal\.classList\.remove\("open"\);/.test(body("escCascade")) && /\[\?&\]feedback\(\?:&\|\$\)/.test(b4), "Esc closes it and ?feedback opens it for the gate");
+  }
+  section("2026-09-06 — visibility: the address on everything that leaves the page");
+  {
+    const b4 = blocks[4], head = html.slice(0, html.indexOf("</head>"));
+    ok(/<meta property="og:image" content="https:\/\/mdzahidh\.github\.io\/rameau\/docs\/img\/og\.png">/.test(head) && /<meta name="twitter:card" content="summary_large_image">/.test(head) && /<link rel="canonical" href="https:\/\/mdzahidh\.github\.io\/rameau\/">/.test(head) && /<meta name="description" content="[^"]{60,}">/.test(head), "a pasted link unfurls: description, canonical, Open Graph image and Twitter card");
+    ok(fs.existsSync(path.join(__dirname, "..", "docs", "img", "og.png")) && fs.existsSync(path.join(__dirname, "..", "docs", "img", "hero.png")), "the social image and the README hero screenshot are in the repository");
+    ok((b4.match(/"made with "\+APP_NAME\+" · "\+APP_HOST/g) || []).length >= 4, "every PNG footer and the share image name the app and its address", (b4.match(/"made with "\+APP_NAME\+" · "\+APP_HOST/g) || []).length);
+    ok((b4.match(/"# "\+APP_URL\+" · source "\+APP_REPO,/g) || []).length === 5 && /app:APP_NAME, url:APP_URL, repo:APP_REPO, type:"snapshot"/.test(b4) && /lines\.push\("made with "\+APP_NAME\+" · "\+APP_URL\);/.test(body("eqSettingsText")), "every CSV header, the JSON snapshot and the EQ settings text carry the address");
+    const sh = body("exportShareImage");
+    ok(/W=1200, H=630/.test(sh) && /drawSpectrumScene\(ctx,plotW,plotH,buildSpecModel\(true\),\[\]\)/.test(sh) && /verdictPara\.textContent/.test(sh) && /_exportPngCanvas\(cv, "rameau-share_"/.test(sh), "the share image is 1200×630, draws the same spectrum scene as the plot, quotes At a glance, and saves through the PNG path");
+    ok(/idxs\.forEach\(i=>\{ state\.slotTypes\[i\]="solid"; \}\);/.test(body("loadDemo")) && /function runLandingHooks\(\)/.test(b4) && /if\(landingHooks\.feedback\) openFeedback\(\);/.test(body("runLandingHooks")) && /scrollIntoView\(\)/.test(body("runLandingHooks")), "the demo declares its kind; ?feedback and ?scrollto wait for the data they describe");
+    ok(!/fetch\(|XMLHttpRequest|\.name\b/.test(sh) && /id="shareImgBtn"/.test(html) && /id="shareLinkBtn"/.test(html) && /navigator\.clipboard\.writeText\(APP_URL\)/.test(body("copyAppLink")), "INVERTED: sharing sends nothing and names no file; the buttons sit on the At a glance card and Copy link copies the app's address");
   }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

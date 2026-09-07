@@ -4,7 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>Claude Rameau</title>
+<title>Claude Rameau — see why two guitars sound different</title>
+<meta name="description" content="Record the same riff on two guitars and see why they sound different: average spectra, difference plot, spectrograms, sustain, pickup voice and more — every number traceable to its formula. Offline, in your browser; your audio never leaves your machine.">
+<link rel="canonical" href="https://mdzahidh.github.io/rameau/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Claude Rameau">
+<meta property="og:title" content="Claude Rameau — Yes, but why does it sound that way?">
+<meta property="og:description" content="Drop two recordings of the same riff on two guitars and see what differs: spectra, sustain, pickup voice, dead spots — measured, explained, and never uploaded.">
+<meta property="og:url" content="https://mdzahidh.github.io/rameau/">
+<meta property="og:image" content="https://mdzahidh.github.io/rameau/docs/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Claude Rameau — see why two guitars sound different">
+<meta name="twitter:description" content="Two guitars, one riff: spectra, sustain, pickup voice and dead spots, measured in your browser. Nothing is uploaded.">
+<meta name="twitter:image" content="https://mdzahidh.github.io/rameau/docs/img/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2315181d'/%3E%3Cpath d='M4 20 C8 20 8 9 12 9 S16 24 20 24 24 13 28 13' stroke='%23f0a13e' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <!-- Google tag (gtag.js) G-M672F8QCCL: loads only when online with Do Not Track off; offline use sends nothing -->
 <script data-ga="G-M672F8QCCL">
@@ -204,6 +218,8 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
    the checked-switch fill, never a guitar accent — it belongs to neither guitar. */
 .btn.cta{ color:var(--switch-knob); background:var(--switch-on); border-color:var(--switch-on); font-weight:600; }
 .btn.cta:hover{ color:var(--switch-knob); background:var(--ink); border-color:var(--ink); }
+.sharerow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--hair); }
+.sharenote{ font-size:11px; color:var(--dim); }
 #feedbackSetup{ font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; background:var(--panel2); border:1px solid var(--hair); border-radius:8px; padding:10px 12px; max-height:180px; overflow:auto; overscroll-behavior:contain; color:var(--mut); }
 .linkish{
   font:inherit; font-size:inherit; background:none; border:none; padding:0;
@@ -1053,6 +1069,8 @@ kbd{
     <!-- at a glance -->
     <section class="card reveal" id="verdictCard" style="display:none">
       <div class="prose verdict" id="verdictPara"></div>
+      <!-- share (2026-09-06): a result someone posts is the app's best advert — the image carries the name and the address -->
+      <div class="sharerow"><button class="btn" id="shareImgBtn" title="Save a 1200×630 picture of this comparison — the spectra, At a glance, and where the app lives">Share image</button><button class="btn" id="shareLinkBtn" title="Copy the app's address">Copy link</button><span class="sharenote">Your audio stays here — the picture carries only the plot and the words above.</span></div>
     </section>
 
     <!-- frequency analysis — one card, three foldable sub-sections (M2.6f) -->
@@ -5700,6 +5718,10 @@ function drawEqRespScene(ctx, w, h, model){
    glossary UI, snapshots, demo pair, keyboard, drag & drop.
    ============================================================ */
 const APP_NAME="Claude Rameau";
+// Where the app lives and where its source is (2026-09-06, visibility batch): printed on every
+// PNG, in every CSV/JSON header and in the share image, so any result someone posts says where
+// it came from. One pair of constants — never retype the address.
+const APP_URL="https://mdzahidh.github.io/rameau/", APP_REPO="https://github.com/mdzahidh/rameau", APP_HOST="mdzahidh.github.io/rameau";
 
 // ---------- theme ----------
 // Applied before anything renders (inline scripts run pre-first-paint).
@@ -8284,6 +8306,7 @@ function eqSettingsText(){
   lines.push("");
   lines.push("Residual "+s.residualRms.toFixed(2)+" dB RMS against the 1/6-octave-smoothed difference, 60 Hz–20 kHz.");
   lines.push("Bands are RBJ analog-magnitude models — real hardware differs; treat as a starting point.");
+  lines.push("made with "+APP_NAME+" · "+APP_URL);
   return lines.join("\n");
 }
 function copyEqSettings(){
@@ -8310,12 +8333,23 @@ function copyEqSettings(){
   else fallback();
 }
 
+// Gate hooks that need loaded data (2026-09-06): `?scrollto=<element id>` scrolls a card into
+// view once both guitars have landed (a URL fragment cannot — the cards are hidden at load), and
+// `?feedback` opens the Feedback modal after the data it describes exists. Session-only, no UI.
+const landingHooks={scrollTo:(location.search.match(/[?&]scrollto=([\w-]+)/i)||[])[1]||null, feedback:/[?&]feedback(?:&|$)/i.test(location.search), done:false};
+function runLandingHooks(){
+  if(landingHooks.done||!anyLoaded()) return;
+  if(/[?&](demo|load)=?/i.test(location.search)&&!bothLoaded()&&!/[?&]demo=[ab]/i.test(location.search)) return; // the pair is still landing
+  landingHooks.done=true;
+  if(landingHooks.feedback) openFeedback();
+  if(landingHooks.scrollTo){ const t=document.getElementById(landingHooks.scrollTo); if(t) t.scrollIntoView(); }
+}
 // ---------- feedback and bug reports (2026-09-06) ----------
 // One route: the repository's GitHub issue form, opened in a new tab with the setup field
 // prefilled by id (GitHub reads `?template=<file>&<field id>=<text>`). The page never sends
 // anything itself — the user sees every line before the form is submitted — and the setup
 // text carries facts about the browser and the takes, never audio, file names or guitar names.
-const FEEDBACK_REPO="https://github.com/mdzahidh/rameau";
+const FEEDBACK_REPO=APP_REPO;
 function feedbackSetup(){
   const L=[];
   L.push(APP_NAME+" — page dated "+(document.lastModified||"unknown")+(location.protocol==="file:"?" (local file)":" ("+location.host+")"));
@@ -8330,6 +8364,44 @@ function feedbackSetup(){
       +(s.info&&s.info.processing&&Object.values(s.info.processing).some(Boolean)?" · browser processing was ON":""));
   }
   return L.join("\n");
+}
+// ---------- share image (2026-09-06) ----------
+// 1200×630 — the size every link-unfurl and social card expects — with the spectrum scene on the
+// left, "At a glance" on the right and the address in the footer. Built from the same scene
+// builder the Spectrum PNG uses, so the picture cannot disagree with the plot.
+function _wrapLines(ctx, text, maxW){
+  const out=[]; for(const para of String(text).split(/\n+/)){ let line=""; for(const w of para.split(/\s+/)){ const t=line?line+" "+w:w; if(ctx.measureText(t).width>maxW&&line){ out.push(line); line=w; } else line=t; } out.push(line); }
+  return out;
+}
+function exportShareImage(){
+  if(!anyLoaded()) return;
+  try{
+  const W=1200, H=630, SC=2, FS='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  const cv=document.createElement("canvas"); cv.width=W*SC; cv.height=H*SC;
+  const ctx=cv.getContext("2d"); ctx.scale(SC,SC);
+  ctx.fillStyle=cssColor("panel"); ctx.fillRect(0,0,W,H);
+  ctx.textBaseline="alphabetic"; ctx.fillStyle=cssColor("ink"); ctx.font="600 26px "+FS; ctx.fillText(APP_NAME,40,52);
+  const bw=ctx.measureText(APP_NAME).width; ctx.font="italic 15px "+FS; ctx.fillStyle=cssColor("mut"); ctx.fillText("Yes — but why does it sound that way?",40+bw+14,52);
+  let y=84; ctx.font="14px "+FS;
+  for(let i=0;i<2;i++){ const s=state.slots[i]; if(!s) continue; ctx.fillStyle=COLORS[i]; ctx.beginPath(); ctx.arc(47,y-5,5,0,2*Math.PI); ctx.fill();
+    ctx.fillStyle=cssColor("ink"); ctx.fillText(slotLabel(i)+(slotTakes(i).length>1?" · "+slotTakes(i).length+" takes":""),60,y); y+=20; }
+  const plotW=bothLoaded()?680:1120, plotH=H-y-70;
+  ctx.save(); ctx.translate(20,y+6); drawSpectrumScene(ctx,plotW,plotH,buildSpecModel(true),[]); ctx.restore();
+  if(bothLoaded()){
+    const x0=40+plotW, maxW=W-x0-40; let ty=y+22;
+    ctx.fillStyle=cssColor("mut"); ctx.font="600 11px "+FS; ctx.fillText("AT A GLANCE",x0,ty); ty+=22;
+    ctx.fillStyle=cssColor("ink"); ctx.font="14.5px "+FS;
+    const text=(verdictPara.textContent||"").replace(/^At a glance/,"").trim();
+    for(const ln of _wrapLines(ctx,text,maxW)){ if(ty>H-80){ ctx.fillText("…",x0,ty); break; } ctx.fillText(ln,x0,ty); ty+=21; }
+  }
+  ctx.fillStyle=cssColor("dim"); ctx.font="12px "+FS; ctx.fillText(new Date().toISOString().slice(0,10)+" · "+tuningLabel()+" · A4 "+state.a4+" Hz · level-match "+(state.lm?"on":"off"),40,H-24);
+  ctx.textAlign="right"; ctx.fillStyle=cssColor("ink"); ctx.font="600 13px "+FS; ctx.fillText("made with "+APP_NAME+" · "+APP_HOST,W-40,H-24); ctx.textAlign="left";
+  _exportPngCanvas(cv, "rameau-share_"+exportBaseName()+".png");
+  }catch(e){ console.error(e); toast("Share image failed: "+(e&&e.message?e.message:e),true); }
+}
+function copyAppLink(){
+  const done=ok=>toast(ok?"Link copied — "+APP_URL:"Could not copy — the address is "+APP_URL, !ok);
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(APP_URL).then(()=>done(true),()=>done(false)); else done(false);
 }
 function feedbackUrl(){ return FEEDBACK_REPO+"/issues/new?template=feedback.yml&setup="+encodeURIComponent(feedbackSetup()); }
 function openFeedback(){
@@ -8479,6 +8551,7 @@ function afterDataChange(animate){
   updateVisibility();
   updateCurves(animate);
   renderAnalysis();
+  runLandingHooks();
   // Draw the new state now, not a frame later (2026-09-06): the first frame after a landing
   // used to wait on requestAnimationFrame, so a page could be fully analysed and still show
   // nothing until the compositor came round — a real race in headless runs (the dump ends
@@ -10536,7 +10609,7 @@ function exportPNG(){
   ctx.restore();
   ctx.fillStyle=cssColor("dim");
   ctx.font="11.5px "+FS;
-  ctx.textAlign="right"; ctx.fillText("made with "+APP_NAME,W-40,H-24);
+  ctx.textAlign="right"; ctx.fillText("made with "+APP_NAME+" · "+APP_HOST,W-40,H-24);
   ctx.textAlign="left";
   _exportPngCanvas(cv, "rameau_"+exportBaseName()+".png");
   }catch(e){ console.error(e); toast("PNG export failed: "+(e&&e.message?e.message:e)); }
@@ -10561,7 +10634,7 @@ function _cardPng(name, draw){
   draw(ctx,W,H-80);
   ctx.restore();
   ctx.fillStyle=cssColor("dim"); ctx.font="11.5px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
-  ctx.textAlign="right"; ctx.fillText("made with "+APP_NAME,W-40,H-14); ctx.textAlign="left";
+  ctx.textAlign="right"; ctx.fillText("made with "+APP_NAME+" · "+APP_HOST,W-40,H-14); ctx.textAlign="left";
   _exportPngCanvas(cv, "rameau-"+sanitizeName(name).toLowerCase()+"_"+exportBaseName()+".png");
   }catch(e){ console.error(e); toast("PNG export failed: "+(e&&e.message?e.message:e)); }
 }
@@ -10584,7 +10657,7 @@ function exportSgramPNG(){
   }
   // scoped to spectrogram only — never draws envelope
   ctx.fillStyle=cssColor("dim"); ctx.font="11.5px -apple-system, sans-serif";
-  ctx.textAlign="right"; ctx.fillText("made with "+APP_NAME,W-40,H-14); ctx.textAlign="left";
+  ctx.textAlign="right"; ctx.fillText("made with "+APP_NAME+" · "+APP_HOST,W-40,H-14); ctx.textAlign="left";
   _exportPngCanvas(cv, "rameau-sgram_"+exportBaseName()+".png");
   }catch(e){ console.error(e); toast("PNG export failed: "+(e&&e.message?e.message:e)); }
 }
@@ -10597,7 +10670,7 @@ function exportEqRespPng(){ if(!bothLoaded()) return; _cardPng("EQ response", (c
 function exportCSV(){
   if(!anyLoaded()) return;
   const a=dispTarget[0], b=dispTarget[1];
-  const L=["# "+APP_NAME+" long-term average spectrum export",
+  const L=["# "+APP_NAME+" long-term average spectrum export", "# "+APP_URL+" · source "+APP_REPO,
            "# created: "+new Date().toISOString()];
   for(let i=0;i<2;i++){
     const s=state.slots[i];
@@ -10617,7 +10690,7 @@ function exportCSV(){
 function exportDiffCSV(){
   if(!bothLoaded()) return;
   const a=dispTarget[0], b=dispTarget[1]; if(!a||!b) return;
-  const L=["# "+APP_NAME+" difference A-B (dB)", "# created: "+new Date().toISOString()];
+  const L=["# "+APP_NAME+" difference A-B (dB)", "# "+APP_URL+" · source "+APP_REPO, "# created: "+new Date().toISOString()];
   L.push("# smoothing "+(state.smooth?"1/"+state.smooth+" oct":"off")+" · level-match "+(state.lm?fmtDb(state.lmOffset,2)+" on B":"off"));
   L.push("frequency_hz,a_minus_b_db");
   for(let k=0;k<GRID.length;k++) L.push(GRID[k].toFixed(2)+","+(a[k]-b[k]).toFixed(2));
@@ -10626,7 +10699,7 @@ function exportDiffCSV(){
 function exportBandsCSV(){
   if(!anyLoaded()) return;
   const t=bandTable();
-  const L=["# "+APP_NAME+" band energy — "+t.vocab.label, "# created: "+new Date().toISOString(),
+  const L=["# "+APP_NAME+" band energy — "+t.vocab.label, "# "+APP_URL+" · source "+APP_REPO, "# created: "+new Date().toISOString(),
            "# shares are of each recording's own 60 Hz–20 kHz energy; delta_db is band level A − B"+(t.lm?" after the "+fmtDb(t.lm,2)+" level-match on B":" (level-match off)")+
            (t.nFloor?"; on_floor=1 marks a band where both recordings sit below "+t.floorDb.toFixed(0)+" dB (a difference of silences)":"")];
   L.push("band,f0_hz,f1_hz,a_share_pct,b_share_pct,delta_db,on_floor");
@@ -10639,7 +10712,7 @@ function exportBandsCSV(){
 function exportToneCSV(){
   if(!anyLoaded()) return;
   const {records}=toneRecords();
-  const L=["# "+APP_NAME+" tone character", "# schema: tone-3 (state and missing columns added 2026-09-05 E1; group, band and verdict added the same day at tone-2; the first three columns are unchanged)", "# created: "+new Date().toISOString()];
+  const L=["# "+APP_NAME+" tone character", "# "+APP_URL+" · source "+APP_REPO, "# schema: tone-3 (state and missing columns added 2026-09-05 E1; group, band and verdict added the same day at tone-2; the first three columns are unchanged)", "# created: "+new Date().toISOString()];
   L.push("descriptor,a_value,b_value,group,band,verdict,state,missing");
   const strip=h=>String(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
   const q=t=>'"'+String(t).replace(/"/g,'""')+'"';
@@ -10653,7 +10726,7 @@ function exportToneCSV(){
 function exportEnvCSV(){
   if(!anyLoaded()) return;
   const m=buildEnvModel(); if(!m||!m.curves) return;
-  const L=["# "+APP_NAME+" envelope (per-curve, first-onset aligned at 0 s)", "# created: "+new Date().toISOString()];
+  const L=["# "+APP_NAME+" envelope (per-curve, first-onset aligned at 0 s)", "# "+APP_URL+" · source "+APP_REPO, "# created: "+new Date().toISOString()];
   const maxLen=Math.max(...m.curves.map(c=>c.pts?c.pts.length:0));
   L.push("time_s,"+m.curves.map(c=>c.label.replace(/,/g," ")+"_db").join(","));
   for(let i=0;i<maxLen;i++){
@@ -10746,7 +10819,7 @@ function exportJSON(){
       welch:{df:s.welch.df, frames:s.welch.frames, powerDb:db},
       metrics:sanitizeMetrics(s.metrics), ...(takes.length?{takes}:{}) });
   }
-  const snap={ app:APP_NAME, type:"snapshot", version:1,
+  const snap={ app:APP_NAME, url:APP_URL, repo:APP_REPO, type:"snapshot", version:1,
     created:new Date().toISOString(),
     settings:{ tuning:state.tuning, customOffset:state.customOffset,
                a4:state.a4, smooth:state.smooth, lm:state.lm,
@@ -11168,6 +11241,9 @@ function loadDemo(only){
   ];
   const idxs=only==="a"?[0]:only==="b"?[1]:[0,1];
   idxs.forEach(recAbort);
+  // The demo is the app's own material, so the app may say what it is (2026-09-06): a plucked
+  // string with no body, closest to a solidbody — the instrument rows open instead of asking.
+  idxs.forEach(i=>{ state.slotTypes[i]="solid"; });
   return Promise.all(idxs.map(i=>{
     const sp=specs[i];
     const samples=makeDemoSamples(sp.rate,sp.damping,sp.lp,sp.seed,sp.gain);
@@ -11597,6 +11673,8 @@ function boot(){
   });
   aboutBtn.addEventListener("click",()=>aboutModal.classList.add("open"));
   feedbackBtn.addEventListener("click",openFeedback);
+  el("shareImgBtn").addEventListener("click",exportShareImage);
+  el("shareLinkBtn").addEventListener("click",copyAppLink);
   feedbackFootBtn.addEventListener("click",openFeedback);
   feedbackClose.addEventListener("click",()=>feedbackModal.classList.remove("open"));
   feedbackModal.addEventListener("click",e=>{ if(e.target===feedbackModal) feedbackModal.classList.remove("open"); });
@@ -11916,7 +11994,7 @@ function boot(){
   if(/[?&]guide(?:&|$)/i.test(location.search)) guideModal.classList.add("open");   // test hook
   if(/[?&]how(?:&|$)/i.test(location.search)) howModal.classList.add("open");       // test hook
   if(/[?&]about(?:&|$)/i.test(location.search)) aboutModal.classList.add("open");
-  if(/[?&]feedback(?:&|$)/i.test(location.search)) openFeedback();
+  if(landingHooks.feedback&&!/[?&](demo|load)=?/i.test(location.search)) openFeedback(); // with data on the way, runLandingHooks opens it
   const op=location.search.match(/[?&]open=([a-z,]+)(?:&|$)/i);                     // test hook
   if(op){        // session-only unfold: "all" or a comma list of panel keys
     const ks=op[1].toLowerCase()==="all"?Object.keys(COLL_CARDS):op[1].toLowerCase().split(",");

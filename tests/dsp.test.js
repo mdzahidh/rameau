@@ -718,7 +718,7 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
     const APP = nameM ? nameM[1] : "";
 
     // Writer: both the snapshot and the per-card export stamp APP_NAME (not a literal).
-    ok(/const\s+snap\s*=\s*\{\s*app:\s*APP_NAME\s*,\s*type:\s*"snapshot"/.test(html),
+    ok(/const\s+snap\s*=\s*\{\s*app:\s*APP_NAME\s*,\s*url:APP_URL, repo:APP_REPO,\s*type:\s*"snapshot"/.test(html),
       "snapshot writer stamps app:APP_NAME");
 
     // Reader: pull the real guard condition out of the source and run it.
