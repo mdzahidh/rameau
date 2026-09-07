@@ -3566,3 +3566,18 @@ differ in rate / pickup / sustain, a take is deterministic and take 2 differs, t
 present and the old pair gone); the per-note pass mirrored in a scratch probe over block 0 until
 every take read 14/14; one headless render read for the sentences quoted above; screenshots by
 eye; full gate at the end.
+
+## 2026-09-07 — "stiffer" was the wrong word
+
+**User question:** *"What does 'stiffer' mean in the app, are the strings going to feel physically
+stiffer? … shorter scale length guitars are supposed to feel less stiff."* They are, and the
+sentence was wrong to invite the reading. Feel is **tension**, which falls with scale length;
+B is the string's **bending rigidity relative to that tension**, which at fixed gauge and pitch
+goes as 1/L⁴ and therefore *rises* on a short scale. A slacker-feeling guitar reads higher.
+
+**Change (copy only):** the Before-you-compare line now says *the overtones of X are stretched
+1.6× more (B 1.03 vs 1.65 ×10⁻⁴ …)* and ends *This is the overtone stretch, not how the strings
+feel*; the read-alike line names the *overtone stretch*. The glossary entry is renamed **Overtone
+stretch** (key `inharmonicity` unchanged, hook *string stiffness, not string feel*) and its
+musician's paragraph spells out the tension-versus-stretch opposition and that the number says
+nothing about playability. THEORY §7.6.1 already had the physics; no test moved.
