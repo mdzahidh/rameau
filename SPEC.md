@@ -3395,3 +3395,42 @@ harness comment had this race down as "the decode outlasting the budget" — tha
 half of it. **Fix in the app, not the harness:** `afterDataChange` now ends in a synchronous
 `drawAll()` — the page is drawn when the data changes, one extra 2 ms draw in normal use —
 and six of six launches drew both panes afterwards. `tests/e.test.js` **287** pins it.
+
+## 2026-09-06 — Fourth batch: stiffness as a highlight, bands ride in the export, Guided on, and a Feedback route (user decisions, reviewer-built; branch `e-feedback`)
+
+1. **String stiffness leaves the tone rows.** The user's framing: two guitars being compared will
+   very likely have different scale lengths (that is the construction) and quite likely different
+   strings — not a blocker, but worth highlighting, because some of the tone difference is then the
+   strings. B cannot split scale length from string construction from audio alone, so as a row it
+   compared strings and called it guitars. Now one line in "Before you compare"
+   (`stiffnessLineHtml`): *Strings and scale differ — stiffness B 1.21 vs 2.05 ×10⁻⁴ on the open E and
+   A (Majesty 1.7× stiffer). Expected between two guitars … so some of the brightness and ring
+   difference below is the strings*, or *Strings and scale read alike*, judged against the
+   provisional band from THEORY §7.4. B is the mean over each guitar's takes. **Never a blocker,
+   never greys a row** (inverted contract). The row, its ear pair and the `plain` code path are gone;
+   the glossary entry, `slotStiffnessEA`, the evidence manifest and the guided open-strings step stay.
+2. **"Save as bands" is part of the export.** The button and its toast are gone. A JSON snapshot
+   carries `settings.toneBands` + `toneBandsAt` (`snapshotBands()`: the live bands when both guitars
+   hold two or more takes, else whatever an earlier snapshot brought in), and `applySnapshot` restores
+   them and persists them to gsSettings — what the button did, now a property of loading the file
+   that carries them. gsSettings stays v5.
+3. **Guided recording defaults on, remembered once flipped.** Already the shipped behaviour
+   (`state.recGuided=true`, persisted from the switch); pinned by a contract and closed as a taste call.
+4. **Feedback and bug reports.** One route, the repository's GitHub issue form
+   (`.github/ISSUE_TEMPLATE/feedback.yml`): a free-text description (required), *Do you play
+   professionally?* (optional, encouraged: professional / semi-professional / hobbyist / prefer not
+   to say), and *Your setup*, prefilled by the app. No email field — issues are public, and the
+   owner is notified by GitHub's own watch notifications. In the app: a **highlighted ✎ Feedback
+   button** in the header (`.btn.cta`, the checked-switch fill — never a guitar accent) and a
+   footer link, opening a modal that shows the exact setup text (page date, browser, theme, tuning,
+   A4, level-match, smoothing, and per guitar: kind, rate, channels, container, duration, take count,
+   onsets and pitched notes, instrument kind, recording path, whether browser processing was on)
+   and states **no audio, no file names, no guitar names**. *Open the form on GitHub* is a plain
+   link (`target=_blank rel=noopener`) to `issues/new?template=feedback.yml&setup=…` — GitHub
+   prefills the field by id — and *Copy setup text* is the fallback for people who would rather
+   paste. **The page sends nothing itself** (inverted contract: no fetch in the route). `?feedback`
+   opens the modal for the gate; Esc closes it.
+
+**Verification, in proportion:** `tests/e.test.js` 287 → **298** (the row and Save removals are
+inverted contracts; the template's field ids, the URL shape, the no-audio rule and the new-tab rule
+are pinned), node gate green; the full gate once at the end of the day's batches.

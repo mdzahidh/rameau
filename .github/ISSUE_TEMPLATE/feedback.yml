@@ -1,0 +1,37 @@
+name: Feedback or bug report
+description: Tell us what happened, what you expected, or what you would like Claude Rameau to do.
+title: "[feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for writing. Issues here are public, so leave out anything private. Your audio never left your browser, and nothing here asks for it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, or what would you like?
+      description: Free text. A bug report reads best as what you did, what you saw, and what you expected.
+      placeholder: I dropped two takes of my Telecaster and …
+    validations:
+      required: true
+  - type: dropdown
+    id: pro
+    attributes:
+      label: Do you play professionally?
+      description: Optional, but it helps us know who the app is serving.
+      options:
+        - Prefer not to say
+        - Professional musician
+        - Semi-professional
+        - Hobbyist
+    validations:
+      required: false
+  - type: textarea
+    id: setup
+    attributes:
+      label: Your setup
+      description: Filled in by the app's Feedback button when you came from there (browser, theme, tuning, and per-guitar facts such as sample rate and take count; no audio, no file names). Edit or delete anything you like.
+      render: text
+    validations:
+      required: false

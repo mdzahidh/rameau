@@ -2248,6 +2248,16 @@ name a pair, not a ranking to build on. `poolDeadSpots` groups greedily in take 
 of one take 60 ¢ apart form two groups. `topTakes` ranks by `metrics.pitched`, which a snapshot
 slot carries but an unanalysed take does not (it sorts last).
 
+## Feedback route (2026-09-06)
+
+One door, no network: `openFeedback()` fills `#feedbackModal` with `feedbackSetup()` and points
+`#feedbackOpen` at `feedbackUrl()` — the repository's issue form with the `setup` field prefilled
+through GitHub's `?template=<file>&<field id>=<text>` convention. The page never fetches or posts;
+the user reads every line before GitHub does. `feedbackSetup()` is the one place the text is built,
+and the suite pins what it may not reference (`.name`, `slotName`, `slotDesc`, `slotLabel`, audio
+buffers). **Trap:** the field ids in `.github/ISSUE_TEMPLATE/feedback.yml` (`what`, `pro`, `setup`)
+are the API — renaming one silently stops the prefill; the suite reads the YAML for them.
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

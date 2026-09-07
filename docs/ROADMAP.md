@@ -2384,6 +2384,13 @@ verdict-backed difference → for the player); comb check tooth 1 excused the fl
 Overtone ring and Bloom rows are `perTake` means, not pairwise — pairwise only matters where
 notes are matched across guitars, which today is Sustain alone.
 
+### 2026-09-06 — fourth batch: stiffness highlight, bands in export, Feedback route ✅ BUILT (branch `e-feedback`)
+
+*SPEC.md 2026-09-06 "Fourth batch".* String stiffness is a Before-you-compare highlight (never a
+blocker); Save as bands folded into the JSON export; Guided on by default, remembered; Feedback
+button → GitHub issue form, prefilled setup, nothing sent by the page. **Closes** three of the four
+open taste calls (stiffness, Save as bands, Guided default); E5.4 default vocabulary stays open.
+
 # Gated — do not start without explicit user go-ahead
 
 - **M3 — live input.** Still owes the task-based entry points deferred from M2.

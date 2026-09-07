@@ -970,6 +970,17 @@ build educational copy from it, never re-derive from scratch.
   THEORY §7.3); `tests/audit_tone.js` calls the shipped `combCheckF0`. "Before you compare" is
   its own card under the guitar cards (`#preCard`), missing facts name what was measured.
   `tests/e.test.js` **286**, dsp **237**. SPEC.md 2026-09-06 "Every take counts".
+- **Fourth 2026-09-06 batch BUILT (branch `e-feedback`).** String stiffness is a **highlight line in
+  Before you compare** (`stiffnessLineHtml`: *Strings and scale differ / read alike*, never a blocker
+  — two guitars will usually differ in scale length and strings, and B cannot split them); the row,
+  its ear pair and the `plain` path are gone (13 rows, 9 ear pairs). **Save as bands is folded into
+  the JSON export** (`snapshotBands()` writes `settings.toneBands/toneBandsAt`; `applySnapshot`
+  restores and persists them). Guided stays on by default, remembered once flipped. **Feedback
+  route:** `.github/ISSUE_TEMPLATE/feedback.yml` (free text, optional professional-musician dropdown,
+  prefilled setup; no email), a highlighted `✎ Feedback` header button (`.btn.cta`) + footer link →
+  `#feedbackModal` showing `feedbackSetup()` (browser and take facts, never audio / file names /
+  guitar names) with a new-tab link to `FEEDBACK_REPO/issues/new?template=feedback.yml&setup=…` and a
+  copy button; the page never sends anything; `?feedback` hook. `tests/e.test.js` **298**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -984,7 +995,7 @@ build educational copy from it, never re-derive from scratch.
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
 - The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 187**, headless **73**
-  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp **237**, e **286**. **All node suites green since the
+  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp **237**, e **298**. **All node suites green since the
   EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
   "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went
   0.999 → 1.022 dB there. The bound was not the defect: the fitter was in a local minimum on
@@ -1405,6 +1416,11 @@ build educational copy from it, never re-derive from scratch.
   and the reliability band narrows as takes accumulate (THEORY §7.6.10). A time view — the
   spectrogram, the envelope, the card transport, the "Before you compare" lines — reads the
   selected take and says so. A new metric that reads only take 0 needs a reason written down.
+- **Feedback leaves through the user's hands, never the page's.** The ✎ Feedback button opens the
+  GitHub issue form in a new tab with the setup text prefilled; the app never fetches, posts or
+  collects an email, and the setup text carries browser and take facts only — no audio, no file
+  names, no guitar names (inverted contracts in `tests/e.test.js`). Issue forms live in
+  `.github/ISSUE_TEMPLATE/`; the repository owner is notified by GitHub's watch notifications.
 - Keep `tests/make_samples.js` synth math identical to the in-app demo synth when
   editing either.
 - Update SPEC.md changelog, this file, and ARCHITECTURE.md at milestone boundaries and

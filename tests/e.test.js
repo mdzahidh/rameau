@@ -130,12 +130,11 @@ section("E1.4 — toneRecords: evidence and state on every record, one door to a
     "…an unset side is not measurable with 'set the guitar’s kind' as the item");
   ok(/typesDiffer=both&&!!types\[0\]&&!!types\[1\]&&types\[0\]!==types\[1\];/.test(tr) && /if\(!slotType\(0\)\|\|!slotType\(1\)\) parts\.push\("Set each guitar’s kind on its card/.test(body("renderVerdict")),
     "…the cross-type comparison waits until both kinds are set, and At a glance says what to do");
-  ok(/def\.plain\?"same strings and scale":"not distinguishable"/.test(tr) && /def\.plain\?"different strings or scale"/.test(tr),
-    "String stiffness gets the two plain words and nothing else");
+  ok(!/def\.plain/.test(tr) && !/plain:true/.test(body("toneRowDefs")), "no plain-words row is left: String stiffness is a highlight line, not a row (2026-09-06)");
   const defs = body("toneRowDefs");
   for (const k of ["warmth", "low-end", "tightness", '"sustain"', 'term:"attack"']) ok(!defs.includes(k === '"sustain"' ? 'term:"sustain"' : k), "row gone from the panel: " + k.replace(/"/g, ""));
   ok(/term:"f0-decay"/.test(defs) && !/term:"dynamic-range"|term:"residual"/.test(defs), "Fundamental decay is a row; Dynamic range and Between notes are readouts, not rows (2026-09-06)");
-  ok(/term:"inharmonicity", name:"String stiffness", plain:true/.test(defs) && /val:s=>slotStiffnessEA\(s\.metrics\)/.test(defs), "String stiffness reads open E and A only");
+  ok(!/term:"inharmonicity"/.test(defs) && /slotStiffnessEA\(ownView\(t\)\.metrics\)/.test(body("stiffnessLineHtml")) && /let verdict=stiffnessLineHtml\(\);/.test(body("preCompareHtml")), "String stiffness is out of the rows and into Before you compare, read from every take's open E and A");
   const cc = html.slice(html.indexOf("const COMPAT_CHECKS=["), html.indexOf("function comparability("));
   ok(!/"warmth"|"low-end"|"tightness"|"sustain"|"attack"/.test(cc) && /"f0-decay"/.test(cc), "comparability rows name no dead row and gate Fundamental decay on register");
 }
@@ -176,7 +175,7 @@ section("E1.6 — At a glance: state-1 Instrument rows only; the empty case name
   ok(cu.length > 100 && /r\.state===2/.test(cu) && /Record a second take of either guitar/.test(cu) && /missingPhrase\(ev\.missing\[0\],r\.def\)/.test(cu),
     "cheapestUpgrade: a second take when a row is measured, else the first missing item in the one phrasing");
   ok(/cheapestUpgrade\(\)/.test(rv) && /cheapestUpgrade\(\)/.test(rp), "both the strip and the prose print it in the empty case");
-  ok(/r\.def\.glance&&r\.state===1/.test(rv) && /r\.def\.glance&&r\.state===1/.test(rp) && /r\.def\.glance&&!r\.def\.text&&!r\.def\.plain/.test(cu),
+  ok(/r\.def\.glance&&r\.state===1/.test(rv) && /r\.def\.glance&&r\.state===1/.test(rp) && /r\.def\.glance&&!r\.def\.text\)/.test(cu),
     "…and 'not distinguishable' is said only when a banded glance row exists to say it (glance is a row flag since 2026-09-06, not a group)");
 }
 
@@ -188,9 +187,9 @@ section("2026-09-06 — the Tone character card re-audited under the core use ca
   ok(!/g:"inst"|g:"voice"/.test(defs), "no row points at a dead group");
   const rows = [...defs.matchAll(/\{g:"(\w+)", term:"([\w-]+)", name:"([^"]+)"/g)].map(m => ({ g: m[1], term: m[2], name: m[3] }));
   const byTerm = Object.fromEntries(rows.map(r => [r.term, r]));
-  ok(rows.length === 14, "fourteen rows", rows.length);
+  ok(rows.length === 13, "thirteen rows (String stiffness left for Before you compare, 2026-09-06)", rows.length);
   ok(byTerm["f0-decay"].name === "Sustain" && !byTerm["neck-sustain"] && byTerm["attack-spectrum"].name === "Pick attack", "player-speak names: Sustain (Dead spots merged into it), Pick attack");
-  ok(["pickup-resonance", "body-resonance", "inharmonicity", "brightness", "even-odd", "harmonic-richness", "attack-spectrum"].every(t => byTerm[t].g === "sound") &&
+  ok(["pickup-resonance", "body-resonance", "brightness", "even-odd", "harmonic-richness", "attack-spectrum"].every(t => byTerm[t].g === "sound") &&
      ["overtone-sustain", "bloom", "f0-decay"].every(t => byTerm[t].g === "ring") &&
      ["pitch-check", "noise-floor", "comparability", "recording-path"].every(t => byTerm[t].g === "take"), "each row sits in the group its question belongs to");
   const glance = [...defs.matchAll(/term:"([\w-]+)"[^\n]*glance:true/g)].map(m => m[1]).sort();
@@ -201,7 +200,7 @@ section("2026-09-06 — the Tone character card re-audited under the core use ca
   ok(numeric.every(r => /\n\s+how:"/.test(rowSrc(r.term))), "every numeric row carries `how` — the measurement in one breath");
   ok(numeric.every(r => /\n\s+sens:\{k:"(low|mid|high|take)", note:"[^"]*"\}/.test(rowSrc(r.term))), "every numeric row carries `sens` with a level and a note");
   ok(numeric.filter(r => r.g !== "take").every(r => /\n\s+ear:\{hi:"[^"]+", lo:"[^"]+"\}/.test(rowSrc(r.term))), "every guitar row carries `ear` — higher and lower in a player's words");
-  ok(["brightness", "even-odd", "harmonic-richness", "attack-spectrum", "bloom"].every(t => /sens:\{k:"high"/.test(rowSrc(t))) && ["pickup-resonance", "f0-decay", "inharmonicity", "overtone-sustain"].every(t => /sens:\{k:"low"/.test(rowSrc(t))),
+  ok(["brightness", "even-odd", "harmonic-richness", "attack-spectrum", "bloom"].every(t => /sens:\{k:"high"/.test(rowSrc(t))) && ["pickup-resonance", "f0-decay", "overtone-sustain"].every(t => /sens:\{k:"low"/.test(rowSrc(t))),
     "the disclosure follows THEORY §7.4/§7.5: the pick-moved rows say high, the decay rates and the pickup say low");
   ok(numeric.every(r => { const u = rowSrc(r.term).match(/unit:"([^"]+)"/)[1]; return /(Hz|dB|seconds|inharmonicity B|centroid|percentile|frequency|when a note|energy in|brightness of)/.test(u) && /(median|mean|whole take|average|open E|each gap|tap|first 12|two takes|every pitched|comb-checked|above the floor)/.test(u); }),
     "every unit line names the quantity and the material it is combined over");
@@ -221,7 +220,7 @@ section("2026-09-06 — the Tone character card re-audited under the core use ca
   // The synthesized pairs.
   const te = b4.slice(b4.indexOf("const TONE_EAR={"), b4.indexOf("const _earCache={};"));
   const earKeys = [...te.matchAll(/^  "([\w-]+)":\{lo:"/gm)].map(m => m[1]);
-  ok(earKeys.length === 10 && earKeys.every(k => byTerm[k] && byTerm[k].g !== "take"), "ten pairs, one per guitar row, none for a Take row", earKeys.join());
+  ok(earKeys.length === 9 && earKeys.every(k => byTerm[k] && byTerm[k].g !== "take"), "nine pairs, one per guitar row (String stiffness left with its row, 2026-09-06), none for a Take row", earKeys.join());
   ok(earKeys.every(k => new RegExp('"' + k + '":\\{lo:"[^"]+", hi:"[^"]+", changed:"[^"]+",\\s*make:w=>').test(te)), "each pair has two labels, a `changed` sentence and a maker");
   ok(/THEORY §7\.2/.test(te) && /§7\.6\.2/.test(b4.slice(b4.indexOf("// ---------- ear examples"), b4.indexOf("const TONE_EAR={"))), "the pairs cite the THEORY sections they enact");
   ok(/e0\[\(i-D\+N\)%N\]/.test(body("earKs")), "the pluck-position comb is circular (a linear one left the first D samples uncombed and the even partials alive)");
@@ -290,16 +289,16 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
   ok(Math.abs(r["even-odd"].v - 2.5) < 1e-12 && r["even-odd"].n === 3, "an abs band is max − min");
   ok(!("overtone-sustain" in r) && !("unknown" in r), "fewer than two usable values, or no domain, yields no band");
   ok(!("pickup-resonance" in D.toneBandsFromTakes({ "pickup-resonance": [3000, -1] }, bands)), "a log band ignores non-positive values");
-  const tb = body("toneBandFor"), lv = body("liveToneBands"), rr = body("renderToneRows"), sv = body("saveToneBands"), tr = body("toneRecords");
+  const tb = body("toneBandFor"), lv = body("liveToneBands"), rr = body("renderToneRows"), tr = body("toneRecords");
   ok(/const lv=liveToneBands\(\); const lb=lv\.ready&&lv\.bands\[key\];/.test(tb) && tb.indexOf("lv.ready") < tb.indexOf("state.toneBands&&state.toneBands[key]") && tb.indexOf("state.toneBands[key]") < tb.indexOf("provisional:true"),
     "precedence: live from the takes, then saved, then provisional");
   ok(/measured:true, live:true/.test(tb), "a live band is a measured band — it opens the verdict door");
   ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /const c=combineBands\(a,b\); if\(c\) out\[k\]=c;/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and combine the two spreads as a standard error (every take counts, 2026-09-06)");
   ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(ownView\(t\),i\);/.test(lv), "…and every take's value comes from the same def.val the panel prints, on the take as analysed alone (never the mean spectrum take 0 carries)");
-  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=\(lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr) && !/toneRepeatToggle/.test(html),
-    "the switch is gone (2026-09-06); a status line says where the bands come from, and Save follows it");
+  ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=\(lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && !/toneSaveBandsBtn|saveToneBands/.test(html) && !/toneRepeatToggle/.test(html),
+    "the switch and the Save button are gone (2026-09-06); a status line says where the bands come from");
   ok(!/kind:"repeat"/.test(tr), "the old repeat-mode verdict is gone — live bands flow through the one door");
-  ok(/for\(const k in lv\.bands\)/.test(sv) && /state\.toneBands\[k\]=\{v:lv\.bands\[k\]\.v\};/.test(sv), "Save persists the live spreads");
+  ok(/for\(const k in lv\.bands\)/.test(body("snapshotBands")) && /out\[k\]=\{v:lv\.bands\[k\]\.v\};/.test(body("snapshotBands")), "the export carries the live spreads (Save folded into it, 2026-09-06)");
 }
 
 section("E2.4–E2.6 — the card: name headline, take list, readiness, one Play/Pause, the waveform");
@@ -503,7 +502,7 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   // Tone panel: means for note-based rows, the mean spectrum for spectral rows, the selected take for Take rows.
   const tr=body("toneRecords"), defs=body("toneRowDefs");
   const per=[...defs.matchAll(/term:"([\w-]+)", name:"[^"]+",(?: plain:true,)? perTake:true/g)].map(m=>m[1]).sort().join();
-  ok(per==="attack-spectrum,bloom,body-resonance,even-odd,f0-decay,harmonic-richness,inharmonicity,overtone-sustain", "perTake on the eight note-based rows — Pickup voice and Brightness read the mean spectrum", per);
+  ok(per==="attack-spectrum,bloom,body-resonance,even-odd,f0-decay,harmonic-richness,overtone-sustain", "perTake on the seven note-based rows — Pickup voice and Brightness read the mean spectrum", per);
   ok(/const tv=def\.text\?viewRec\(i\):s;/.test(tr) && /perVals=takes\.map\(t=>\{ let x=null; try\{ x=def\.val\(ownView\(t\),i\); \}/.test(tr) && /v=def\.log\?Math\.exp\(ok\.reduce\(\(a,x\)=>a\+Math\.log\(x\),0\)\/ok\.length\):ok\.reduce\(\(a,x\)=>a\+x,0\)\/ok\.length;/.test(tr),
     "Take rows read the selected take; perTake rows average each take's own value, geometric on a log axis");
   ok(/d="mean over "\+\(pairN>1\?pairN\+" pairs of takes, per take of "\+slotLabel\(i\)\+": ":nT\+" takes \("\)\+perVals\.map\(fm\)\.join\(" · "\)/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints — over takes, or over pairs of takes — and lists the per-take values");
@@ -669,6 +668,26 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     ok(/renderAnalysis\(\);\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*drawAll\(\);\n\}/.test(body("afterDataChange")), "a landing draws synchronously after renderAnalysis — the first frame never waits on the compositor");
     ok(/clear\("brightness"\)/.test(pc2) && /provided the same pick, pickup and phrase went into both/.test(pc2) && /score:sc\(r\)\*0\.5/.test(pc2), "brightness reaches the strip with its caveat in the sentence and ranked under the instrument rows");
     ok(/"× longer \("\+\s*fmtMs\(x\.vh\)\+" vs "\+fmtMs\(x\.vl\)\+"\), note for note\."/.test(pc2.replace(/\n/g, "")) && /who:x\.hi, tag:/.test(pc2), "Sustain prints the ratio and the two values a player would quote, and tags who for the closing line");
+  }
+  section("2026-09-06 — stiffness highlight, bands in the export, Feedback route");
+  {
+    const b4 = blocks[4];
+    const sl = body("stiffnessLineHtml");
+    ok(/Strings and scale differ/.test(sl) && /Strings and scale read alike/.test(sl) && /TONE_BANDS_DEFAULT\.inharmonicity\.oct/.test(sl) && /some of the brightness and ring difference below is the strings/.test(sl), "the highlight says differ or read alike against the provisional band, and what a difference means for the rows below");
+    ok(!/blocked|rows:/.test(sl) && !/inharmonicity/.test(html.slice(html.indexOf("const COMPAT_CHECKS=["), html.indexOf("function comparability("))), "INVERTED: stiffness never blocks or greys a row — it is a highlight, not a check");
+    const ex = body("exportJSON"), sb = body("snapshotBands"), ap = body("applySnapshot");
+    ok(/\.\.\.snapshotBands\(\) \}/.test(ex) && /if\(lv\.ready\)/.test(sb) && /toneBandsAt:new Date\(\)\.toISOString\(\)/.test(sb), "a JSON snapshot carries the live bands when both guitars have two or more takes, else the remembered ones");
+    ok(/if\(st\.toneBands&&typeof st\.toneBands==="object"&&typeof st\.toneBandsAt==="string"\)/.test(ap) && /state\.toneBandsAt=st\.toneBandsAt; saveSettings\(\);/.test(ap), "loading a snapshot restores its bands and keeps them for later sessions — what the Save button did");
+    ok(/state\.recGuided=true;/.test(b4) && /if\(gd\)\{ state\.recGuided=!!gd\.checked; saveSettings\(\);/.test(b4), "Guided is on at start and remembered once flipped (user, 2026-09-06)");
+    const fy = fs.readFileSync(path.join(__dirname, "..", ".github", "ISSUE_TEMPLATE", "feedback.yml"), "utf8");
+    ok(/^\s+id: what$/m.test(fy) && /^\s+id: pro$/m.test(fy) && /^\s+id: setup$/m.test(fy) && /Do you play professionally\?/.test(fy) && /required: true/.test(fy.slice(fy.indexOf("id: what"), fy.indexOf("id: pro"))) && !/email/i.test(fy), "the GitHub issue form has a free-text description (required), the professional-musician question (optional) and the prefilled setup — and asks for no email");
+    const fb = body("feedbackSetup"), fu = body("feedbackUrl"), of = body("openFeedback");
+    ok(/const FEEDBACK_REPO="https:\/\/github\.com\/mdzahidh\/rameau";/.test(b4) && /issues\/new\?template=feedback\.yml&setup="\+encodeURIComponent\(feedbackSetup\(\)\)/.test(fu), "the Feedback button opens the repository's issue form with the setup field prefilled by id");
+    ok(!/\.name\b|slotName|slotDesc|slotLabel|audioBuf|samples/.test(fb) && /navigator\.userAgent/.test(fb) && /takes\.length/.test(fb) && /pathFor\(i\)/.test(fb), "INVERTED: the setup text carries browser and take facts, never audio, file names or guitar names");
+    ok(/<button class="btn cta" id="feedbackBtn"/.test(html) && /id="feedbackFootBtn"/.test(html) && /\.btn\.cta\{ color:var\(--switch-knob\); background:var\(--switch-on\);/.test(html), "one highlighted call-to-action button in the header (checked-switch fill, never a guitar accent), and a footer link");
+    const fm = html.slice(html.indexOf('id="feedbackModal"'), html.indexOf("<!-- recording guide -->"));
+    ok(/id="feedbackOpen" href="#" target="_blank" rel="noopener"/.test(fm) && !/fetch\(|XMLHttpRequest/.test(fb + fu + of), "INVERTED: the form opens in a new tab and the page sends nothing itself");
+    ok(/if\(feedbackModal\.classList\.contains\("open"\)\) return feedbackModal\.classList\.remove\("open"\);/.test(body("escCascade")) && /\[\?&\]feedback\(\?:&\|\$\)/.test(b4), "Esc closes it and ?feedback opens it for the gate");
   }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

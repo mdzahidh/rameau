@@ -200,6 +200,11 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .btn:hover{ color:var(--ink); border-color:var(--hair2); background:var(--panel2); }
 .btn:disabled{ opacity:.35; cursor:default; }
 .btn:disabled:hover{ color:var(--mut); border-color:var(--hair); background:transparent; }
+/* The one call to action in the header (user, 2026-09-06: "clearly visible and highlighted"):
+   the checked-switch fill, never a guitar accent — it belongs to neither guitar. */
+.btn.cta{ color:var(--switch-knob); background:var(--switch-on); border-color:var(--switch-on); font-weight:600; }
+.btn.cta:hover{ color:var(--switch-knob); background:var(--ink); border-color:var(--ink); }
+#feedbackSetup{ font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; background:var(--panel2); border:1px solid var(--hair); border-radius:8px; padding:10px 12px; max-height:180px; overflow:auto; overscroll-behavior:contain; color:var(--mut); }
 .linkish{
   font:inherit; font-size:inherit; background:none; border:none; padding:0;
   color:var(--mut); text-decoration:underline; text-underline-offset:3px;
@@ -1026,6 +1031,7 @@ kbd{
       <button class="btn" id="howBtn">How to use this app</button>
       <button class="btn" id="guideBtn">How to record</button>
       <button class="btn" id="glossaryBtn">Glossary</button>
+      <button class="btn cta" id="feedbackBtn" title="Tell us what happened or what you would like — opens a GitHub issue form, prefilled with your setup, never your audio">✎ Feedback</button>
     </div>
   </header>
 
@@ -1173,7 +1179,7 @@ kbd{
         <div class="controls">
           <div class="ctlgroup" title="Two takes of each guitar measure how far every row moves on its own; Save keeps that as the rows' reliability bands">
             <span class="tonestatus" id="toneBandsStatus"></span>
-            <button class="btn" id="toneSaveBandsBtn" disabled title="Keep these spreads as the reliability bands">Save as bands</button>
+
           </div>
           <div class="exports">
             <button class="btn" id="toneCsvBtn" disabled>CSV</button>
@@ -1370,7 +1376,7 @@ kbd{
       <div id="paramsLine"></div>
       <div class="footright">
         <button class="linkish" id="shortcutsBtn"><kbd>?</kbd> shortcuts</button>
-        <span>Claude Rameau · offline · files never leave this page</span>
+        <span>Claude Rameau · offline · files never leave this page · <button class="linkish" id="feedbackFootBtn">feedback &amp; bug reports</button></span>
       </div>
       <div class="settingsFoot" id="settingsFoot">
         <span class="sfInfo">Remembered: tuning · A4 · EQ device · smoothing · Strings · Harmonics · Input · Tone reliability bands — not level-match · <button class="linkish" id="resetSettingsBtn">Reset saved settings</button></span>
@@ -1492,6 +1498,19 @@ kbd{
     <p>Pulling that thread led to the discovery that the 3rd and 5th notes of a major chord are literally harmonics of the root — that a chord is what one string is already quietly doing by itself. Then further: why some notes rest and others pull, why a scale is three interlocking families, why the physics of a vibrating string contains most of what we call music theory. None of it was invented. It was all sitting there, in the ratios, waiting — the same bedrock Pythagoras hit with a monochord, Rameau hit with a harpsichord in 1722, and I hit with an FFT and a Les Paul.</p>
     <p>The app is named for Jean-Philippe Rameau, the composer who first insisted harmony was physics — and for Claude, the AI I built it with. Rameau's brother was also named Claude; the family made a tradition of standing beside the material and asking questions of it.</p>
     <p>That's what this tool is for. It will show you the difference between two guitars. But its real hope is that somewhere in the overlays, you'll see a harmonic land exactly where it shouldn't be a coincidence — and ask the only question that matters: <em>yes, but why does it sound that way?</em></p>
+  </div>
+</div>
+
+<div class="modal" id="feedbackModal">
+  <div class="inner guide">
+    <div class="ghead">
+      <h3>Feedback and bug reports</h3>
+      <button class="iconbtn" id="feedbackClose" aria-label="Close">✕</button>
+    </div>
+    <p>Feedback goes to the project's issue tracker on GitHub as a short form: what happened or what you would like, in your own words, and — optional but a real help — whether you play professionally. You need a GitHub account, and issues there are public.</p>
+    <p>The form arrives with the setup below already filled in so you do not have to describe it. <b>No audio, no file names and no guitar names are included</b>; edit or delete any of it before you send.</p>
+    <div id="feedbackSetup"></div>
+    <p class="btnrow" style="margin-top:12px"><a class="btn cta" id="feedbackOpen" href="#" target="_blank" rel="noopener">Open the form on GitHub</a> <button class="btn" id="feedbackCopy" title="Copy the setup text, to paste into an issue or an email">Copy setup text</button></p>
   </div>
 </div>
 
@@ -5892,7 +5911,7 @@ const diffSub=el("diffSub"), diffWrap=el("diffWrap"),
       diffCanvas=el("diffCanvas"), diffXline=el("diffXline"), diffReadout=el("diffReadout");
 // aliases for pre-M2.6f card IDs (now sub-sections inside #freqCard)
 const diffCard=freqDiff, specCard=freqSpec;
-const toneCard=el("toneCard"), toneRows=el("toneRows"), toneBandsStatus=el("toneBandsStatus"), toneSaveBandsBtn=el("toneSaveBandsBtn"),
+const toneCard=el("toneCard"), toneRows=el("toneRows"), toneBandsStatus=el("toneBandsStatus"),
       prosePara=el("prosePara"), toneNote=el("toneNote");
 const sgramCard=el("sgramCard"), sgramNote=el("sgramNote"), sgramSub=el("sgramSub"),
       sgramWraps=[el("sgramWrapA"),el("sgramWrapB")],
@@ -5917,6 +5936,7 @@ const guideModal=el("guideModal"), guideBtn=el("guideBtn"),
 const howModal=el("howModal"), howBtn=el("howBtn"), howLink=el("howLink"),
       howClose=el("howClose"), howToRecordLink=el("howToRecordLink");
 const aboutModal=el("aboutModal"), aboutBtn=el("aboutBtn"), aboutClose=el("aboutClose"), brandBtn=el("brandBtn");
+const feedbackModal=el("feedbackModal"), feedbackBtn=el("feedbackBtn"), feedbackFootBtn=el("feedbackFootBtn"), feedbackClose=el("feedbackClose"), feedbackCopy=el("feedbackCopy");
 const resetSettingsBtn=el("resetSettingsBtn");
 const debugLoadBtn=el("debugLoadBtn");
 const magModal=el("magModal"), magTitle=el("magTitle"),
@@ -7546,16 +7566,8 @@ function toneRowDefs(){
        const q=x=>x&&x.q?"Q "+x.q.toFixed(1)+(x.qMax&&x.q>=x.qMax*0.9?" (at the ceiling of "+x.qMax.toFixed(0)+" — at least this)":""):"";
        return "tap test · air "+fmtHz(t.f)+" "+q(t)+(t.top?" · top "+fmtHz(t.top.f)+" "+q(t.top):" · no top mode found 140–260 Hz")+" · "+E6_COPY.tap.detail; },
      reason:()=>"no peak found 70–130 Hz"},
-    {g:"sound", term:"inharmonicity", name:"String stiffness", plain:true, perTake:true,
-     unit:"inharmonicity B of the open E and A strings — how far their overtones run sharp, fitted over the first 12 partials, the two averaged",
-     how:"For the open E and the open A: the frequencies of partials 1–12 fitted to f_n = n·f₀·√(1 + B·n²), one B per string, and the mean of the two. It needs 12 accepted partials on each string to count as measured.",
-     ear:{hi:"stiffer strings put a faint piano-like shimmer on a chord — the high overtones sit a little sharp and beat against the tuning", lo:"more supple strings sound purer and sweeter up top — a chord's overtones line up"},
-     sens:{k:"low", note:"set by the string's diameter, its tension and the scale length (THEORY §7.6.1) — nothing in the hand moves it; it rises as a string corrodes"},
-     lo:1e-5, hi:1e-3, log:true, ticks:["more supple","stiffer"], more:"stiffer / shorter scale",
-     val:s=>slotStiffnessEA(s.metrics),
-     fmt:(v,s)=>(v*1e4).toFixed(2)+" ×10⁻⁴",
-     detail:(v,s)=>openStringNotes(s.metrics).filter(n=>(n.si===0||n.si===1)&&n.nB>=6).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+(n.B*1e4).toFixed(2)+" ×10⁻⁴ over "+n.nB+" partials"+(n.rmsCents!=null?" · ±"+n.rmsCents.toFixed(1)+" ¢":"")).join(" · "),
-     reason:s=>s.metrics.notes?"open E and A not found in this take":"analysed before this row existed"},
+    // String stiffness is not a row since 2026-09-06 (user): scale length is the guitar and strings are the
+    // strings, and B cannot split them — so it is a highlight line in Before you compare (stiffnessLineHtml).
     {g:"ring", term:"overtone-sustain", name:"Overtone ring", perTake:true, glance:true,
      unit:"seconds for the upper partials (3–8) to fall 20 dB — geometric mean over the open strings, or over every pitched note",
      how:"Each partial 3–8 tracked at its own (inharmonic) frequency, frame by frame, from the onset peak until it has fallen 25 dB or the next note begins; the time each takes to fall 20 dB; the geometric mean over those partials and over the open strings the take contains (every pitched note when it holds fewer than two).",
@@ -7811,8 +7823,8 @@ function toneRecords(){
         if(!isFinite(d.d)) rec.verdict={kind:"noband", text:"these two values cannot be compared"};
         else if(rs.verdict&&rec.band&&rec.band.measured){
           // The only door to a verdict: the band was measured on the user's own takes.
-          if(!d.distinguishable) rec.verdict={kind:"same", d, text:def.plain?"same strings and scale":"not distinguishable"};
-          else rec.verdict={kind:"diff", d, hi:d.d>0?0:1, text:def.plain?"different strings or scale":(slotLabel(d.d>0?0:1)+" "+(def.more||"higher")+" by "+_fmtDelta(d,def))};
+          if(!d.distinguishable) rec.verdict={kind:"same", d, text:"not distinguishable"};
+          else rec.verdict={kind:"diff", d, hi:d.d>0?0:1, text:slotLabel(d.d>0?0:1)+" "+(def.more||"higher")+" by "+_fmtDelta(d,def)};
         }
         // else: no verdict. The dots' state says what the numbers can and cannot claim.
       }
@@ -7971,7 +7983,7 @@ function preCompareHtml(records,compat,typesDiffer,types){
               :'<span class="pre-item reason" data-pop="'+r.key+':'+i+'" title="'+esc(r.def.name)+' — what was looked for">'+esc((r.def.miss?r.def.miss:r.def.name+" — not measured")+(r.reason[i]?" ("+r.reason[i]+")":""))+'</span>'; });
     return '<div class="pre-line"><span class="pre-who '+(i?"tb":"ta")+'">'+esc(slotLabel(i))+'</span>'+items.join('<span class="pre-sep">·</span>')+(slotTakes(i).length>1?'<span class="pre-take">'+esc(takeNote(i))+'</span>':"")+'</div>';
   };
-  let verdict="";
+  let verdict=stiffnessLineHtml();
   // Every take counts: a guitar whose takes were detected through different paths is said first.
   for(let i=0;i<2;i++){ const mx=mixedPaths(i); if(mx.length) verdict+='<div class="pre-verdict warn"><b>'+esc(slotLabel(i))+"'s takes mix "+mx.map(p=>PATH_WORD[p].toLowerCase()).join(" and ")+"</b> — the room is in some of its decays and not others; set the path in the readout, or drop the odd take.</div>"; }
   const nPairs=compat.length?Math.max(...compat.map(c=>c.pairs||1)):1;
@@ -7986,6 +7998,21 @@ function preCompareHtml(records,compat,typesDiffer,types){
     } else verdict+='<div class="pre-verdict ok"><b>Fair to compare.</b> Register, note density and count, length, level, noise floor and recording path all match within the limits'+(nPairs>1?" for every one of the "+nPairs+" pairs of takes":"")+' — '+termHtml("comparability","what a fair comparison needs")+'.</div>';
   }
   return '<div class="precompare"><div class="ghead"><span class="gname">Before you compare</span><span class="ghint">what the two recordings have to have in common before any difference below can be read as the guitar</span></div>'+line(0)+line(1)+verdict+'</div>';
+}
+// String stiffness as a highlight, not a row (user, 2026-09-06): two guitars will very likely have
+// different scale lengths (that is the construction) and quite likely different strings, and B
+// cannot tell the two apart — so it is never a blocker and never greys a row; it says that some
+// of the brightness and ring difference below is the strings. Mean of B over each guitar's takes
+// (open E and A, THEORY §7.6.1); the provisional band from §7.4 decides "differ" vs "read alike".
+function stiffnessLineHtml(){
+  if(!bothLoaded()) return "";
+  const B=[0,1].map(i=>_geomean(slotTakes(i).map(t=>{ try{ return slotStiffnessEA(ownView(t).metrics); }catch(_e){ return null; } })));
+  if(B[0]==null||B[1]==null) return "";
+  const fm=v=>(v*1e4).toFixed(2), d=Math.abs(Math.log2(B[0]/B[1])), band=TONE_BANDS_DEFAULT.inharmonicity.oct;
+  const hi=B[0]>B[1]?0:1, ratio=Math.pow(2,d).toFixed(1);
+  return '<div class="pre-verdict note">'+(d>band
+    ? '<b>Strings and scale differ</b> — '+termHtml("inharmonicity","stiffness B")+' '+fm(B[0])+' vs '+fm(B[1])+' ×10⁻⁴ on the open E and A ('+esc(slotLabel(hi))+' '+ratio+'× stiffer). Expected between two guitars: scale length is the guitar, the strings are the strings, and the two cannot be told apart from the audio — so some of the brightness and ring difference below is the strings.'
+    : '<b>Strings and scale read alike</b> — '+termHtml("inharmonicity","stiffness B")+' '+fm(B[0])+' vs '+fm(B[1])+' ×10⁻⁴ on the open E and A, inside the spread two takes of one guitar show.')+'</div>';
 }
 // The block lives in its own card under the guitar cards (user, 2026-09-06: "given the
 // importance of the comparability … right after the audio card"): it is the pre-requisite for
@@ -8005,24 +8032,11 @@ function renderToneRows(){
   const lv=liveToneBands();
   state.toneRepeat=lv.ready;
   toneBandsStatus.textContent=(lv.ready?"Reliability: measured from the takes on the cards"
-    :state.toneBandsAt?"Reliability: bands saved "+new Date(state.toneBandsAt).toLocaleDateString()
+    :state.toneBandsAt?"Reliability: bands from a snapshot saved "+new Date(state.toneBandsAt).toLocaleDateString()
     :"Reliability: provisional until each guitar has two takes")
     +(lv.ready?" ("+lv.perSlot.map((p,i)=>slotTakes(i).length).join(" + ")+" takes — the band narrows as takes accumulate)":"")
     +([0,1].some(i=>slotTakes(i).length>1)?" · Values: means over each guitar's takes; Before you compare reads the selected take":"");
-  toneSaveBandsBtn.disabled=!lv.ready;
 }
-// Two takes of each guitar → the spread per row is its band, live (liveToneBands). Save
-// persists those spreads to gsSettings v5 so a later single-take session still has them.
-function saveToneBands(){
-  const lv=liveToneBands(); if(!lv.ready) return;
-  state.toneBands=state.toneBands||{}; let n=0;
-  for(const k in lv.bands){ if(TONE_BANDS_DEFAULT[k]&&isFinite(lv.bands[k].v)){ state.toneBands[k]={v:lv.bands[k].v}; n++; } }
-  state.toneBandsAt=new Date().toISOString();
-  saveSettings();
-  toast(n+" reliability band"+(n===1?"":"s")+" saved — later comparisons call anything inside them “not distinguishable”.");
-  renderToneNote();
-}
-
 // Guitar name in slot color — same identity the plot legend uses.
 function slotNameHtml(i){
   return '<b style="color:var(--slot-'+(i?"b":"a")+')">'+esc(slotDesc(i,20))+"</b>";
@@ -8081,7 +8095,7 @@ function listWords(a){ return a.length<=1?a.join(""):a.slice(0,-1).join(", ")+" 
 // Otherwise the first glance row's first missing item, phrased by missingPhrase().
 function cheapestUpgrade(){
   const {records}=toneRecords();
-  const inst=records.filter(r=>r.def.glance&&!r.def.text&&!r.def.plain);
+  const inst=records.filter(r=>r.def.glance&&!r.def.text);
   if(inst.some(r=>r.state===2)) return "Record a second take of either guitar — that is what tells the app how much a number moves on its own, and it starts to compare from there.";
   for(const r of inst){
     const ev=[0,1].map(i=>r.evidence[i]).find(e=>e&&e.missing&&e.missing.length);
@@ -8173,7 +8187,7 @@ function renderToneNote(){
   // E5.1: rung 1 only. What each take supplied is the readiness dot's tap on its card.
   const snap=[0,1].some(i=>state.slots[i]&&state.slots[i].kind==="snapshot");
   const lv=liveToneBands();
-  const bandNote=lv.ready?"Reliability bands are measured live from the takes in the slots; Save as bands keeps them for later sessions."
+  const bandNote=lv.ready?"Reliability bands are measured live from the takes in the slots; a JSON snapshot carries them, and loading one brings them back."
     :state.toneBandsAt?"Reliability bands were measured on "+new Date(state.toneBandsAt).toLocaleDateString()+" from two takes of each guitar; rows without one carry no verdict."
     :"No reliability band is measured yet, so no row carries a verdict. Add a second take to each guitar (drop a file on its card, or record) and the bands measure themselves.";
   toneNote.innerHTML="The rows that feed At a glance read the open strings when a take has them. "+esc(bandNote)+" Level-matching never changes the numbers on this panel."+
@@ -8294,6 +8308,34 @@ function copyEqSettings(){
   if(navigator.clipboard&&navigator.clipboard.writeText)
     navigator.clipboard.writeText(text).then(()=>done(true),fallback);
   else fallback();
+}
+
+// ---------- feedback and bug reports (2026-09-06) ----------
+// One route: the repository's GitHub issue form, opened in a new tab with the setup field
+// prefilled by id (GitHub reads `?template=<file>&<field id>=<text>`). The page never sends
+// anything itself — the user sees every line before the form is submitted — and the setup
+// text carries facts about the browser and the takes, never audio, file names or guitar names.
+const FEEDBACK_REPO="https://github.com/mdzahidh/rameau";
+function feedbackSetup(){
+  const L=[];
+  L.push(APP_NAME+" — page dated "+(document.lastModified||"unknown")+(location.protocol==="file:"?" (local file)":" ("+location.host+")"));
+  L.push("Browser: "+navigator.userAgent);
+  L.push("Theme "+(document.documentElement.dataset.theme||"bright")+" · tuning "+state.tuning+(state.tuning==="custom"?" ("+state.customOffset+")":"")+" · A4 "+state.a4+" Hz · level-match "+(state.lm?"on":"off")+" · smoothing "+(state.smooth?"1/"+state.smooth+" oct":"off"));
+  for(let i=0;i<2;i++){
+    const s=state.slots[i]; if(!s){ L.push("Guitar "+SLOT_LETTER[i]+": empty"); continue; }
+    const m=s.metrics||{}, takes=slotTakes(i);
+    L.push("Guitar "+SLOT_LETTER[i]+": "+(s.kind||"file")+(s.info?" · "+rateK(s.info.sampleRate)+" · "+(s.info.channels||"?")+" ch"+(s.info.container?" · "+s.info.container:""):"")
+      +(s.duration?" · "+fmtMs(s.duration):"")+" · "+takes.length+(takes.length===1?" take":" takes")
+      +(m.onsetCount!=null?" · "+m.onsetCount+" onsets, "+(m.pitched||0)+" pitched":"")+" · kind "+(slotType(i)||"not set")+" · path "+pathFor(i)
+      +(s.info&&s.info.processing&&Object.values(s.info.processing).some(Boolean)?" · browser processing was ON":""));
+  }
+  return L.join("\n");
+}
+function feedbackUrl(){ return FEEDBACK_REPO+"/issues/new?template=feedback.yml&setup="+encodeURIComponent(feedbackSetup()); }
+function openFeedback(){
+  el("feedbackSetup").textContent=feedbackSetup();
+  el("feedbackOpen").href=feedbackUrl();
+  feedbackModal.classList.add("open");
 }
 
 // ---------- master update ----------
@@ -10709,13 +10751,23 @@ function exportJSON(){
     settings:{ tuning:state.tuning, customOffset:state.customOffset,
                a4:state.a4, smooth:state.smooth, lm:state.lm,
                eqDir:state.eqDir, eqDevice:state.eqDevice, vocab:state.vocab,
-               slotNames:state.slotNames.slice(), slotTypes:state.slotTypes.slice(), slotPaths:(state.slotPaths||[null,null]).slice() },
+               slotNames:state.slotNames.slice(), slotTypes:state.slotTypes.slice(), slotPaths:(state.slotPaths||[null,null]).slice(),
+               // The measured reliability bands ride in the snapshot (2026-09-06, the "Save as
+               // bands" button folded into the export): live ones when both guitars have two or
+               // more takes, else whatever an earlier snapshot brought in.
+               ...snapshotBands() },
     files };
   download(new Blob([JSON.stringify(snap)],{type:"application/json"}),
     "rameau_"+exportBaseName()+".json");
   toast("Snapshot saved — drop the .json back onto the page to restore it.");
 }
 
+function snapshotBands(){
+  const lv=liveToneBands(), out={};
+  if(lv.ready){ for(const k in lv.bands) if(TONE_BANDS_DEFAULT[k]&&isFinite(lv.bands[k].v)) out[k]={v:lv.bands[k].v}; return {toneBands:out, toneBandsAt:new Date().toISOString()}; }
+  if(state.toneBandsAt&&state.toneBands&&Object.keys(state.toneBands).length) return {toneBands:Object.assign({},state.toneBands), toneBandsAt:state.toneBandsAt};
+  return {};
+}
 // ---------- snapshot restore ----------
 // One file entry → its take records: the entry itself is take 0, and (E2) each entry of
 // its additive takes[] follows. A v1 snapshot has no takes[] and yields exactly one
@@ -10945,6 +10997,13 @@ function applySnapshot(snap){
   state.slotTypes=[null,null]; state.slotPaths=[null,null];
   if(Array.isArray(st.slotTypes)) for(let i=0;i<2;i++) state.slotTypes[i]=normType(st.slotTypes[i]);
   if(Array.isArray(st.slotPaths)) for(let i=0;i<2;i++) state.slotPaths[i]=(["di","mic","piezo"].includes(st.slotPaths[i]))?st.slotPaths[i]:null;
+  // Bands from the snapshot replace the remembered ones and are kept for later sessions — what
+  // the old Save button did, now a property of loading the file that carries them.
+  if(st.toneBands&&typeof st.toneBands==="object"&&typeof st.toneBandsAt==="string"){
+    state.toneBands={};
+    for(const k in st.toneBands){ const b=st.toneBands[k]; if(b&&TONE_BANDS_DEFAULT[k]&&isFinite(b.v)&&b.v>=0) state.toneBands[k]={v:+b.v}; }
+    state.toneBandsAt=st.toneBandsAt; saveSettings();
+  }
   for(const f of snap.files.slice(0,2)){
     const i=f.slot===1?1:0;
     const recs=snapshotTakeRecords(f);
@@ -11078,8 +11137,6 @@ const TONE_EAR={
     make:w=>earPeak(earKs(196,2.2,{S:0.7}), w==="hi"?5000:2500, 2.5, 10)},
   "body-resonance":{lo:"hum at 92 Hz", hi:"hum at 118 Hz", changed:"a tap — one damped resonance rung once, at 92 Hz and at 118 Hz, both with Q 12",
     make:w=>earResonance(w==="hi"?118:92, 12, 1.5)},
-  "inharmonicity":{lo:"B = 0.3 ×10⁻⁴", hi:"B = 6 ×10⁻⁴", changed:"twelve partials of an open A placed by hand at n·f₀·√(1 + B·n²), amplitudes and decays identical — only B differs; the stiff value is exaggerated so the shimmer is unmistakable",
-    make:w=>earAdditive(110,2.5,w==="hi"?6e-4:0.3e-4,12,1.2)},
   "overtone-sustain":{lo:"overtones die first", hi:"overtones ring on", changed:"the same string with the loop's high-frequency loss turned up or down — the fundamental's own decay is left alone",
     make:w=>earKs(196,2.6,{S:w==="hi"?0.97:0.5, damp:0.995})},
   "bloom":{lo:"turns at 0.15 s", hi:"turns at 0.9 s", changed:"the same long note with a two-slope envelope imposed — 20 dB/s until the knee, 4 dB/s after it; only the knee time moves",
@@ -11306,6 +11363,7 @@ function escCascade(){
   if(guideModal.classList.contains("open")) return guideModal.classList.remove("open");
   if(howModal.classList.contains("open")) return howModal.classList.remove("open");
   if(aboutModal.classList.contains("open")) return aboutModal.classList.remove("open");
+  if(feedbackModal.classList.contains("open")) return feedbackModal.classList.remove("open");
   if(dropOverlay.classList.contains("show")) hideDropOverlay();
 }
 
@@ -11521,7 +11579,6 @@ function boot(){
     const t=e.target.closest(".slottype"); if(t) setSlotType(i,t.value);
   }));
   // E2.3: the switch is read-only — the app sets it from the takes in the slots.
-  toneSaveBandsBtn.addEventListener("click", saveToneBands);
   if(debugLoadBtn) debugLoadBtn.addEventListener("click",()=>loadDemo());
   guideBtn.addEventListener("click",()=>guideModal.classList.add("open"));
   guideLink.addEventListener("click",e=>{ e.preventDefault(); guideModal.classList.add("open"); });
@@ -11539,6 +11596,14 @@ function boot(){
     e.preventDefault(); howModal.classList.remove("open"); guideModal.classList.add("open");
   });
   aboutBtn.addEventListener("click",()=>aboutModal.classList.add("open"));
+  feedbackBtn.addEventListener("click",openFeedback);
+  feedbackFootBtn.addEventListener("click",openFeedback);
+  feedbackClose.addEventListener("click",()=>feedbackModal.classList.remove("open"));
+  feedbackModal.addEventListener("click",e=>{ if(e.target===feedbackModal) feedbackModal.classList.remove("open"); });
+  feedbackCopy.addEventListener("click",()=>{
+    const text=feedbackSetup(), done=ok=>{ feedbackCopy.textContent=ok?"Copied ✓":"Copy failed"; setTimeout(()=>{ feedbackCopy.textContent="Copy setup text"; },1600); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(()=>done(true),()=>done(false)); else done(false);
+  });
   aboutClose.addEventListener("click",()=>aboutModal.classList.remove("open"));
   aboutModal.addEventListener("click",e=>{
     if(e.target===aboutModal) aboutModal.classList.remove("open");
@@ -11851,6 +11916,7 @@ function boot(){
   if(/[?&]guide(?:&|$)/i.test(location.search)) guideModal.classList.add("open");   // test hook
   if(/[?&]how(?:&|$)/i.test(location.search)) howModal.classList.add("open");       // test hook
   if(/[?&]about(?:&|$)/i.test(location.search)) aboutModal.classList.add("open");
+  if(/[?&]feedback(?:&|$)/i.test(location.search)) openFeedback();
   const op=location.search.match(/[?&]open=([a-z,]+)(?:&|$)/i);                     // test hook
   if(op){        // session-only unfold: "all" or a comma list of panel keys
     const ks=op[1].toLowerCase()==="all"?Object.keys(COLL_CARDS):op[1].toLowerCase().split(",");
