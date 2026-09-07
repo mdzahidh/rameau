@@ -8491,11 +8491,17 @@ function syncAbKeys(){
       if(head) head.insertAdjacentElement("afterend",k);
       else card.insertAdjacentElement("afterbegin",k);
     }
+    // 2026-09-07 (user: "Demo take 1" beside the name on At a glance is misleading — the summary
+    // is about all the takes): a card without a time axis names the mean of the takes; the
+    // spectrogram and envelope cards name the take they show (every take counts).
+    const timeView=id==="sgramCard"||id==="envCard";
     let html="";
     for(let i=0;i<2;i++){
       const s=state.slots[i]; if(!s) continue;
+      const n=slotTakes(i).length, r=timeView?viewRec(i):s;
+      const what=n>1?(timeView?shortName(r.name,26)+" · "+takeNote(i):"mean of "+n+" takes"):shortName(s.name,26);
       html+='<span class="abchip"><i style="background:'+COLORS[i]+'"></i><b>'+
-        esc(slotLabel(i))+'</b> '+esc(shortName(s.name,26))+'</span>';
+        esc(slotLabel(i))+'</b> '+esc(what)+'</span>';
     }
     k.innerHTML=html;
     k.style.display=html?"":"none";
@@ -9657,6 +9663,7 @@ function selectTake(i,k){
   selTake[i]=k; cardPos[i]=0;
   renderCard(i);
   syncTakeSels();     // the pickers on the time-view cards say the same take
+  syncAbKeys();       // and the time-view cards' A/B keys name it
   requestDraw();      // the spectrogram and the envelope follow the selection
   renderAnalysis();   // so do the Take rows of the tone panel
 }
