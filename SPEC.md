@@ -3249,6 +3249,17 @@ that guitar holds more than one take. The expanded view takes the opened pane's 
 (`syncTakeSels()` ↔ `selectTake()`), never a second state, and is rebuilt from `selectTake`
 and `updateVisibility`. Pure UI: `node --check` ×5, five source contracts, no Chrome.
 
+**Safari after a screen lock (user report, same day: "not audible though it plays … YouTube in
+a different tab works fine … only after I restart Safari the audio comes back").** Another
+tab playing rules out routing and the process; what is dead is this page's `AudioContext`,
+which WebKit leaves with a running clock and a silent output unit after a sleep or lock. The
+app now treats a context that saw the page go **hidden** (or reported WebKit's `interrupted`
+state) as **spent**: the next play closes it and builds a fresh one (`playCtxSpent`, set on
+`visibilitychange`); an idle capture context is closed at the same moment so the next Record
+opens a live one, while a capture in progress is left alone. Chrome takes the same path, where
+a new context is free. The earlier held-stream hypothesis is withdrawn for this symptom. Three
+source contracts; no Chrome. **Untested on Safari here** — the user's next pass verifies it.
+
 **Left open, flagged:** the band could shrink as takes accumulate (the mean's uncertainty is
 smaller than one take's spread); the note matching in Sustain still matches each take against
 the other guitar's take 0; snapshots do not carry the selection (a snapshot slot has no audio,

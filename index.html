@@ -9236,6 +9236,20 @@ async function landRecording(i,buf,proc,protocol){
 // the file's own rate; the source node resamples to the output device. One
 // playback at a time, one lazily-created output context for the whole app.
 let playCtx=null, playCur=null;
+// Safari (user report 2026-09-06: "after I locked the screen and came back … not audible
+// though it plays; YouTube in another tab works"): an AudioContext that lives through a
+// sleep or screen lock keeps its clock running but its output unit never comes back, and
+// only a new context sounds again. So a context that saw the page go hidden is SPENT: the
+// next play closes it and builds a fresh one. Chrome takes the same path harmlessly — a new
+// context costs nothing — and the capture context is dropped the same way when nothing is
+// recording, so the next Record opens a live one instead of a dead one.
+let playCtxSpent=false;
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="hidden") return;
+  stopPlayback();
+  if(playCtx) playCtxSpent=true;
+  if(!recCap&&typeof recLive==="object"&&recLive.ctx){ try{ stopMonitor(); }catch(_e){} try{ recLive.ctx.close(); }catch(_e){} recLive.ctx=null; }
+});
 function canPlay(i,rec){
   const s=rec||state.slots[i];
   return !!(s&&s.samples&&s.samples.length&&s.info&&s.info.sampleRate>0);
@@ -9257,10 +9271,12 @@ function startPlayback(i,f0,f1,onstop,off,rec){
   stopPlayback();
   const s=rec||state.slots[i];
   if(!canPlay(i,s)) return false;
-  if(!playCtx||playCtx.state==="closed"){
+  if(!playCtx||playCtx.state==="closed"||playCtxSpent){
     const AC=window.AudioContext||window.webkitAudioContext;
     if(!AC) return false;
-    playCtx=new AC();
+    if(playCtx){ try{ playCtx.close(); }catch(_e){} } // a spent context is closed, never kept: WebKit caps live contexts per process
+    playCtx=new AC(); playCtxSpent=false;
+    try{ playCtx.onstatechange=()=>{ if(playCtx&&playCtx.state==="interrupted") playCtxSpent=true; }; }catch(_e){}
   }
   const buf=playCtx.createBuffer(1,s.samples.length,s.info.sampleRate);
   buf.getChannelData(0).set(s.samples);
