@@ -3599,3 +3599,20 @@ measurements* under the tone rows still prints, and in each term's popover. A se
 to say is not rendered. Hidden `gsx` spans carry ": " and "; " so `textContent` — what the share
 image quotes — still reads as sentences. Single-guitar and not-comparable cases are unchanged.
 `tests/e.test.js` re-pointed (the section pushes, and every candidate must carry `short`).
+
+## 2026-09-07 — reliability said once, in Before you compare; At a glance warns only when it must
+
+**User:** *"something about reliability should be spoken about in Before you compare. In At a
+glance, only a warning at the beginning if something about the comparability or reliability is
+not great, otherwise no need to talk about it. Before you compare should be succinct and use a
+green tick-mark for something good/checked."*
+
+**Change.** Before you compare gains a **Reliable / Not yet reliable** line — bands measured from
+*n + m* takes, or saved on a date, or which guitar has one take and what a second one buys — and
+every line now opens with a mark drawn in CSS on the existing E5 `light` span: a green ✓, an amber
+!, a red ✕ (the per-guitar facts, *Fair to compare*, *Not directly comparable*, the mixed-paths
+warning and the strings line all carry one). The lines are shortened to one clause each; the hint
+under the title is shorter too. **At a glance** drops its *Comparable* opener: it prints a warning
+line (amber) only for *Not comparable* or *Comparable, but not yet reliable*, and otherwise starts
+at **Sound**. `tests/e.test.js` re-pointed (marks, the two reliability strings, the inverted
+absence of the Comparable opener).

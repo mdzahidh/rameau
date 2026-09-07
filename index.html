@@ -652,9 +652,12 @@ table.datatable tr.grp td{
 .precompare .pre-item[data-pop]{ cursor:pointer; } .precompare .pre-item[data-pop]:hover{ text-decoration:underline dotted; }
 .precompare .pre-item.reason{ color:var(--faint); font-style:italic; }
 .precompare .pre-take{ font-size:10.5px; color:var(--dim); border:1px solid var(--hair2); border-radius:3px; padding:0 5px; }
-.precompare .light{ display:inline-block; width:9px; height:9px; border-radius:50%; background:#3aa55d; margin-right:6px; vertical-align:middle; position:relative; top:-1px; }
-.precompare .light.warn{ background:#e0a52a; } .precompare .light.bad{ background:#d94a3d; }
-.precompare .pre-verdict{ margin-top:6px; color:var(--mut); }
+/* 2026-09-07 (user): a green tick for what checked out, an amber ! or a red ✕ otherwise — glyphs drawn in CSS so the markup stays the E5 light */
+.precompare .light{ display:inline-block; width:13px; margin-right:5px; color:#2f9a52; font-weight:700; font-size:12px; line-height:1; text-align:center; vertical-align:baseline; }
+.precompare .light::before{ content:"✓"; }
+.precompare .light.warn{ color:#c98a12; } .precompare .light.warn::before{ content:"!"; }
+.precompare .light.bad{ color:#d94a3d; } .precompare .light.bad::before{ content:"✕"; }
+.precompare .pre-verdict{ margin-top:4px; color:var(--mut); }
 .precompare .pre-verdict.warn{ color:var(--warn); }
 .precompare .pre-verdict b{ font-weight:600; color:inherit; }
 .slottype{ font:inherit; font-size:11px; color:var(--mut); background:transparent; border:1px solid var(--hair2); border-radius:3px; padding:1px 4px; margin-right:4px; }
@@ -717,6 +720,7 @@ table.datatable tr.grp td{
 .verdict{ margin-top:0; padding:14px 20px 15px; border-top:none; max-width:none; }
 /* 2026-09-07: At a glance is sections, one aspect per line */
 .verdict .gline{ margin-top:4px; }
+.verdict .gline.warn{ color:var(--warn); }
 .verdict .gsec{ display:flex; gap:14px; align-items:baseline; margin-top:8px; padding-top:8px; border-top:1px solid var(--hair2); }
 .verdict .gsh{ flex:0 0 104px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
 .verdict .gsb{ flex:1; min-width:0; }
@@ -8012,21 +8016,29 @@ function preCompareHtml(records,compat,typesDiffer,types){
               :'<span class="pre-item reason" data-pop="'+r.key+':'+i+'" title="'+esc(r.def.name)+' — what was looked for">'+esc((r.def.miss?r.def.miss:r.def.name+" — not measured")+(r.reason[i]?" ("+r.reason[i]+")":""))+'</span>'; });
     return '<div class="pre-line"><span class="pre-who '+(i?"tb":"ta")+'">'+esc(slotLabel(i))+'</span>'+items.join('<span class="pre-sep">·</span>')+(slotTakes(i).length>1?'<span class="pre-take">'+esc(takeNote(i))+'</span>':"")+'</div>';
   };
+  const mark=k=>'<span class="light '+k+'"></span>';
   let verdict=stiffnessLineHtml();
+  // 2026-09-07 (user): reliability is said here, once — the bands every verdict below rests on.
+  if(bothLoaded()){
+    const lv=liveToneBands(), nT=[0,1].map(i=>slotTakes(i).length);
+    if(lv.ready) verdict+='<div class="pre-verdict ok">'+mark("ok")+'<b>Reliable</b> — '+termHtml("reliability","reliability bands")+' measured from '+nT.join(" + ")+' takes; the verdicts below rest on them.</div>';
+    else if(state.toneBandsAt) verdict+='<div class="pre-verdict ok">'+mark("ok")+'<b>Reliable</b> — '+termHtml("reliability","reliability bands")+' saved on '+esc(new Date(state.toneBandsAt).toLocaleDateString())+'; a second take of each guitar would measure them afresh.</div>';
+    else verdict+='<div class="pre-verdict warn">'+mark("warn")+'<b>Not yet reliable</b> — '+[0,1].filter(i=>nT[i]<2).map(i=>esc(slotLabel(i))).join(" and ")+' '+([0,1].filter(i=>nT[i]<2).length>1?"have":"has")+' one take; add a second to measure how much a number moves on its own. Until then no row gives a verdict.</div>';
+  }
   // Every take counts: a guitar whose takes were detected through different paths is said first.
-  for(let i=0;i<2;i++){ const mx=mixedPaths(i); if(mx.length) verdict+='<div class="pre-verdict warn"><b>'+esc(slotLabel(i))+"'s takes mix "+mx.map(p=>PATH_WORD[p].toLowerCase()).join(" and ")+"</b> — the room is in some of its decays and not others; set the path in the readout, or drop the odd take.</div>"; }
+  for(let i=0;i<2;i++){ const mx=mixedPaths(i); if(mx.length) verdict+='<div class="pre-verdict warn">'+mark("warn")+'<b>'+esc(slotLabel(i))+"'s takes mix "+mx.map(p=>PATH_WORD[p].toLowerCase()).join(" and ")+"</b> — the room is in some of its decays and not others; set the path in the readout, or drop the odd take.</div>"; }
   const nPairs=compat.length?Math.max(...compat.map(c=>c.pairs||1)):1;
   if(!bothLoaded()) verdict+='<div class="pre-verdict">Load or record the other guitar to compare — the same phrase, played the same way.</div>';
   else {
     const fails=compat.filter(c=>!c.ok);
     if(fails.length||typesDiffer){
       const bits=fails.map(c=>c.label+(c.text?" ("+c.text+(nPairs>1&&c.pair?" — take "+(c.pair[0]+1)+" of "+slotLabel(0)+" against take "+(c.pair[1]+1)+" of "+slotLabel(1)+", "+c.failing+" of "+c.pairs+" pairs":"")+")":""));
-      verdict+='<div class="pre-verdict warn"><b>Not directly comparable</b> — '+
+      verdict+='<div class="pre-verdict warn">'+mark("bad")+'<b>Not directly comparable</b> — '+
         (typesDiffer?"one is "+typeArticle(types[0])+TYPE_WORD[types[0]]+" and one "+typeArticle(types[1])+TYPE_WORD[types[1]]+", so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
         (bits.length?"the "+bits.join(", ")+(bits.length>1?" differ":" differs")+" too much. Rows those affect show no verdict; "+termHtml("level-match","level-match")+" cannot fix that — see "+termHtml("comparability","what a fair comparison needs")+".":"")+'</div>';
-    } else verdict+='<div class="pre-verdict ok"><b>Fair to compare.</b> Register, note density and count, length, level, noise floor and recording path all match within the limits'+(nPairs>1?" for every one of the "+nPairs+" pairs of takes":"")+' — '+termHtml("comparability","what a fair comparison needs")+'.</div>';
+    } else verdict+='<div class="pre-verdict ok">'+mark("ok")+'<b>Fair to compare</b> — register, density, count, length, level, floor and path all '+termHtml("comparability","match")+(nPairs>1?" for every one of the "+nPairs+" pairs of takes":"")+'.</div>';
   }
-  return '<div class="precompare"><div class="ghead"><span class="gname">Before you compare</span><span class="ghint">what the two recordings have to have in common before any difference below can be read as the guitar</span></div>'+line(0)+line(1)+verdict+'</div>';
+  return '<div class="precompare"><div class="ghead"><span class="gname">Before you compare</span><span class="ghint">what the two recordings must share before a difference below can be read as the guitar</span></div>'+line(0)+line(1)+verdict+'</div>';
 }
 // String stiffness as a highlight, not a row (user, 2026-09-06): two guitars will very likely have
 // different scale lengths (that is the construction) and quite likely different strings, and B
@@ -8040,8 +8052,8 @@ function stiffnessLineHtml(){
   const fm=v=>(v*1e4).toFixed(2), d=Math.abs(Math.log2(B[0]/B[1])), band=TONE_BANDS_DEFAULT.inharmonicity.oct;
   const hi=B[0]>B[1]?0:1, ratio=Math.pow(2,d).toFixed(1);
   return '<div class="pre-verdict note">'+(d>band
-    ? '<b>Strings and scale differ</b> — the overtones of '+esc(slotLabel(hi))+' are '+termHtml("inharmonicity","stretched")+' '+ratio+'× more (B '+fm(B[0])+' vs '+fm(B[1])+' ×10⁻⁴ on the open E and A). Expected between two guitars: scale length is the guitar, the strings are the strings, and the two cannot be told apart from the audio — so some of the brightness and ring difference below is the strings. This is the overtone stretch, not how the strings feel.'
-    : '<b>Strings and scale read alike</b> — the '+termHtml("inharmonicity","overtone stretch")+' is B '+fm(B[0])+' vs '+fm(B[1])+' ×10⁻⁴ on the open E and A, inside the spread two takes of one guitar show.')+'</div>';
+    ? '<span class="light warn"></span><b>Strings and scale differ</b> — the overtones of '+esc(slotLabel(hi))+' are '+termHtml("inharmonicity","stretched")+' '+ratio+'× more (B '+fm(B[0])+' vs '+fm(B[1])+' ×10⁻⁴), so some of the brightness and ring difference below is the strings. Expected between two guitars; not how the strings feel.'
+    : '<span class="light ok"></span><b>Strings and scale read alike</b> — '+termHtml("inharmonicity","overtone stretch")+' B '+fm(B[0])+' vs '+fm(B[1])+' ×10⁻⁴.')+'</div>';
 }
 // The block lives in its own card under the guitar cards (user, 2026-09-06: "given the
 // importance of the comparability … right after the audio card"): it is the pre-requisite for
@@ -8185,9 +8197,11 @@ function renderVerdict(){
     const {records,compat,typesDiffer}=toneRecords();
     const fails=compat.filter(c=>!c.ok), banded=records.some(r=>r.def.glance&&r.state===1);
     const lv=liveToneBands();
-    if(fails.length||typesDiffer) parts.push("<b>Not comparable</b> as they stand — "+(fails.length?"the "+fails.map(c=>c.label).join(", ")+(fails.length>1?" differ":" differs")+" too much between the takes":"they are different kinds of guitar")+" (Before you compare, above); the rows that rest on that carry no verdict.");
-    else if(!banded) parts.push("<b>Comparable, but not yet confidently</b> — the takes match (Before you compare, above), but until each guitar has two takes nothing can say how much a number moves on its own.");
-    else parts.push("<b>Comparable</b> — the takes match (Before you compare, above); reliability bands "+(lv.ready?"measured from "+[0,1].map(i=>slotTakes(i).length).join(" + ")+" takes":"saved earlier")+".");
+    // 2026-09-07 (user): a warning here only when comparability or reliability is not
+    // right; when both are, Before you compare has said so and the strip goes straight to
+    // what was found.
+    if(fails.length||typesDiffer) parts.push({warn:true, html:"<b>Not comparable</b> as they stand — "+(fails.length?"the "+fails.map(c=>c.label).join(", ")+(fails.length>1?" differ":" differs")+" too much between the takes":"they are different kinds of guitar")+" (Before you compare, above); the rows that rest on that carry no verdict."});
+    else if(!banded) parts.push({warn:true, html:"<b>Comparable, but not yet reliable</b> — "+(lv.ready?"no row's difference clears its band":"until each guitar has two takes nothing can say how much a number moves on its own")+" (Before you compare, above)."});
     const cands=proseCandidates();
     // 2026-09-07 (user: "too verbose … one aspect at a time, succinctly, details in the popouts"):
     // the strip is sections — Pair / Sound / Ring / Loudest gap / For the player — each one
@@ -8217,7 +8231,7 @@ function renderVerdict(){
   }
   // A string is a plain line; {h,items} is a section, skipped when it has nothing to say.
   // The hidden `gsx` spans keep textContent readable (the share image quotes it).
-  const line=p=>typeof p==="string"?'<div class="gline">'+p+'</div>'
+  const line=p=>typeof p==="string"?'<div class="gline">'+p+'</div>':p.warn?'<div class="gline warn">'+p.html+'</div>'
     :(p.items.length?'<div class="gsec"><span class="gsh">'+p.h+'<span class="gsx">: </span></span><span class="gsb">'+p.items.join('<span class="gsx">; </span><br>')+'<span class="gsx">. </span></span></div>':"");
   verdictPara.innerHTML='<span class="lead">At a glance</span>'+parts.map(line).join("");
 }
