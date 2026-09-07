@@ -2198,6 +2198,56 @@ anything it references must be in block 0 (that is why `SPEC_METRIC_KEYS` lives 
 loads back as a stack whose first take is already an average. `meanOf` is only ever set on
 take 0; a sibling's is undefined.
 
+## Every take counts (2026-09-06)
+
+**Rule.** All of a guitar's takes enter everything that has no time axis. The mean-spectrum
+mechanism above covers the spectral rows; this section is the rest.
+
+- **The band is a standard error, not a spread.** `toneBandsFromTakes` still returns each
+  guitar's range `v` and count `n`; `combineBands(a,b)` (block 0) turns the two into
+  `1.128 · hypot(R_A/(d₂(n_A)√n_A), R_B/(d₂(n_B)√n_B))`. The 1.128 calibrates two-and-two with
+  equal ranges to exactly the old `max(a.v,b.v)`, so nothing the user saw with two takes each
+  changed; more takes narrow it. `liveToneBands` feeds `def.val(ownView(t), i)` — the take as
+  analysed alone. **Trap:** take 0 carries the mean spectrum, so `def.val(t)` on it measures the
+  mean; a spectral band built that way is biased toward zero (it was, from E2 until here).
+- **Comparability is all-pairs.** `comparabilityAll(listA, listB)` calls `comparability` per
+  pair and folds: `ok` only if every pair passed, `text`/`a`/`b`/`pair` from the worst pair
+  (a failing one if any, else the widest passing), `failing` of `pairs`. `toneRecords` builds
+  the lists from `ownView(t).metrics` after writing `metrics.path = pathForTake(i, t)` on every
+  take. One take each folds to the single `comparability` result byte for byte.
+- **Evidence is pooled.** `poolMetrics(list)` concatenates the takes' notes, takes the median
+  SNR, any tap/air, and the first room that outlasts its note; `toneEvidenceOf(pooled[i], …,
+  pooled[1-i])` then counts across takes, and Sustain's matched-decay count is against the other
+  guitar's pooled notes. `ROOM_ROWS` read `pooled[i].room`.
+- **`pairwise:true` rows.** In `toneRecords`, before the `perTake` branch: `topTakes(i,
+  PAIR_TAKES)` × `topTakes(1-i, PAIR_TAKES)`; `def.val(ownView(t), i, ownView(u).metrics)` per
+  pair; geometric mean over the other's takes per take (`perVals`), then over takes. With one
+  pair `perVals` is dropped so the readout prints the plain value. `def.detail(v, tv, i, om)`
+  receives the other guitar's **selected** take for the note list. Only Sustain is pairwise.
+- **Dead spots need a majority.** Each take still carries its own `neckFlags` from `deadSpots`;
+  `poolDeadSpots(list)` groups notes by pitch (±50 ¢) across takes and flags one only when it is
+  flagged in a strict majority of the takes that contain it, reporting `inTakes` of `ofTakes`.
+  Read by Sustain's detail and by `proseCandidates`.
+- **`_otherMetrics(i)` takes a slot index.** The old `state.slots.indexOf(s)` was −1 for any
+  own view, which resolved to slot 0 — the wrong guitar for side B and the guitar itself for
+  side A. Every `def.val` that needs the other side now receives `i` (and `om` when pairwise).
+
+**The headless draw race, second half (2026-09-06).** `tests/headless.js` documents a launch
+ending before the demo decode finishes. There is a second way to lose the same assertion: the
+decode finishes, `afterDataChange` runs to the end, and the first draw of the new state sits on
+a `requestAnimationFrame` that a `--dump-dom` run never delivers once its timers are dry (the
+dump ends at the virtual budget; frames are real). How often it bites depends on how long the
+synchronous tail after the landing takes — a *faster* tail loses more often, which is how a
+batch that added no drawing work took pane B from 4/4 to 2/4. `afterDataChange` therefore
+ends in a synchronous `drawAll()`; `requestDraw()` still coalesces every other redraw. Do not
+answer this race with a bigger budget or more tries.
+
+**Traps.** `comparabilityAll`'s `bad` is `|a − b|` for numeric checks, so a ratio-tested check
+reports the pair with the largest difference, not strictly the largest ratio — good enough to
+name a pair, not a ranking to build on. `poolDeadSpots` groups greedily in take order; two notes
+of one take 60 ¢ apart form two groups. `topTakes` ranks by `metrics.pitched`, which a snapshot
+slot carries but an unanalysed take does not (it sorts last).
+
 ## Hard-won correctness notes (dead ends — do not retry)
 
 - **Absolute attack thresholds are wrong for phrases.** 10 %/90 %-of-peak is never

@@ -314,6 +314,23 @@ missing. The rule the panel will use: *try ×1, ×2, ×3; keep the lowest hypoth
 six teeth are present; never go below the autocorrelation's own pick (its errors are
 sub-harmonic); if none passes, print no harmonic-indexed number and say why.*
 
+**Amended 2026-09-06 — tooth 1 is excused the floor test, not the level test.** On the user's
+SG and Majesty takes the rule as written raised 1 of 11 and **7 of 14** pitched notes, and the
+two registers came out an octave apart (G♯2 against G♯3) though the same riff was played on
+both. A per-note probe of the teeth showed two different things under the raises. **Real low
+notes with a faint fundamental:** the Majesty's opening D♯2 had tooth 1 at 6 dB over the floor
+and 11 dB under the strongest tooth — present by any ear, but failing the ≥ 10 dB floor test,
+because at 78 Hz with Δf ≈ 12 Hz the floor between tooth 1 and tooth 2 is a few bins wide and
+never dips. **True sub-harmonic picks:** the autocorrelation's 69 Hz picks (C♯2, below the
+lowest string in E♭) had *nothing* at tooth 1 — 40 to 66 dB under the top — and were rightly
+raised to C♯3. A first fix that made tooth 1 optional cured the first kind and let the second
+kind through an octave low. The discriminator in the data is the **level under the strongest
+tooth**, so the rule is now: *tooth 1 must sit within 30 dB of the strongest tooth but need
+not clear the between-teeth floor; teeth 2…6 keep both tests* (`weakF0` marks a tooth 1 that
+passed only the level test). Verified on a synthetic 78 Hz comb with tooth 1 at −20 dB
+(`tests/dsp.test.js`), and `tests/audit_tone.js` now calls the shipped `combCheckF0` rather
+than its own copy of the rule. Re-run on the three takes: the Majesty's D♯2 is kept at ×1 (tooth 1 at 6 dB over the floor, 11 dB under the top), and every pick with nothing at tooth 1 — one on the Les Paul, one on the SG, six on the Majesty, all 39–73 dB under the top — is still raised.
+
 ### 7.4 · Confounder table
 
 Spread is one SD; "oct" is log₂ units. *Level*: pure gain leaves every descriptor unchanged
@@ -536,6 +553,38 @@ row); until measured, provisional bands from §7.4 apply and are labelled so: ce
 ±0.55 oct, B ±20 %, pickup f ±10 %, even/odd ±4 dB, richness ±4 dB, band shares ±5 pts,
 attack ±1 oct, attack colour ±0.5 oct (already a log quantity, so an absolute band),
 band decays ±0.3 oct, overtone sustain ±0.3 oct, neck sustain ±0.3 oct, dynamic range ±5 dB.
+
+**Amended 2026-09-06 — every take counts.** The user's principle: *wherever it makes sense,
+all the takes are taken into account.* Three consequences, each written here before the code.
+
+*(a) The band shrinks with the number of takes.* A guitar's takes give a range R over n
+values; for a normal sample the range estimates the spread as σ ≈ R / d₂(n) with
+d₂ = 1.128, 1.693, 2.059, 2.326, 2.534, 2.704, 2.847, 2.970, 3.078 for n = 2…10 (the
+control-chart constant; n > 10 keeps d₂(10) under a √n that goes on shrinking). What a
+verdict compares is the difference of two **means**, whose standard error is
+√(σ_A²/n_A + σ_B²/n_B). The band is therefore
+
+  band = 1.128 · √( (R_A / (d₂(n_A)·√n_A))² + (R_B / (d₂(n_B)·√n_B))² ),
+
+the factor 1.128 chosen so that two takes of each guitar with equal ranges R give **band = R** —
+exactly the band the rule above produced (the larger of two equal spreads). With three takes
+each it is 0.54 R; with two of one guitar and three of the other, 0.80 R. A saved band (the
+repeatability mode's stored spread) is used as it was saved.
+
+*(b) Comparability runs over every pair of takes.* A check passes only if it passes for every
+take of A against every take of B; a failing check reports its worst pair by name. Two takes of
+one guitar cannot repair a third that was recorded in another register or through a mic. The
+recording path is detected per take, and a guitar whose takes mix DI and microphone is said
+so before anything is compared.
+
+*(c) Note-based rows use every take.* A row's value is the mean of its per-take values
+(geometric on a log axis). Its evidence is pooled — the notes of all the takes together — since
+that is what the mean was made from. **Sustain** matches notes between each take of A and each
+take of B (±50 ¢), takes the median per pair, and averages the pairs; at most three takes per
+guitar enter (the three with the most pitched notes), so the pair count stays at nine or fewer.
+A **dead spot** (§7.6.7) is reported only when the note dies early in a strict majority of the
+takes that contain it — one weak pluck in one take is a pluck, the same note dying in two takes
+of three is the neck.
 
 ### 7.7 · Evidence requirements (added 2026-09-05, E1.1 — measured before frozen)
 

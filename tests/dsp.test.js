@@ -985,15 +985,18 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
     ok(/fam:"tone"/.test(pc) && /fam:"time"/.test(pc), "both families are represented");
     ok(/const clear=k=>\{ const r=rec\(k\); return \(r&&r\.verdict&&r\.verdict\.kind==="diff"\)\?r:null; \};/.test(pc),
       "a sentence exists only when the row's difference cleared its band and no comparability check blocked it");
-    for (const k of ["brightness", "warmth", "low-end", "even-odd", "attack", "dynamic-range"])
+    // Brightness joined the strip 2026-09-06 with its caveat in the sentence (tests/e.test.js pins that).
+    for (const k of ["warmth", "low-end", "even-odd", "attack", "dynamic-range"])
       ok(!new RegExp('clear\\("' + k + '"\\)').test(pc), "voicing row " + k + " never reaches At a glance");
     const sus = pc.slice(pc.indexOf('clear("overtone-sustain")'), pc.indexOf('clear("f0-decay")')); // Dead spots merged into Sustain 2026-09-06
     ok(/fam:"time"/.test(sus) && /ratio\.toFixed\(1\)\+"\u00d7 longer/.test(sus),
       "overtone ring is a time-domain difference and prints the ratio a player would quote");
-    ok(/const other=cands\.find\(c=>c\.fam!==cands\[0\]\.fam\);/.test(rv),
-      "the strip looks past its leader for the other family");
-    ok(/if\(other\) parts\.push\(other\.html\);/.test(rv),
-      "and prints it when the measurement cleared its own threshold");
+    // 2026-09-06: the strip prints EVERY verdict-backed sentence (user's re-audit), so the
+    // Q5 "other family" pick is subsumed — both families still print when both cleared.
+    ok(/for\(const c of cands\) parts\.push\(c\.html\);/.test(rv),
+      "the strip prints every verdict-backed sentence, both families included");
+    ok(/cands\.sort\(\(a,b\)=>b\.score-a\.score\);/.test(pc) && /cands\.slice\(0,4\)/.test(body("renderProse")),
+      "the tone panel's prose still reads the same ranked list — summary and detail cannot disagree");
   }
 
 
@@ -1012,6 +1015,17 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
     const c4 = D.combCheckF0(power, df, f0 * 2);
     ok(c4.mult === 1 && c4.f0 === f0 * 2, "the pick is never lowered", JSON.stringify([c4.mult, c4.f0, c4.pass]));
     ok(D.COMB_TEETH === 6, "six teeth decide");
+    // 2026-09-06: a faint fundamental is not a wrong pitch. Tooth 1 at −20 dB on a low note whose
+    // teeth sit 3 bins apart (78 Hz at 48 kHz / 8192), where the floor between teeth 1 and 2 never
+    // dips 10 dB — the old rule raised this an octave.
+    const fl = 78, xw = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let v = 0.1 * Math.sin(2 * Math.PI * fl * i / rate); for (let h = 2; h <= 12; h++) v += Math.sin(2 * Math.PI * h * fl * i / rate) / h; xw[i] = 0.3 * v; }
+    const pw = await D.welch(xw, rate, 8192, 4096, null);
+    const wk1 = D.combCheckF0(pw.power, pw.df, fl);
+    ok(wk1.pass && wk1.mult === 1, "a faint fundamental within 30 dB of the top keeps its true pitch, never raised an octave", JSON.stringify([wk1.mult, wk1.weakF0, wk1.present]));
+    // …but nothing at all at the pick is still a sub-harmonic: the same note picked at fl/2 is raised.
+    const wk2 = D.combCheckF0(pw.power, pw.df, fl / 2);
+    ok(wk2.pass && wk2.mult === 2 && Math.abs(wk2.f0 - fl) < 1e-9, "a pick with nothing at tooth 1 (fl/2) is still raised to the comb", JSON.stringify([wk2.mult, wk2.f0]));
     // ---- inharmonicity: synthetic stiff string, B = 2e-4, f0 free ----
     const B = 2e-4, y = new Float32Array(n);
     for (let i = 0; i < n; i++) { let v = 0; for (let h = 1; h <= 12; h++) v += Math.sin(2 * Math.PI * h * f0 * Math.sqrt(1 + B * h * h) * i / rate) / h; y[i] = 0.3 * v; }

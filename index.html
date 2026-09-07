@@ -620,8 +620,10 @@ table.datatable tr.grp td{
 .tonerow.blocked .track .pt, .tonerow.blocked .track .vlab{ opacity:.35; }
 .track .vlab.reason{ color:var(--faint); font-style:italic; }
 /* 2026-09-06: "Before you compare" — the take facts and the comparability verdict, one block at the top */
-.precompare{ margin:0 0 6px; padding:2px 0 10px; border-bottom:1px solid var(--hair2); font-size:12px; line-height:1.6; }
-.precompare .ghead{ border-bottom:0; padding-bottom:4px; }
+.precompare{ margin:0; padding:0; font-size:12px; line-height:1.6; }
+.precompare .ghead{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; padding:0 0 6px; }
+.precompare .ghead .gname{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+.precompare .ghead .ghint{ font-size:11.5px; color:var(--dim); }
 .precompare .pre-line{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; font-variant-numeric:tabular-nums; color:var(--mut); }
 .precompare .pre-who{ font-weight:600; min-width:2.2em; }
 .precompare .pre-who.ta{ color:var(--slot-a); } .precompare .pre-who.tb{ color:var(--slot-b); }
@@ -1036,6 +1038,11 @@ kbd{
       <input type="file" id="fileInput0" accept=".wav,.aif,.aiff,.mp3,.m4a,.mp4,.flac,.json,audio/*" hidden>
       <input type="file" id="fileInput1" accept=".wav,.aif,.aiff,.mp3,.m4a,.mp4,.flac,.json,audio/*" hidden>
     </div>
+
+    <!-- before you compare (2026-09-06): the pre-requisite for everything below, said once -->
+    <section class="card reveal" id="preCard" style="display:none">
+      <div id="preCompare"></div>
+    </section>
 
     <!-- at a glance -->
     <section class="card reveal" id="verdictCard" style="display:none">
@@ -2401,9 +2408,16 @@ function combCheckF0(power, df, f0){
     const t=combTeeth(power, df, f0*k, COMB_TEETH_MAX);
     const top=t.slice(0,COMB_TEETH).reduce((m,o)=>Math.max(m,o.db),-Infinity);
     const present=t.map(o=>o.floorDb!=null && o.db-o.floorDb>=COMB_ABOVE_FLOOR_DB && o.db>=top-COMB_BELOW_TOP_DB);
+    // Tooth 1 is excused the between-teeth floor test, not the level test (2026-09-06, THEORY
+    // §7.3): on a low note the floor between tooth 1 and tooth 2 is a few bins wide and does
+    // not dip 10 dB, so a real fundamental 11 dB under the strongest tooth failed and the note
+    // was raised an octave; a sub-harmonic pick has NOTHING at tooth 1 (40–66 dB under the top
+    // on the audit takes) and still fails here. Teeth 2…6 keep both tests.
+    const weakF0=!present[0] && t.length>0 && t[0].db>=top-COMB_BELOW_TOP_DB;
+    if(weakF0) present[0]=true;
     const pass=present.length>=COMB_TEETH && present.slice(0,COMB_TEETH).every(Boolean);
     tried.push({mult:k, f0:f0*k, pass, frac:present.length?present.filter(Boolean).length/present.length:0, present});
-    if(pass) return {f0:f0*k, mult:k, pass:true, frac:tried[tried.length-1].frac, present, tried};
+    if(pass) return {f0:f0*k, mult:k, pass:true, weakF0, frac:tried[tried.length-1].frac, present, tried};
   }
   return {f0, mult:1, pass:false, frac:tried[0].frac, present:tried[0].present, tried};
 }
@@ -2774,6 +2788,63 @@ function toneBandsFromTakes(vals, bands){
     out[k]={v: dom.oct!=null ? Math.log2(mx/mn) : (mx-mn), n:v.length};
   }
   return out;
+}
+// ---------- every take counts (2026-09-06, THEORY §7.6.10 amended) ----------
+// d₂(n) = E[range]/σ for n normal samples, n = 2…10; beyond 10 the last value holds under a
+// √n that keeps shrinking. A guitar's band is its takes' range read as the standard error
+// of their mean (σ ≈ R/d₂(n), SE = σ/√n); the two guitars combine in quadrature — the
+// difference of two means — scaled by d₂(2) = 1.128 so that two takes each with equal ranges
+// R give exactly R, the band the pre-amendment rule (the larger spread) produced. More takes,
+// narrower band: that is the statistics, and the reason to record them.
+const D2_RANGE=[NaN,NaN,1.128,1.693,2.059,2.326,2.534,2.704,2.847,2.970,3.078];
+function rangeToSe(range,n){ if(!(n>=2)||range==null||!isFinite(range)) return null; const d2=D2_RANGE[Math.min(n,10)]; return 1.128*range/(d2*Math.sqrt(n)); }
+function combineBands(a,b){ if(!a||!b) return null; const sa=rangeToSe(a.v,a.n), sb=rangeToSe(b.v,b.n); if(sa==null||sb==null) return null; return {v:Math.hypot(sa,sb), n:a.n+b.n, nA:a.n, nB:b.n}; }
+// Comparability over every pair of takes: a check passes only when every pair passes; the
+// entry reports its worst pair (a failing one if any, else the widest passing one) and which
+// takes those were (`pair`), with `failing` of `pairs`.
+function comparabilityAll(listA,listB){
+  const A=(listA||[]).filter(Boolean), B=(listB||[]).filter(Boolean);
+  if(!A.length||!B.length) return [];
+  const by={};
+  A.forEach((ma,ia)=>B.forEach((mb,ib)=>{ for(const c of comparability(ma,mb)){
+    const bad=(typeof c.a==="number"&&typeof c.b==="number")?Math.abs(c.a-c.b):(c.ok?0:1);
+    const cur=by[c.key];
+    if(!cur){ by[c.key]=Object.assign({},c,{bad,pair:[ia,ib],pairs:1,failing:c.ok?0:1}); continue; }
+    cur.pairs++; if(!c.ok) cur.failing++;
+    if((!c.ok&&cur.ok)||(c.ok===cur.ok&&bad>cur.bad)) Object.assign(cur,{ok:c.ok,a:c.a,b:c.b,text:c.text,bad,pair:[ia,ib]});
+  } }));
+  return COMPAT_CHECKS.map(c=>by[c.key]).filter(Boolean);
+}
+// Evidence pooled over a guitar's takes — the notes of every take together (a row's value is
+// the mean over takes, so its evidence is what the takes supply together), the median SNR,
+// any tap or air resonance, and a room that outlasts the note in any take. One take pools
+// to itself.
+function poolMetrics(list){
+  const ms=(list||[]).filter(Boolean); if(!ms.length) return null; if(ms.length===1) return ms[0];
+  const notes=[]; let any=false; for(const m of ms) if(m.notes){ any=true; for(const n of m.notes) notes.push(n); }
+  const snr=ms.map(m=>m.snr).filter(v=>v!=null&&isFinite(v)).sort((a,b)=>a-b);
+  return {pooled:ms.length, notes:any?notes:undefined, snr:snr.length?snr[snr.length>>1]:null,
+          tap:ms.map(m=>m.tap).find(Boolean)||null, air:ms.map(m=>m.air).find(Boolean)||null,
+          room:ms.map(m=>m.room).find(r=>r&&r.outlasts)||null};
+}
+// Dead spots across takes (THEORY §7.6.7): a note is flagged only when it dies early in a
+// strict MAJORITY of the takes that contain it, notes matched by pitch within ±50 ¢. One
+// take flags as before. Flags sort worst first; each says in how many takes of how many.
+function poolDeadSpots(list){
+  const ms=(list||[]).filter(m=>m&&m.notes); if(!ms.length) return {median:null, n:0, flags:[], takes:0};
+  const cents=(a,b)=>Math.abs(1200*Math.log2(a/b));
+  const groups=[];
+  ms.forEach((m,k)=>{
+    for(const n of m.notes){ if(!(n.pass&&n.t20>0)) continue;
+      let g=groups.find(g=>cents(g.f0,n.f0)<=50); if(!g){ g={f0:n.f0, present:new Set(), flagged:[]}; groups.push(g); } g.present.add(k); }
+    for(const f of (m.neckFlags||[])){ const g=groups.find(g=>cents(g.f0,f.f0)<=50); if(g) g.flagged.push(Object.assign({take:k},f)); }
+  });
+  const med=a=>{ const v=a.filter(x=>x!=null&&isFinite(x)).sort((p,q)=>p-q); return v.length?v[v.length>>1]:null; };
+  const flags=[];
+  for(const g of groups){ const inTakes=new Set(g.flagged.map(f=>f.take)).size, of=g.present.size;
+    if(inTakes&&inTakes>of/2) flags.push({f0:g.f0, t20:med(g.flagged.map(f=>f.t20)), ref:med(g.flagged.map(f=>f.ref)), inTakes, ofTakes:of}); }
+  flags.sort((a,b)=>(a.t20/a.ref)-(b.t20/b.ref));
+  return {median:med(ms.map(m=>m.neckMedian)), n:ms.reduce((s,m)=>s+(m.neckN||0),0), flags, takes:ms.length};
 }
 // Returns the delta in the band's domain and whether it clears the band.
 function bandVerdict(a, b, band){
@@ -4191,7 +4262,7 @@ const GLOSSARY=[
     musician:"How long the note you played keeps sounding — not its overtones, the note. Compared note for note when two takes are loaded, so an open E is only ever measured against an open E. The same measurement over every note also finds the dead spots: a note that dies in a third of the time its neighbours take is flagged by name.",
     science:"The fundamental loses energy to the air, inside the string and through the bridge into the body at its own rate (THEORY §7.6.2): a straight line in dB with slope −8.686 ⁄ τ, and 2.303·τ seconds to shed 20 dB. It replaces the fixed-band decay rows (Tightness, Sustain), which moved with register because their band stayed put while the notes moved (§7.4).",
     measure:"Goertzel power at the comb-checked f₀ per 4096-pt Hann frame, hop 512, regression from the post-onset peak until −25 dB or the next onset; accepted with ≥ 6 frames, ≥ 6 dB of observed decay and a slope steeper than −1 dB/s. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, and the row prints the median over those.",
-    values(state){ return _vals(state, s=>{ const o=state.slots[0]&&state.slots[1]?_otherMetrics(s):null; const ns=_f0DecayNotes(s.metrics,o); return ns.length ? ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · ") : null; }); } },
+    values(state){ return _vals(state, s=>{ const o=state.slots[0]&&state.slots[1]?_otherMetrics(state.slots.indexOf(s)===1?1:0):null; const ns=_f0DecayNotes(s.metrics,o); return ns.length ? ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · ") : null; }); } },
 
   { key:"residual", name:"Between notes", cat:"Method", hook:"how quiet it gets between notes",
     musician:"On a direct recording the gaps between notes hold only the string's own ring and the noise floor. With a microphone the room fills those gaps, and the further the mic sits from the guitar, the more room and the less guitar it hears.",
@@ -5664,13 +5735,21 @@ function setSlotType(i,t){
   syncVocabTuning(); // the Anatomy set follows the type (E6.6)
   renderToneRows(); renderProse(); renderVerdict(); renderToneNote(); requestDraw();
 }
-// E6.4: the recording path of a slot — the user's override, else recordingPath() over
-// take 0's own facts and the declared type. Never written into the type.
-function pathFor(i){
+// E6.4: the recording path — the user's override for the slot, else recordingPath() over
+// the TAKE's own facts and the declared type (per take since 2026-09-06: every take counts).
+// Never written into the type. pathFor(i) is take 0's.
+function pathForTake(i,t){
   const o=state.slotPaths&&state.slotPaths[i]; if(o) return o;
-  const s=state.slots[i]; if(!s||!s.metrics) return "unknown";
-  const m=s.metrics;
-  return recordingPath({room:m.room||null, noteT20:m.room?m.room.noteT20:null, channels:s.info?s.info.channels:null, stereoDiffDb:m.stereoDiffDb, type:slotType(i)});
+  if(!t||!t.metrics) return "unknown";
+  const m=t.metrics;
+  return recordingPath({room:m.room||null, noteT20:m.room?m.room.noteT20:null, channels:t.info?t.info.channels:null, stereoDiffDb:m.stereoDiffDb, type:slotType(i)});
+}
+function pathFor(i){ return pathForTake(i,state.slots[i]); }
+// The detected paths a guitar's takes disagree on (unknown ignored; empty under an override).
+function mixedPaths(i){
+  if(state.slotPaths&&state.slotPaths[i]) return [];
+  const set=new Set(slotTakes(i).map(t=>pathForTake(i,t)).filter(p=>p!=="unknown"));
+  return set.size>1?[...set]:[];
 }
 const PATH_WORD={di:"Direct (DI)", mic:"Microphone", piezo:"Piezo pickup", unknown:"Not known"};
 function setSlotPath(i,v){
@@ -5804,7 +5883,7 @@ const smoothSeg=el("smoothSeg"), vocabSel=el("vocabSel"),
       sgramPngBtn=el("sgramPngBtn"), sgramJsonBtn=el("sgramJsonBtn"),
       envPngBtn=el("envPngBtn"), envCsvBtn=el("envCsvBtn"), envJsonBtn=el("envJsonBtn"),
       eqJsonBtn=el("eqJsonBtn");
-const verdictCard=el("verdictCard"), verdictPara=el("verdictPara");
+const verdictCard=el("verdictCard"), verdictPara=el("verdictPara"), preCard=el("preCard"), preCompare=el("preCompare");
 const freqCard=el("freqCard"), freqSpec=el("freqSpec"), freqDiff=el("freqDiff");
 const specWrap=el("specWrap"), specCanvas=el("specCanvas"),
       specXline=el("specXline"), specReadout=el("specReadout"),
@@ -7424,7 +7503,13 @@ function _f0DecayNotes(m, other){
   const op=other.notes.filter(n=>n.pass&&n.t20>0);
   return mine.filter(n=>op.some(o=>Math.abs(1200*Math.log2(o.f0/n.f0))<=50));
 }
-function _otherMetrics(s){ const j=state.slots.indexOf(s); const o=state.slots[j===0?1:0]; return o?o.metrics:null; }
+function _otherMetrics(i){ const o=state.slots[i===1?0:1]; return o?o.metrics:null; }
+// Every take counts (2026-09-06): a `pairwise` row is measured for each take of one guitar
+// against each take of the other; at most PAIR_TAKES per guitar enter — the takes with the
+// most pitched notes (ties: the quieter background) — so the pair count stays at nine or fewer.
+const PAIR_TAKES=3;
+function topTakes(i,k){ const p=t=>(t.metrics&&t.metrics.pitched)||0, q=t=>(t.metrics&&isFinite(t.metrics.snr))?t.metrics.snr:0;
+  return slotTakes(i).slice().sort((a,b)=>(p(b)-p(a))||(q(b)-q(a))).slice(0,k); }
 // Open E and A only (the two wound strings every stocked tuning has): String stiffness is
 // demoted to those, never a median over the neck (SPEC 2026-09-05, E phase).
 function slotStiffnessEA(m){
@@ -7493,17 +7578,18 @@ function toneRowDefs(){
      reason:s=>s.metrics.notes?"one slope fits — no knee":"analysed before this row existed"},
     // Sustain and Dead spots were one measurement in two rows (the fundamental's T20, one matched
     // across the takes, one over every note plus the flags); merged on the user's call, 2026-09-06.
-    {g:"ring", term:"f0-decay", name:"Sustain", perTake:true, glance:true,
-     unit:"seconds for the fundamental to fall 20 dB — median over the notes both takes share, matched by pitch; a note under a third of its neighbours is flagged as a dead spot",
-     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak until it has fallen 25 dB or the next note begins, and the time it takes to fall 20 dB. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, so an open E is only ever measured against an open E; the row prints the median. Over every pitched note of the take, a note under one third of the median of the notes within an octave of it (at least three) is flagged by name as a candidate dead spot — the neck absorbing that note (THEORY §7.6.7).",
+    {g:"ring", term:"f0-decay", name:"Sustain", perTake:true, pairwise:true, glance:true,
+     unit:"seconds for the fundamental to fall 20 dB — median over the notes the two guitars share, matched by pitch, every take of one against every take of the other and averaged; a note under a third of its neighbours in most takes is flagged as a dead spot",
+     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak until it has fallen 25 dB or the next note begins, and the time it takes to fall 20 dB. With both guitars loaded only notes whose pitch appears on both sides (±50 ¢) count, so an open E is only ever measured against an open E: each take of this guitar is matched against each take of the other (up to three takes each, the ones with the most pitched notes), the median is taken per pair and the pairs are averaged. Over every pitched note, a note under one third of the median of the notes within an octave of it (at least three) is flagged by name as a candidate dead spot — the neck absorbing that note — when that happens in most of the takes that contain it (THEORY §7.6.7).",
      ear:{hi:"the note hangs in the air — you can hold it, bend it, let it sing before the next one", lo:"the note is gone sooner — it drops away and you have to keep the line moving; a dead spot is one note doing that while its neighbours ring on"},
      sens:{k:"low", note:"a decay rate is set by the string's losses into the air and the body (THEORY §7.6.2), not by how hard it was hit; matching note for note removes the register (§7.4), which is what moved the old fixed-band rows"},
      lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
-     val:s=>_median(_f0DecayNotes(s.metrics,both?_otherMetrics(s):null).map(n=>n.t20)),
+     val:(s,i,om)=>_median(_f0DecayNotes(s.metrics,both?(om||_otherMetrics(i)):null).map(n=>n.t20)),
      fmt:v=>fmtMs(v),
-     detail:(v,s)=>{ const ns=_f0DecayNotes(s.metrics,both?_otherMetrics(s):null), m=s.metrics, fl=(m.neckFlags||[]).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref));
-       return "time for the fundamental to fall 20 dB, median over "+ns.length+(both?" matched":"")+(ns.length===1?" note":" notes")+(ns.length?" · "+ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · "):"")+
-         (m.neckN?" · dead spots over "+m.neckN+" notes: "+(fl.length?fl.join(" · "):"none flagged"):""); },
+     detail:(v,s,i,om)=>{ const ns=_f0DecayNotes(s.metrics,both?(om||_otherMetrics(i)):null), ds=poolDeadSpots(slotTakes(i).map(t=>t.metrics)),
+         fl=ds.flags.map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref)+(ds.takes>1?" in "+f.inTakes+" of "+f.ofTakes+" takes":""));
+       return "time for the fundamental to fall 20 dB, median over "+ns.length+(both?" matched":"")+(ns.length===1?" note":" notes")+(both&&slotTakes(1-i).length>1?" against "+takeNote(1-i)+" of "+slotLabel(1-i):"")+(ns.length?" · "+ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · "):"")+
+         (ds.n?" · dead spots over "+ds.n+" notes"+(ds.takes>1?" in "+ds.takes+" takes":"")+": "+(fl.length?fl.join(" · "):"none flagged"):""); },
      reason:s=>s.metrics.notes?(both?"no note this take shares with the other":"no note with a measurable decay"):"analysed before this row existed"},
     // ---- How it sounds (continued): the pick-sensitive rows, tagged as such ----
     {g:"sound", term:"brightness", name:"Brightness",
@@ -7546,14 +7632,14 @@ function toneRowDefs(){
     // ---- The take ----
     // E5.2: text rows print a traffic light and one plain phrase; `detail` holds the
     // numbers and is what the tap shows. Thresholds are takeReadiness()'s own.
-    {g:"take", term:"pitch-check", name:"Pitch check", text:true,
+    {g:"take", term:"pitch-check", name:"Pitch check", text:true, miss:"Pitch check — no note passed, so nothing to count harmonics from",
      unit:"whether the notes were clear enough to build the harmonic rows on",
      light:s=>{ const m=s.metrics; if(m.notes==null) return m.f0?"warn":"bad"; if(!m.pitched) return "bad"; return m.pitched>=4&&m.pitched>=0.7*m.onsetCount?"good":"warn"; },
      val:s=>{ const m=s.metrics; if(m.notes==null) return m.f0?"One long note (older analysis)":"No clear pitch found";
-       if(!m.pitched) return "No note passed the pitch check"; return m.pitched>=0.7*m.onsetCount?"Pitch clear on most notes":"Pitch clear on some notes"; },
+       if(!m.pitched) return "No note passed the pitch check — nothing to count harmonics from"; return m.pitched>=0.7*m.onsetCount?"Pitch clear on most notes":"Pitch clear on some notes"; },
      detail:(v,s)=>{ const m=s.metrics; if(m.notes==null) return m.f0?"one note "+fmtHz(m.f0)+", conf "+(m.f0Conf||0).toFixed(2)+" (older analysis, no comb check)":"";
        return m.pitched+" of "+m.onsetCount+" onsets pitched"+(m.unpitched?" · "+m.unpitched+" failed the comb check":"")+(m.combRaised?" · comb raised "+m.combRaised+" (×2/×3)":"")+(m.f0Conf!=null?" · conf "+m.f0Conf.toFixed(2):""); }},
-    {g:"take", term:"noise-floor", name:"Level and floor", text:true,
+    {g:"take", term:"noise-floor", name:"Level and floor", text:true, miss:"Level and floor — the take's level and its background were not measured",
      unit:"how hot the take is and how quiet it gets between the notes",
      light:s=>{ const m=s.metrics; if(m.clipped||(m.snr!=null&&m.snr<25)) return "bad"; if((m.snr!=null&&m.snr<35)||(m.levelPeak!=null&&m.levelPeak<-24)) return "warn"; return "good"; },
      val:s=>{ const m=s.metrics, b=[]; b.push(m.clipped?"clipped":(m.levelPeak!=null&&m.levelPeak<-24?"quiet take":"good level"));
@@ -7563,7 +7649,7 @@ function toneRowDefs(){
        if(m.clipped) b.push("clipped — "+m.clipCount+" samples");
        if(m.dr!=null) b.push("dynamic range "+m.dr.toFixed(1)+" dB (95th − 10th percentile of the 50 ms levels above the floor — a fact about the performance, and one the floor eats into)");
        return b.join(" · "); }},
-    {g:"take", term:"comparability", name:"Material", text:true,
+    {g:"take", term:"comparability", name:"Material", text:true, miss:"Material — no notes were found to describe what was played",
      unit:"what was played — the comparison is only fair when these match",
      light:s=>{ const m=s.metrics; return (m.onsetCount!=null&&m.onsetCount<6)||(m.duration!=null&&m.duration<3)?"warn":"good"; },
      val:s=>{ const m=s.metrics, b=[]; if(m.onsetCount!=null) b.push(m.onsetCount+(m.onsetCount===1?" note":" notes")+(m.duration!=null?" in "+fmtMs(m.duration):""));
@@ -7575,8 +7661,8 @@ function toneRowDefs(){
     // E6.4: the path — detected from the take's own facts, or set in this row's popover.
     {g:"take", term:"recording-path", name:"Recording path", text:true,
      unit:"how the sound got into the file — a mic'd take carries the room, a DI take does not",
-     light:(s,i)=>pathFor(i)==="unknown"?"warn":"good",
-     val:(s,i)=>{ const p=pathFor(i); return PATH_WORD[p]+(state.slotPaths&&state.slotPaths[i]?" · set by you":" · detected"); },
+     light:(s,i)=>pathForTake(i,s)==="unknown"?"warn":"good",
+     val:(s,i)=>{ const p=pathForTake(i,s); if(p==="unknown") return "Recording path not known — could not tell DI from microphone; set it in the readout"; return PATH_WORD[p]+(state.slotPaths&&state.slotPaths[i]?" · set by you":" · detected"); },
      detail:(v,s)=>{ const m=s.metrics, b=[]; if(s.info&&s.info.channels!=null) b.push(s.info.channels+(s.info.channels===1?" channel":" channels")+(m.stereoDiffDb!=null&&isFinite(m.stereoDiffDb)?" · L − R "+m.stereoDiffDb.toFixed(0)+" dB against the mid":""));
        if(m.room) b.push("tail after the last note T20 "+m.room.t20.toFixed(2)+" s"+(m.room.noteT20?" against the note's "+m.room.noteT20.toFixed(2)+" s":"")+(m.room.outlasts?" — the room's":" — the string's")); else b.push("no tail to read after the last note");
        if(m.residual!=null&&isFinite(m.residual)) b.push("between notes "+Math.abs(m.residual).toFixed(0)+" dB below the note (median over gaps of 0.3 s or more — the room and the mic's distance show up here, THEORY §7.6.9)");
@@ -7601,14 +7687,19 @@ function liveToneBands(){
     const vals={};
     for(const def of toneRowDefs()){
       if(def.text||def.noband||!TONE_BANDS_DEFAULT[def.term]) continue;
-      vals[def.term]=takes.map(t=>{ try{ const v=def.val(t); return (v==null||!isFinite(v))?null:v; }catch(_e){ return null; } });
+      // Each take as analysed on its own (take 0 carries the mean spectrum — a band read
+      // off the mean would be biased toward zero); the row's own def.val, same as the panel.
+      vals[def.term]=takes.map(t=>{ try{ const v=def.val(ownView(t),i); return (v==null||!isFinite(v))?null:v; }catch(_e){ return null; } });
     }
     return toneBandsFromTakes(vals, TONE_BANDS_DEFAULT);
   });
   const out={};
+  // Every take counts (2026-09-06, THEORY §7.6.10): the two spreads combine as the standard
+  // error of a difference of means, so the band narrows as takes accumulate; two takes each
+  // reproduce the old "larger spread" exactly.
   if(per[0]&&per[1]) for(const k in TONE_BANDS_DEFAULT){
     const a=per[0][k], b=per[1][k]; if(!a||!b) continue;
-    out[k]={v:Math.max(a.v,b.v), n:a.n+b.n};
+    const c=combineBands(a,b); if(c) out[k]=c;
   }
   _liveBands={bands:out, ready:!!(per[0]&&per[1]), perSlot:per};
   return _liveBands;
@@ -7637,15 +7728,19 @@ const ROOM_ROWS=new Set(["overtone-sustain","bloom","f0-decay"]);
 function toneRecords(){
   _liveBands=null;
   const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&!!types[0]&&!!types[1]&&types[0]!==types[1];
-  // E6.4: the resolved path rides on the metrics so comparability and the glossary read one value.
-  for(let i=0;i<2;i++){ const s=state.slots[i]; if(s&&s.metrics){ s.metrics.path=pathFor(i); s.metrics.pathSet=!!(state.slotPaths&&state.slotPaths[i]); } }
-  const compat=both?comparability(state.slots[0].metrics||{},state.slots[1].metrics||{}):[];
+  // E6.4: the resolved path rides on the metrics so comparability and the glossary read one
+  // value — per take since 2026-09-06 (every take counts): comparability runs over every pair
+  // of takes and fails if any pair fails; a row's evidence is pooled over a guitar's takes.
+  for(let i=0;i<2;i++) for(const t of slotTakes(i)){ if(t.metrics){ t.metrics.path=pathForTake(i,t); t.metrics.pathSet=!!(state.slotPaths&&state.slotPaths[i]); } }
+  const takeMs=[0,1].map(i=>slotTakes(i).map(t=>ownView(t).metrics).filter(Boolean));
+  const compat=both?comparabilityAll(takeMs[0],takeMs[1]):[];
+  const pooled=[0,1].map(i=>poolMetrics(takeMs[i]));
   // E6.1: a typed row applies to a side by its type — Pickup voice also to an acoustic on a piezo.
   const applies=(def,i)=>!def.types||def.types.includes(types[i])||!!(def.piezo&&types[i]==="acoustic"&&pathFor(i)==="piezo");
   const blocked={}; for(const c of compat) if(!c.ok) for(const r of c.rows) (blocked[r]=blocked[r]||[]).push(c.label);
   const openMidis=tuningMidi(state.tuning,state.customOffset);
-  const evs=[0,1].map(i=>{ const s=state.slots[i]; if(!s||!s.metrics) return null; const o=state.slots[1-i];
-    return toneEvidenceOf(s.metrics, openMidis, state.a4, (o&&o.metrics)?o.metrics:null); });
+  const evs=[0,1].map(i=>{ const s=state.slots[i]; if(!s||!s.metrics) return null;
+    return toneEvidenceOf(pooled[i], openMidis, state.a4, pooled[1-i]); });
   const out=[];
   for(const def of toneRowDefs()){
     // A row bound to some kinds of guitar is hidden — not a pointer — when no loaded slot is one of
@@ -7666,8 +7761,16 @@ function toneRecords(){
       // axis — with each take's own number kept for the readout.
       const takes=slotTakes(i), nT=takes.length;
       const tv=def.text?viewRec(i):s;
-      let v=null, perVals=null;
+      let v=null, perVals=null, pairN=0;
       if(def.text){ try{ v=def.val(tv,i); }catch(_e){} }
+      else if(def.pairwise&&both){
+        // Every take of this guitar against every take of the other (topTakes caps each side
+        // at PAIR_TAKES); the geometric mean over the other's takes per take, then over takes.
+        const mine=topTakes(i,PAIR_TAKES), theirs=topTakes(1-i,PAIR_TAKES); pairN=mine.length*theirs.length;
+        perVals=mine.map(t=>_geomean(theirs.map(u=>{ let x=null; try{ x=def.val(ownView(t),i,ownView(u).metrics); }catch(_e){} return (x==null||!isFinite(x)||x<=0)?null:x; })));
+        v=_geomean(perVals);
+        if(pairN===1) perVals=null;
+      }
       else if(def.perTake&&nT>1){
         perVals=takes.map(t=>{ let x=null; try{ x=def.val(ownView(t),i); }catch(_e){} return (x==null||!isFinite(x)||(def.log&&x<=0))?null:x; });
         const ok=perVals.filter(x=>x!=null);
@@ -7686,11 +7789,12 @@ function toneRecords(){
         continue;
       }
       // E6.3: a decay measured through a room that outlasts the note is the room's — partial.
-      if(ROOM_ROWS.has(def.term)&&s.metrics.room&&s.metrics.room.outlasts){ ev.state=Math.max(ev.state,3); ev.missing=ev.missing.concat([{what:"room", tail:s.metrics.room.t20, note:s.metrics.room.noteT20}]); }
+      const rm=pooled[i]&&pooled[i].room; // any take's room (pooled)
+      if(ROOM_ROWS.has(def.term)&&rm&&rm.outlasts){ ev.state=Math.max(ev.state,3); ev.missing=ev.missing.concat([{what:"room", tail:rm.t20, note:rm.noteT20}]); }
       rec.evidence[i]=ev;
       rec[i?"b":"a"]=v; rec[i?"bText":"aText"]=def.fmt(v,s);
-      try{ let d=def.detail?def.detail(v,perVals?ownView(viewRec(i)):s):"";
-        if(perVals){ const fm=x=>x==null?"—":(def.fmt?def.fmt(x,s):String(x)); d="mean over "+nT+" takes ("+perVals.map(fm).join(" · ")+")"+(d?" · for "+takeNote(i)+": "+d:""); }
+      try{ let d=def.detail?def.detail(v,perVals?ownView(viewRec(i)):s,i,def.pairwise&&both?ownView(viewRec(1-i)).metrics:undefined):"";
+        if(perVals){ const fm=x=>x==null?"—":(def.fmt?def.fmt(x,s):String(x)); d="mean over "+(pairN>1?pairN+" pairs of takes, per take of "+slotLabel(i)+": ":nT+" takes (")+perVals.map(fm).join(" · ")+(pairN>1?"":")")+(d?" · for "+takeNote(i)+": "+d:""); }
         else if(!def.text&&slotMeanOf(i)) d="from the mean spectrum of "+slotMeanOf(i)+" takes"+(d?" · "+d:"");
         rec.detail[i]=d; }catch(_e){ rec.detail[i]=""; }
     }
@@ -7864,26 +7968,37 @@ function preCompareHtml(records,compat,typesDiffer,types){
     if(!state.slots[i]) return "";
     const items=recs.map(r=>{ const t=i?r.bText:r.aText, l=r.light&&r.light[i];
       return t?'<span class="pre-item" data-pop="'+r.key+':'+i+'" title="'+esc(r.def.name)+' — the numbers behind this">'+(l?'<span class="light '+l+'"></span>':'')+esc(t)+'</span>'
-              :'<span class="pre-item reason">'+esc(r.def.name.toLowerCase()+": "+(r.reason[i]||"—"))+'</span>'; });
+              :'<span class="pre-item reason" data-pop="'+r.key+':'+i+'" title="'+esc(r.def.name)+' — what was looked for">'+esc((r.def.miss?r.def.miss:r.def.name+" — not measured")+(r.reason[i]?" ("+r.reason[i]+")":""))+'</span>'; });
     return '<div class="pre-line"><span class="pre-who '+(i?"tb":"ta")+'">'+esc(slotLabel(i))+'</span>'+items.join('<span class="pre-sep">·</span>')+(slotTakes(i).length>1?'<span class="pre-take">'+esc(takeNote(i))+'</span>':"")+'</div>';
   };
-  let verdict;
-  if(!bothLoaded()) verdict='<div class="pre-verdict">Load or record the other guitar to compare — the same phrase, played the same way.</div>';
+  let verdict="";
+  // Every take counts: a guitar whose takes were detected through different paths is said first.
+  for(let i=0;i<2;i++){ const mx=mixedPaths(i); if(mx.length) verdict+='<div class="pre-verdict warn"><b>'+esc(slotLabel(i))+"'s takes mix "+mx.map(p=>PATH_WORD[p].toLowerCase()).join(" and ")+"</b> — the room is in some of its decays and not others; set the path in the readout, or drop the odd take.</div>"; }
+  const nPairs=compat.length?Math.max(...compat.map(c=>c.pairs||1)):1;
+  if(!bothLoaded()) verdict+='<div class="pre-verdict">Load or record the other guitar to compare — the same phrase, played the same way.</div>';
   else {
     const fails=compat.filter(c=>!c.ok);
     if(fails.length||typesDiffer){
-      const bits=fails.map(c=>c.label+(c.text?" ("+c.text+")":""));
-      verdict='<div class="pre-verdict warn"><b>Not directly comparable</b> — '+
+      const bits=fails.map(c=>c.label+(c.text?" ("+c.text+(nPairs>1&&c.pair?" — take "+(c.pair[0]+1)+" of "+slotLabel(0)+" against take "+(c.pair[1]+1)+" of "+slotLabel(1)+", "+c.failing+" of "+c.pairs+" pairs":"")+")":""));
+      verdict+='<div class="pre-verdict warn"><b>Not directly comparable</b> — '+
         (typesDiffer?"one is "+typeArticle(types[0])+TYPE_WORD[types[0]]+" and one "+typeArticle(types[1])+TYPE_WORD[types[1]]+", so their resonances are different things and are not differenced"+(bits.length?"; ":"."):"")+
         (bits.length?"the "+bits.join(", ")+(bits.length>1?" differ":" differs")+" too much. Rows those affect show no verdict; "+termHtml("level-match","level-match")+" cannot fix that — see "+termHtml("comparability","what a fair comparison needs")+".":"")+'</div>';
-    } else verdict='<div class="pre-verdict ok"><b>Fair to compare.</b> Register, note density and count, length, level, noise floor and recording path all match within the limits — '+termHtml("comparability","what a fair comparison needs")+'.</div>';
+    } else verdict+='<div class="pre-verdict ok"><b>Fair to compare.</b> Register, note density and count, length, level, noise floor and recording path all match within the limits'+(nPairs>1?" for every one of the "+nPairs+" pairs of takes":"")+' — '+termHtml("comparability","what a fair comparison needs")+'.</div>';
   }
-  return '<div class="precompare"><div class="ghead"><span class="gname">Before you compare</span><span class="ghint">the take, not the guitar — what has to match for the rows below to mean anything</span></div>'+line(0)+line(1)+verdict+'</div>';
+  return '<div class="precompare"><div class="ghead"><span class="gname">Before you compare</span><span class="ghint">what the two recordings have to have in common before any difference below can be read as the guitar</span></div>'+line(0)+line(1)+verdict+'</div>';
+}
+// The block lives in its own card under the guitar cards (user, 2026-09-06: "given the
+// importance of the comparability … right after the audio card"): it is the pre-requisite for
+// every card below, not only the tone rows. Rendered from the same toneRecords() the rows use.
+function renderPreCompare(){
+  if(!anyLoaded()){ preCompare.innerHTML=""; return; }
+  const {records,compat,typesDiffer}=toneRecords(); const types=[slotType(0),slotType(1)];
+  preCompare.innerHTML=preCompareHtml(records,compat,typesDiffer,types);
 }
 function renderToneRows(){
   if(!anyLoaded()) return;
   const {records,compat,typesDiffer}=toneRecords(); const types=[slotType(0),slotType(1)];
-  toneRows.innerHTML=preCompareHtml(records,compat,typesDiffer,types)+TONE_GROUPS.map(g=>'<div class="tonegroup" data-group="'+g.id+'"><div class="ghead"><span class="gname">'+g.name+'</span><span class="ghint">'+esc(g.hint)+'</span></div>'+
+  toneRows.innerHTML=TONE_GROUPS.map(g=>'<div class="tonegroup" data-group="'+g.id+'"><div class="ghead"><span class="gname">'+g.name+'</span><span class="ghint">'+esc(g.hint)+'</span></div>'+
     records.filter(r=>r.group===g.id).map(toneRowHtml).join("")+'</div>').join("");
   // The "Same guitar, two takes" switch is gone (user, 2026-09-06): it had been app-set and
   // disabled since E2, a status light dressed as a control. The status is said in words.
@@ -7892,6 +8007,7 @@ function renderToneRows(){
   toneBandsStatus.textContent=(lv.ready?"Reliability: measured from the takes on the cards"
     :state.toneBandsAt?"Reliability: bands saved "+new Date(state.toneBandsAt).toLocaleDateString()
     :"Reliability: provisional until each guitar has two takes")
+    +(lv.ready?" ("+lv.perSlot.map((p,i)=>slotTakes(i).length).join(" + ")+" takes — the band narrows as takes accumulate)":"")
     +([0,1].some(i=>slotTakes(i).length>1)?" · Values: means over each guitar's takes; Before you compare reads the selected take":"");
   toneSaveBandsBtn.disabled=!lv.ready;
 }
@@ -7928,25 +8044,37 @@ function proseCandidates(){
   const rec=k=>records.find(r=>r.key===k);
   const clear=k=>{ const r=rec(k); return (r&&r.verdict&&r.verdict.kind==="diff")?r:null; };
   const sc=r=>Math.abs(r.verdict.d.d)/(r.band.oct!=null?r.band.oct:r.band.abs);
+  // Player words with one easy number each (user, 2026-09-06): who is higher, the ratio or
+  // the pair of values, and — for the rows that move with the hand — the caveat in the sentence.
+  // `who`/`tag` feed the strip's closing "for the player" line.
+  const hiLo=r=>{ const hi=r.verdict.hi; return {hi, vh:hi?r.b:r.a, vl:hi?r.a:r.b, ratio:Math.pow(2,Math.abs(r.verdict.d.d))}; };
   let r=clear("pickup-resonance");
-  if(r){ const hi=r.verdict.hi; cands.push({fam:"tone", score:sc(r), html:nm(hi)+"'s "+termHtml("pickup-resonance","pickup voice")+" peaks higher — "+
-    fmtHz(hi?r.b:r.a)+" against "+fmtHz(hi?r.a:r.b)+" — which is the pickup, the cable and the pots as much as the wood."}); }
+  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r), who:x.hi, tag:"a brighter pickup voice", html:nm(x.hi)+"'s "+termHtml("pickup-resonance","pickup voice")+" peaks higher ("+
+    fmtHz(x.vh)+" vs "+fmtHz(x.vl)+") — the glassier, single-coil kind of bright, and as much the pickup, cable and pots as the wood."}); }
   r=clear("body-resonance");
-  if(r){ const hi=r.verdict.hi; cands.push({fam:"tone", score:sc(r), html:nm(hi)+"'s "+termHtml("body-resonance","body voice")+" sits higher — "+
-    fmtHz(hi?r.b:r.a)+" against "+fmtHz(hi?r.a:r.b)+"."}); }
+  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r), who:x.hi, tag:"a higher body hum", html:nm(x.hi)+"'s "+termHtml("body-resonance","body voice")+" hums higher ("+
+    fmtHz(x.vh)+" vs "+fmtHz(x.vl)+") — a tighter, smaller-box low end."}); }
   // String stiffness is demoted (E1): open E/A only, plain words, never in At a glance.
   r=clear("overtone-sustain");
-  if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+"'s "+termHtml("overtone-sustain","overtones ring")+
-    " longer — "+fmtMs(hi?r.b:r.a)+" to fall 20 dB against "+fmtMs(hi?r.a:r.b)+", about "+ratio.toFixed(1)+"× longer."}); }
+  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"overtones that ring longer", html:"The "+termHtml("overtone-sustain","overtones")+" of "+nm(x.hi)+" ring "+x.ratio.toFixed(1)+"× longer ("+
+    fmtMs(x.vh)+" vs "+fmtMs(x.vl)+" to fall 20 dB)."}); }
   r=clear("f0-decay");
-  if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+"'s notes "+termHtml("f0-decay","last")+
-    " longer — "+fmtMs(hi?r.b:r.a)+" for the fundamental to fall 20 dB against "+fmtMs(hi?r.a:r.b)+", note for note, about "+ratio.toFixed(1)+"× longer."}); }
-  for(let i=0;i<2;i++){ const m=state.slots[i].metrics||{}; if(m.neckFlags&&m.neckFlags.length){
-    const f=m.neckFlags[0]; cands.push({fam:"time", score:0.5, html:nm(i)+" has a note that dies early — "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" falls 20 dB in "+fmtMs(f.t20)+
-      " against a median of "+fmtMs(m.neckMedian)+"; a candidate "+termHtml("neck-sustain","dead spot")+", worth playing again."}); } }
+  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"longer sustain", html:termHtml("f0-decay","Sustain")+" of "+nm(x.hi)+" was "+x.ratio.toFixed(1)+"× longer ("+
+    fmtMs(x.vh)+" vs "+fmtMs(x.vl)+"), note for note."}); }
+  // Brightness reaches the strip since 2026-09-06 — with its caveat in the sentence: pick
+  // position and the pickup selector move it as much as the guitar does (THEORY §7.4), so it
+  // ranks under the instrument rows and is blocked by a register mismatch like any other.
+  r=clear("brightness");
+  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r)*0.5, who:x.hi, tag:"an audibly brighter voice", html:nm(x.hi)+" is audibly "+termHtml("brightness","brighter")+" — its tonal centre sits at "+
+    fmtHz(x.vh)+" against "+fmtHz(x.vl)+" — provided the same pick, pickup and phrase went into both."}); }
+  // Dead spots pooled over the takes (every take counts): flagged only where the note dies early in most takes.
+  for(let i=0;i<2;i++){ const ds=poolDeadSpots(slotTakes(i).map(t=>t.metrics)); if(ds.flags.length){
+    const f=ds.flags[0], nn=esc(noteStr(f.f0,state.a4).split(" ")[0]); cands.push({fam:"time", score:0.5, who:i, tag:"a note that dies early ("+nn+")", html:nm(i)+" has a note that dies early — "+nn+" falls 20 dB in "+fmtMs(f.t20)+
+      " against "+fmtMs(f.ref)+" for its neighbours"+(ds.takes>1?", in "+f.inTakes+" of "+f.ofTakes+" takes":"")+"; a candidate "+termHtml("neck-sustain","dead spot")+", worth playing again."}); } }
   cands.sort((a,b)=>b.score-a.score);
   return cands;
 }
+function listWords(a){ return a.length<=1?a.join(""):a.slice(0,-1).join(", ")+" and "+a[a.length-1]; }
 
 // When no glance row is banded, the cheapest thing that would change that — in plain
 // words. One take each → a second take of either guitar (that is what measures a band).
@@ -7964,8 +8092,11 @@ function cheapestUpgrade(){
 function renderProse(){
   if(!bothLoaded()){ prosePara.style.display="none"; return; }
   const cands=proseCandidates();
+  const {compat,typesDiffer}=toneRecords(), fails=compat.filter(c=>!c.ok);
   const text=cands.length
     ? cands.slice(0,4).map(c=>c.html).join(" ")
+    : (fails.length||typesDiffer)
+      ? "The takes are not comparable as they stand — "+(fails.length?"the "+fails.map(c=>c.label).join(", ")+(fails.length>1?" differ":" differs")+" too much":"they are different kinds of guitar")+" (Before you compare, above) — so no row here carries a verdict. The same phrase, in the same register, at the same distance from the amp, and the comparison opens."
     : (toneRecords().records.some(r=>r.def.glance&&r.state===1)
         ? "Nothing that speaks for the guitar itself clears its measured band — as guitars these two are not distinguishable on these takes. The rows tagged as moving with the pick may still differ; with the same player, pick and phrase on both, that difference is the guitar too, but it carries no band."
         : "Nothing here can yet say one guitar does more of anything than the other. "+cheapestUpgrade()+" The Difference plot with "+termHtml("level-match","level-match")+" on shows the raw spectra side by side meanwhile.");
@@ -8005,41 +8136,34 @@ function renderVerdict(){
     // E6.6: a cross-type pair opens by saying so — the rows compare what the two share.
     if(!slotType(0)||!slotType(1)) parts.push("Set each guitar’s kind on its card — solidbody, hollow body or acoustic — and the instrument rows below open up; until then only what needs no kind is compared.");
     else if(slotType(0)!==slotType(1)) parts.push("Different kinds of guitar — "+typeArticle(slotType(0))+TYPE_WORD[slotType(0)]+" and "+typeArticle(slotType(1))+TYPE_WORD[slotType(1)]+" — comparing what they share.");
-    const g=state.lmOffset;
-    if(g!=null&&isFinite(g)){
-      if(Math.abs(g)>=0.5){
-        parts.push(slotNameHtml(g>0?0:1)+" was recorded louder overall — "+
-          (state.lm?termHtml("level-match","level-match")+" is on, so the plots below correct for it."
-                   :termHtml("level-match","level-match")+" is off, so that gap flows into every difference below."));
-      }else{
-        parts.push("The two takes landed at much the same level — no "+termHtml("level-match","level-match")+" gap worth correcting.");
-      }
-    }
+    // Re-audited 2026-09-06 (user): no rehash of levels and pitch — one comparability line that
+    // refers to the strip above, then one sentence per verdict-backed difference in player
+    // words with one easy number each, then what it adds up to for the player.
+    const {records,compat,typesDiffer}=toneRecords();
+    const fails=compat.filter(c=>!c.ok), banded=records.some(r=>r.def.glance&&r.state===1);
+    const lv=liveToneBands();
+    if(fails.length||typesDiffer) parts.push("<b>Not comparable</b> as they stand — "+(fails.length?"the "+fails.map(c=>c.label).join(", ")+(fails.length>1?" differ":" differs")+" too much between the takes":"they are different kinds of guitar")+" (Before you compare, above); the rows that rest on that carry no verdict.");
+    else if(!banded) parts.push("<b>Comparable, but not yet confidently</b> — the takes match (Before you compare, above), but until each guitar has two takes nothing can say how much a number moves on its own.");
+    else parts.push("<b>Comparable</b> — the takes match (Before you compare, above) and the reliability bands are "+(lv.ready?"measured from "+[0,1].map(i=>slotTakes(i).length).join(" + ")+" takes":"the ones saved earlier")+".");
+    const cands=proseCandidates();
+    for(const c of cands) parts.push(c.html);
     const bdAll=biggestRegionDelta();
     const bd=bdAll?bdAll.best:null, bdFloor=bdAll?bdAll.floored:null;
-    if(bd&&Math.abs(bd.d)>=1){
-      const label=bd.r.label.charAt(0)+bd.r.label.slice(1).toLowerCase();
-      parts.push("Their widest audible gap is "+termHtml(bd.r.key,label)+", where "+slotNameHtml(bd.d>0?0:1)+" runs hotter.");
+    if(bd&&Math.abs(bd.d)>=3){
+      parts.push(slotNameHtml(bd.d>0?0:1)+" is notably louder in the "+termHtml(bd.r.key,bd.r.label.toLowerCase())+" band (+"+Math.abs(bd.d).toFixed(1)+" dB, "+fmtHz(bd.f0)+"–"+fmtHz(bd.f1)+" — their widest audible gap).");
     }
     // Disclose, never rewrite: a bigger Δ that lives under the floor is named as
     // what it is — a difference of silences — rather than dropped or promoted.
-    if(bdFloor&&Math.abs(bdFloor.d)>=1&&(!bd||Math.abs(bdFloor.d)>Math.abs(bd.d))){
-      const flabel=bdFloor.r.label.charAt(0)+bdFloor.r.label.slice(1).toLowerCase();
-      parts.push(termHtml(bdFloor.r.key,flabel)+" shows a wider gap on paper, but both takes sit below the floor there — a difference of silences, not a tone difference.");
+    if(bdFloor&&Math.abs(bdFloor.d)>=3&&(!bd||Math.abs(bdFloor.d)>Math.abs(bd.d))){
+      parts.push(termHtml(bdFloor.r.key,bdFloor.r.label.toLowerCase())+" shows a wider gap on paper, but both sit below the floor there — a difference of silences, not a tone difference.");
     }
-    const cands=proseCandidates();
     if(cands.length){
-      parts.push(cands[0].html);
-      // Lead with the strongest difference, then name the strongest one from the
-      // other family if it cleared its own threshold — a player asks "how does it
-      // sound" and "how does it feel", and the strip should answer both when the
-      // measurement supports it. Both sentences still come from proseCandidates().
-      const other=cands.find(c=>c.fam!==cands[0].fam);
-      if(other) parts.push(other.html);
+      const by=[0,1].map(i=>cands.filter(c=>c.who===i).map(c=>c.tag));
+      parts.push("For the player: "+[0,1].filter(i=>by[i].length).map(i=>slotNameHtml(i)+" brings "+listWords(by[i])).join("; ")+" — the same phrase on both, so what is left is the hands.");
     }
-    else if(toneRecords().records.some(r=>r.def.glance&&r.state===1)){
-      if(!bd||Math.abs(bd.d)<1) parts.push("No instrument-level difference clears its measured band — as guitars these two are not distinguishable on these takes.");
-    } else parts.push("Nothing here can yet say one guitar does more of anything than the other. "+cheapestUpgrade());
+    else if(fails.length||typesDiffer){ /* said above: nothing is compared until the takes match */ }
+    else if(banded) parts.push("No verdict-backed difference — as guitars these two are not distinguishable on these takes.");
+    else parts.push(cheapestUpgrade());
   }
   verdictPara.innerHTML='<span class="lead">At a glance</span>'+parts.join(" ");
 }
@@ -8234,6 +8358,7 @@ function syncAbKeys(){
 function updateVisibility(){
   const n=(state.slots[0]?1:0)+(state.slots[1]?1:0), both=n===2;
   verdictCard.style.display=n?"":"none";
+  preCard.style.display=n?"":"none";
   // the frequency card stays up with nothing loaded — its spectrum pane carries the
   // empty state (what to do next, demo pair, links to the two guides)
   freqCard.style.display="";
@@ -8280,6 +8405,7 @@ function updateVisibility(){
   syncAbKeys();  syncTakeSels();
 }
 function renderAnalysis(){
+  renderPreCompare();
   renderVerdict();
   renderToneRows(); renderProse(); renderToneNote();
   renderFooter(); updateDiffSub(); updateEqSub(); renderEqNote();
@@ -8311,6 +8437,11 @@ function afterDataChange(animate){
   updateVisibility();
   updateCurves(animate);
   renderAnalysis();
+  // Draw the new state now, not a frame later (2026-09-06): the first frame after a landing
+  // used to wait on requestAnimationFrame, so a page could be fully analysed and still show
+  // nothing until the compositor came round — a real race in headless runs (the dump ends
+  // when the timers do, and a pending frame is lost), and one extra 2 ms draw in normal use.
+  drawAll();
 }
 
 // ---------- file cards ----------

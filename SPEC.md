@@ -3311,3 +3311,87 @@ and row contracts re-pointed, twelve new — the block first in the container, t
 sentences, the two demoted readouts, no dead row named by a check, the bar gone, the merged
 row's flags, the prose, the hint, the glossary entry); `tests/dsp.test.js`'s prose slice
 re-pointed; node gate green; the full gate once at the end of the batch.
+
+## 2026-09-06 — Every take counts (user principle, reviewer-built; branch `e-feedback`)
+
+The user's third feedback batch, and the principle it ended in: *"wherever makes sense we should
+take all the takes into account and that should be one of the core architectural principles."*
+The batch, item by item, with the rule written into docs/THEORY.md §7.6.10 before the code.
+
+1. **"Before you compare" head.** The missing space ("comparethe") is gone and the hint reads
+   *what the two recordings have to have in common before any difference below can be read as
+   the guitar*. Missing facts say what was being measured (`def.miss` per Take row; the
+   Recording path line reads *Recording path not known — could not tell DI from microphone;
+   set it in the readout*). The block lives in its own slim card directly under the guitar
+   cards, above At a glance (`#preCard`), rendered first by `renderAnalysis()`.
+2. **The octave between SG and Majesty — a sensitivity in the comb check, found and fixed.**
+   The user asked whether the register gap was in the measurement. A per-note probe of teeth
+   1–6 showed two things under the raised notes: real low notes with a faint fundamental (the
+   Majesty's opening D♯2 — tooth 1 at 6 dB over the floor and 11 dB under the top, failing the
+   ≥ 10 dB floor test only because at 78 Hz the floor between teeth 1 and 2 is a few bins wide)
+   and true sub-harmonic picks (69 Hz = C♯2, below the lowest string in E♭, with *nothing* at
+   tooth 1 — 40–73 dB under the top). A first fix making tooth 1 optional cured the first kind
+   and let the second kind through an octave low; the probe caught it before it shipped. The
+   rule now: **tooth 1 must sit within 30 dB of the strongest tooth but need not clear the
+   between-teeth floor; teeth 2…6 keep both tests** (`weakF0` marks a tooth 1 that passed the
+   level test only). Re-run on the three takes: the D♯2 is kept, every pick with nothing at
+   tooth 1 is still raised. `tests/audit_tone.js` now calls the shipped `combCheckF0` instead
+   of its own copy of the rule. **The remaining register gap is real** — the Majesty take's
+   pitched notes sit an octave up — and the comparability check is right to block.
+3. **At a glance re-audited.** No rehash of levels and pitch. One comparability line that refers
+   to the strip above — *Not comparable* (a check fails or the kinds differ) / *Comparable, but
+   not yet confidently* (no measured band) / *Comparable* (bands measured from n + m takes) —
+   then **one sentence per verdict-backed difference in player words with one easy number**
+   (*Sustain of A was 1.6× longer (1.55 s vs 900 ms), note for note* · *B is audibly brighter —
+   its tonal centre sits at 658 Hz against 486 Hz — provided the same pick, pickup and phrase
+   went into both* · *A is notably louder in the low-mid band (+4.1 dB, 250–500 Hz — their widest
+   audible gap)*, the region sentence only at ≥ 3 dB), then *For the player: A brings longer
+   sustain and overtones that ring longer; B brings an audibly brighter voice — the same phrase
+   on both, so what is left is the hands.* **Brightness joins the strip** with its caveat in the
+   sentence and ranked under the instrument rows (`score × 0.5`); it is blocked by a register
+   mismatch like any other row. The strip prints **every** verdict-backed sentence, so Q5's
+   "other family" pick is subsumed; the tone panel's prose still reads the same ranked list.
+   When the takes are not comparable, neither the strip nor the prose claims "not
+   distinguishable" — they say what blocks and what would open it.
+4. **Every take counts — three rules (THEORY §7.6.10, amended).**
+   *(a) The band shrinks with the number of takes.* Each guitar's spread is read as the
+   standard error of its mean (σ ≈ R/d₂(n), SE = σ/√n) and the two combine in quadrature —
+   the difference of two means — scaled so that two takes each with equal ranges give exactly
+   the old band (the larger spread): `rangeToSe`/`combineBands` in block 0; three takes each →
+   0.54 R, two and three → 0.80 R. `liveToneBands` also now reads each take **as analysed
+   alone** (`ownView`) — a spectral band read off the mean spectrum take 0 carries was biased
+   toward zero (a latent E2 bug, fixed here). The status line says *(2 + 3 takes — the band
+   narrows as takes accumulate)*.
+   *(b) Comparability over every pair of takes.* `comparabilityAll(listA,listB)` — a check
+   fails if any pair fails and reports its worst pair by name (*take 1 of A against take 2 of
+   B, 2 of 4 pairs*); the recording path is detected **per take** (`pathForTake`) and a guitar
+   whose takes mix DI and microphone gets its own warning line in Before you compare
+   (`mixedPaths`). The Before you compare lines still read the selected take.
+   *(c) Note-based rows use every take.* Evidence is **pooled** over a guitar's takes
+   (`poolMetrics`: the notes of all takes together, median SNR, any tap/air, a room that
+   outlasts the note in any take) and matched against the other guitar's pooled notes.
+   **Sustain is `pairwise`**: each take of A against each take of B (±50 ¢ matches, median per
+   pair, geometric mean over pairs), at most `PAIR_TAKES = 3` per guitar (`topTakes`: the
+   most pitched notes, ties to the quieter background); the readout says *mean over 6 pairs
+   of takes, per take of A: …*. **Dead spots are pooled** (`poolDeadSpots`): a note is flagged
+   only when it dies early in a strict majority of the takes that contain it, and the flag
+   says *in 2 of 3 takes*. `_otherMetrics` now takes a slot index — its `indexOf(s)` lookup
+   returned slot 0's metrics for every own view (a latent bug that made the per-take Sustain
+   values match against the wrong guitar).
+
+**Verified:** node gate green (`tests/e.test.js` 263 → **286**, `tests/dsp.test.js` **237**,
+r5 332 — the Q3 "widest audible gap" / "difference of silences" contracts still hold); two
+headless DOM dumps by hand — SG vs Majesty (one take each: *Not comparable … the register
+differs*, the region sentence, no false "not distinguishable"), and a 2 + 2 stack (SG;Les Paul
+vs Majesty;SG: bands measured, *take 1 of A against take 1 of B, 2 of 4 pairs*, no exception
+in the pairwise or pooled paths). **Full gate:** first run red on one headless assertion —
+pane B `data-sgwin` null on `demo&open=all`, 10 of 10 launches, then 20 of 20 on a re-run —
+and this time it was **not** the machine: the previous commit drew 4 of 4 under the same load,
+this one 2 of 4. Traced with a wrapped `requestAnimationFrame`: after the second landing,
+`afterDataChange` ended in `renderAnalysis()` and the first draw waited on a real animation
+frame, which the headless run cuts off when its timers run dry; the new build's tail is
+*cheaper* (1.7 s against 2.6 s of wall time), so fewer frames sneaked in before the dump. The
+harness comment had this race down as "the decode outlasting the budget" — that is the other
+half of it. **Fix in the app, not the harness:** `afterDataChange` now ends in a synchronous
+`drawAll()` — the page is drawn when the data changes, one extra 2 ms draw in normal use —
+and six of six launches drew both panes afterwards. `tests/e.test.js` **287** pins it.

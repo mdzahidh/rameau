@@ -9,7 +9,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 const dspSrc = blocks[0];
 const modFile = path.join(os.tmpdir(), "rameau_e_under_test.js");
 fs.writeFileSync(modFile, dspSrc + `
-module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes,
+module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes, rangeToSe, combineBands, comparabilityAll, poolMetrics, poolDeadSpots, COMPAT_CHECKS,
   tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, meanPowerSpectra, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO, wavWrite, wavReadInfo, wavFileSlug, sniffAudioInfo };
 `);
 const D = require(modFile);
@@ -294,8 +294,8 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
   ok(/const lv=liveToneBands\(\); const lb=lv\.ready&&lv\.bands\[key\];/.test(tb) && tb.indexOf("lv.ready") < tb.indexOf("state.toneBands&&state.toneBands[key]") && tb.indexOf("state.toneBands[key]") < tb.indexOf("provisional:true"),
     "precedence: live from the takes, then saved, then provisional");
   ok(/measured:true, live:true/.test(tb), "a live band is a measured band — it opens the verdict door");
-  ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /v:Math\.max\(a\.v,b\.v\)/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and take the larger spread");
-  ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(t\);/.test(lv), "…and every take's value comes from the same def.val the panel prints");
+  ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /const c=combineBands\(a,b\); if\(c\) out\[k\]=c;/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and combine the two spreads as a standard error (every take counts, 2026-09-06)");
+  ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(ownView\(t\),i\);/.test(lv), "…and every take's value comes from the same def.val the panel prints, on the take as analysed alone (never the mean spectrum take 0 carries)");
   ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=\(lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && /toneSaveBandsBtn\.disabled=!lv\.ready;/.test(rr) && !/toneRepeatToggle/.test(html),
     "the switch is gone (2026-09-06); a status line says where the bands come from, and Save follows it");
   ok(!/kind:"repeat"/.test(tr), "the old repeat-mode verdict is gone — live bands flow through the one door");
@@ -423,8 +423,8 @@ section("E6 — the copy is frozen, the type has three values, the rows and the 
   ok(/types:\["solid","hollow"\], piezo:true/.test(b4) && /types:\["hollow","acoustic"\]/.test(b4), "Pickup voice belongs to solid + hollow (and an acoustic on a piezo); Body voice to hollow + acoustic");
   const tr = body("toneRecords");
   ok(/rec\.evidence\[i\]=\{state:4, have:\{\}, need:\{\}, missing:\[\{what:"type", other:types\[i\]\}\]\};/.test(tr), "a typed row with no meaning on one side of a pair collapses that side with missing {what:'type'}");
-  ok(/ROOM_ROWS\.has\(def\.term\)&&s\.metrics\.room&&s\.metrics\.room\.outlasts/.test(tr) && /const ROOM_ROWS=new Set\(\["overtone-sustain","bloom","f0-decay"\]\);/.test(b4), "the four decay rows drop to partial when the room outlasts the note, with the room named");
-  ok(/s\.metrics\.path=pathFor\(i\);/.test(tr), "the resolved path rides on the metrics, so comparability and the glossary read one value");
+  ok(/const rm=pooled\[i\]&&pooled\[i\]\.room;/.test(tr) && /ROOM_ROWS\.has\(def\.term\)&&rm&&rm\.outlasts/.test(tr) && /const ROOM_ROWS=new Set\(\["overtone-sustain","bloom","f0-decay"\]\);/.test(b4), "the four decay rows drop to partial when the room outlasts the note, with the room named");
+  ok(/for\(const t of slotTakes\(i\)\)\{ if\(t\.metrics\)\{ t\.metrics\.path=pathForTake\(i,t\);/.test(tr) && /function pathFor\(i\)\{ return pathForTake\(i,state\.slots\[i\]\); \}/.test(b4), "the resolved path rides on every take's metrics (detected per take), so comparability and the glossary read one value");
   ok(/m\.room=roomTail\(shortTermRms\(x,rate\),0\.025,times,m\.noiseFloor\);/.test(b4) && /m\.room\.outlasts=roomOutlastsNote\(m\.room,ref\);/.test(b4) && /if\(!ref\|\|lt>ref\) ref=lt;/.test(b4), "computeTimeMetrics reads the tail once and judges it against the slower of the fundamental's T20 and the late two-stage slope");
   ok(/const tr=tapResonance\(db,wt\.df\);/.test(b4) && /welch\(tap,rate,TAP_WELCH_N,TAP_WELCH_N>>1,null\)/.test(b4), "the tap branch reads both modes through tapResonance at the block-0 window");
   ok(/VOCAB_BY_ID\.anatomy\.regions=ac\?ANATOMY_ACOUSTIC:ANATOMY_ELECTRIC;/.test(body("syncVocabTuning")) && /key:"an-ac-air"/.test(b3) && /key:"an-ac-body"/.test(b3) && /key:"an-ac-strings"/.test(b3) && /key:"an-ac-sparkle"/.test(b3), "Anatomy swaps to the acoustic set (air / body / strings / sparkle) when an acoustic is loaded");
@@ -506,13 +506,15 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   ok(per==="attack-spectrum,bloom,body-resonance,even-odd,f0-decay,harmonic-richness,inharmonicity,overtone-sustain", "perTake on the eight note-based rows — Pickup voice and Brightness read the mean spectrum", per);
   ok(/const tv=def\.text\?viewRec\(i\):s;/.test(tr) && /perVals=takes\.map\(t=>\{ let x=null; try\{ x=def\.val\(ownView\(t\),i\); \}/.test(tr) && /v=def\.log\?Math\.exp\(ok\.reduce\(\(a,x\)=>a\+Math\.log\(x\),0\)\/ok\.length\):ok\.reduce\(\(a,x\)=>a\+x,0\)\/ok\.length;/.test(tr),
     "Take rows read the selected take; perTake rows average each take's own value, geometric on a log axis");
-  ok(/d="mean over "\+nT\+" takes \("\+perVals\.map\(fm\)\.join\(" · "\)\+"\)"/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints and lists the per-take values");
+  ok(/d="mean over "\+\(pairN>1\?pairN\+" pairs of takes, per take of "\+slotLabel\(i\)\+": ":nT\+" takes \("\)\+perVals\.map\(fm\)\.join\(" · "\)/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints — over takes, or over pairs of takes — and lists the per-take values");
   ok(/Values: means over each guitar's takes; Before you compare reads the selected take/.test(body("renderToneRows")), "the panel's status line says so once");
   // Before you compare (user, 2026-09-06): the take facts and the comparability verdict, one block at the top.
   const pre=body("preCompareHtml");
-  ok(/toneRows\.innerHTML=preCompareHtml\(records,compat,typesDiffer,types\)\+TONE_GROUPS\.map/.test(body("renderToneRows")), "the block is the first thing in the rows container");
+  ok(/preCompare\.innerHTML=preCompareHtml\(records,compat,typesDiffer,types\);/.test(body("renderPreCompare")) && /renderPreCompare\(\);\n\s*renderVerdict\(\);/.test(body("renderAnalysis")) && html.indexOf('id="preCard"')<html.indexOf('id="verdictCard"') && html.indexOf('id="preCard"')>html.indexOf('id="card1"'), "the block has its own card under the guitar cards, above At a glance, rendered before the strip");
+  ok(/\.precompare \.ghead\{ display:flex; gap:10px;/.test(html) && /what the two recordings have to have in common/.test(body("preCompareHtml")), "the head has its gap back and a plain hint");
+  ok(/r\.def\.miss\?r\.def\.miss:r\.def\.name\+" — not measured"/.test(body("preCompareHtml")) && /Recording path not known — could not tell DI from microphone; set it in the readout/.test(body("toneRowDefs")) && (body("toneRowDefs").match(/miss:"/g)||[]).length===3, "a missing fact says what it was looking for");
   ok(/records\.filter\(r=>r\.group===TONE_PRE_GROUP\)/.test(pre) && /data-pop="'\+r\.key\+':'\+i\+'"/.test(pre) && /'<span class="light '\+l\+'"><\/span>'/.test(pre), "one line per guitar from the take records: a light and a phrase, the same tap as every readout");
-  ok(/<b>Fair to compare\.<\/b>/.test(pre) && /<b>Not directly comparable<\/b>/.test(pre) && /c\.label\+\(c\.text\?" \("\+c\.text\+"\)":""\)/.test(pre) && /Load or record the other guitar to compare/.test(pre), "the last line always answers — fair, what differs and by how much, or load the other guitar");
+  ok(/<b>Fair to compare\.<\/b>/.test(pre) && /<b>Not directly comparable<\/b>/.test(pre) && /c\.label\+\(c\.text\?" \("\+c\.text\+\(nPairs>1&&c\.pair\?" — take "/.test(pre) && /Load or record the other guitar to compare/.test(pre), "the last line always answers — fair, what differs and by how much, or load the other guitar");
   ok(!/toneCompat|compatbar/.test(html), "the separate comparability bar is gone");
   const nf=defs.slice(defs.indexOf('term:"noise-floor"'), defs.indexOf('term:"comparability"')), rp=defs.slice(defs.indexOf('term:"recording-path"'));
   ok(/"dynamic range "\+m\.dr\.toFixed\(1\)\+" dB/.test(nf) && /"between notes "\+Math\.abs\(m\.residual\)\.toFixed\(0\)\+" dB below the note/.test(rp), "Dynamic range lives in the Level and floor readout, Between notes in the Recording path readout");
@@ -521,9 +523,9 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   ok(/ear:\{hi:"the upper partials keep singing/.test(defs), "Overtone ring says partials, which is what it tracks");
   // Sustain and Dead spots merged (user, 2026-09-06): one row, the flags in its detail and readout; the flag sentence still reaches At a glance.
   const sus=defs.slice(defs.indexOf('term:"f0-decay"'), defs.indexOf('term:"brightness"'));
-  ok(!/term:"neck-sustain"/.test(defs) && /flagged as a dead spot/.test(sus) && /" · dead spots over "\+m\.neckN\+" notes: "\+\(fl\.length\?fl\.join\(" · "\):"none flagged"\)/.test(sus), "Sustain carries the dead-spot flags in its unit line and its detail");
+  ok(!/term:"neck-sustain"/.test(defs) && /flagged as a dead spot/.test(sus) && /ds=poolDeadSpots\(slotTakes\(i\)\.map\(t=>t\.metrics\)\)/.test(sus) && /" · dead spots over "\+ds\.n\+" notes"/.test(sus) && /pairwise:true/.test(sus) && /val:\(s,i,om\)=>_median\(_f0DecayNotes\(s\.metrics,both\?\(om\|\|_otherMetrics\(i\)\):null\)/.test(sus), "Sustain carries the dead-spot flags in its unit line and its detail");
   const pcm=body("proseCandidates");
-  ok(!/clear\("neck-sustain"\)/.test(pcm) && /clear\("f0-decay"\)/.test(pcm) && /m\.neckFlags&&m\.neckFlags\.length/.test(pcm) && /termHtml\("neck-sustain","dead spot"\)/.test(pcm), "At a glance keeps one Sustain sentence and the dead-spot flag sentence");
+  ok(!/clear\("neck-sustain"\)/.test(pcm) && /clear\("f0-decay"\)/.test(pcm) && /const ds=poolDeadSpots\(slotTakes\(i\)\.map\(t=>t\.metrics\)\); if\(ds\.flags\.length\)/.test(pcm) && /termHtml\("neck-sustain","dead spot"\)/.test(pcm), "At a glance keeps one Sustain sentence and the dead-spot flag sentence");
   ok(/def\.term==="f0-decay"&&!both\?" · play frets 0, 3, 5, 7, 9 and 12 on every string"/.test(body("missingPhrase")), "the neck-walk hint moved to Sustain");
   ok(/key:"neck-sustain", name:"Dead spots"/.test(html), "the glossary keeps the dead-spot entry the flag sentence links to, under its player name");
   // The time views carry their own take picker (user, 2026-09-06): same selection as the card, never a second state.
@@ -618,6 +620,56 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     paths.push({ nm, ch, room: room && room.t20.toFixed(2), t20: t20 && t20.toFixed(2), path: D.recordingPath({ room, noteT20: t20, channels: ch, type: "solid" }) });
   }
   ok(paths.length === 3 && paths.every(p => p.path === "di"), "the three audit takes read as DI — no room outlasts their last note", JSON.stringify(paths));
+  section("2026-09-06 — every take counts (THEORY §7.6.10 amended)");
+  {
+    // (a) the band shrinks with the number of takes
+    const R = 0.2;
+    const two = D.combineBands({ v: R, n: 2 }, { v: R, n: 2 });
+    ok(Math.abs(two.v - R) < 1e-9 && two.n === 4, "two takes each with equal ranges reproduce the old band exactly (the larger spread)", JSON.stringify(two));
+    const three = D.combineBands({ v: R, n: 3 }, { v: R, n: 3 }), mixed = D.combineBands({ v: R, n: 2 }, { v: R, n: 3 });
+    ok(Math.abs(three.v / R - 0.5441) < 2e-3 && Math.abs(mixed.v / R - 0.8047) < 2e-3, "three each → 0.54 R; two and three → 0.80 R (the numbers THEORY quotes)", (three.v / R).toFixed(4) + " " + (mixed.v / R).toFixed(4));
+    let prev = Infinity, mono = true; for (let n = 2; n <= 14; n++) { const v = D.rangeToSe(R, n); if (!(v < prev)) mono = false; prev = v; }
+    ok(mono && D.rangeToSe(R, 1) == null && D.combineBands({ v: R, n: 1 }, { v: R, n: 2 }) == null, "the per-side error falls monotonically with n (past the d₂ table too) and one take yields no band");
+    const tb2 = body("toneBandFor");
+    ok(/const lv=liveToneBands\(\); const lb=lv\.ready&&lv\.bands\[key\];/.test(tb2) && /oct:lb\.v, measured:true, live:true/.test(tb2), "toneBandFor reads the combined value as the band it was reading before");
+    // (b) comparability over every pair
+    const a1 = { registerMidi: 50, levelRms: -20 }, a2 = { registerMidi: 51, levelRms: -21 }, b1 = { registerMidi: 52, levelRms: -22 }, b2 = { registerMidi: 58, levelRms: -40 };
+    const all = D.comparabilityAll([a1, a2], [b1, b2]);
+    const reg = all.find(c => c.key === "register"), lvl = all.find(c => c.key === "level");
+    ok(reg && !reg.ok && reg.pairs === 4 && reg.failing === 2 && reg.pair[1] === 1 && reg.pair[0] === 0 && /8\.0 semitones/.test(reg.text), "a check fails when any pair fails and reports the worst pair by index", JSON.stringify(reg));
+    ok(lvl && !lvl.ok && lvl.pair[0] === 0 && lvl.pair[1] === 1, "…level too (take 1 of A against take 2 of B, 20 dB apart)", JSON.stringify(lvl));
+    const fine = D.comparabilityAll([a1, a2], [b1]);
+    ok(fine.every(c => c.ok) && fine.find(c => c.key === "register").pairs === 2 && fine.find(c => c.key === "register").bad === 2, "when every pair passes the check passes and reports the widest passing pair");
+    ok(D.comparabilityAll([], [b1]).length === 0 && JSON.stringify(D.comparabilityAll([a1], [b1]).map(c => [c.key, c.ok])) === JSON.stringify(D.comparability(a1, b1).map(c => [c.key, c.ok])), "one take each is byte-for-byte the single comparability; an empty side compares nothing");
+    // (c) pooled evidence and dead spots
+    const nA = [{ pass: true, f0: 110, t20: 2 }, { pass: true, f0: 220, t20: 1 }], nB = [{ pass: true, f0: 330, t20: 1.5 }];
+    const pm = D.poolMetrics([{ notes: nA, snr: 30, tap: null }, { notes: nB, snr: 40, tap: { f: 100 } }, { notes: undefined, snr: 50 }]);
+    ok(pm.pooled === 3 && pm.notes.length === 3 && pm.snr === 40 && pm.tap && pm.tap.f === 100, "poolMetrics concatenates the takes' notes, takes the median SNR and any tap", JSON.stringify(pm));
+    ok(D.poolMetrics([{ notes: nA }]).notes === nA && D.poolMetrics([]) == null, "one take pools to itself");
+    const note = (f0, t20) => ({ pass: true, f0, t20 });
+    const t1 = { notes: [note(196, 0.4), note(220, 2), note(247, 2.1), note(262, 1.9)], neckFlags: [{ f0: 196, t20: 0.4, ref: 2 }], neckMedian: 1.95, neckN: 4 };
+    const t2 = { notes: [note(196, 1.8), note(220, 2), note(247, 2.1), note(262, 1.9)], neckFlags: [], neckMedian: 1.95, neckN: 4 };
+    const t3 = { notes: [note(196, 0.5), note(220, 2), note(247, 2.1), note(262, 1.9)], neckFlags: [{ f0: 196.5, t20: 0.5, ref: 2 }], neckMedian: 1.95, neckN: 4 };
+    const p12 = D.poolDeadSpots([t1, t2]), p123 = D.poolDeadSpots([t1, t2, t3]), p1 = D.poolDeadSpots([t1]);
+    ok(p12.flags.length === 0 && p12.takes === 2, "flagged in one take of two is a pluck, not a dead spot");
+    ok(p123.flags.length === 1 && p123.flags[0].inTakes === 2 && p123.flags[0].ofTakes === 3 && Math.abs(p123.flags[0].t20 - 0.5) < 1e-9 && p123.n === 12, "flagged in two takes of three is a dead spot, with the count said and the median of the flagged decays", JSON.stringify(p123.flags));
+    ok(p1.flags.length === 1 && p1.flags[0].inTakes === 1 && p1.flags[0].ofTakes === 1 && p1.median === 1.95, "one take flags as before");
+    // wiring
+    const tr2 = body("toneRecords"), b4x = blocks[4];
+    ok(/const compat=both\?comparabilityAll\(takeMs\[0\],takeMs\[1\]\):\[\];/.test(tr2) && /const takeMs=\[0,1\]\.map\(i=>slotTakes\(i\)\.map\(t=>ownView\(t\)\.metrics\)\.filter\(Boolean\)\);/.test(tr2), "comparability runs over every pair of takes, each take as analysed alone");
+    ok(/const pooled=\[0,1\]\.map\(i=>poolMetrics\(takeMs\[i\]\)\);/.test(tr2) && /return toneEvidenceOf\(pooled\[i\], openMidis, state\.a4, pooled\[1-i\]\);/.test(tr2), "a row's evidence is pooled over the guitar's takes, and matched against the other guitar's pooled notes");
+    ok(/else if\(def\.pairwise&&both\)\{/.test(tr2) && /const mine=topTakes\(i,PAIR_TAKES\), theirs=topTakes\(1-i,PAIR_TAKES\); pairN=mine\.length\*theirs\.length;/.test(tr2) && /def\.val\(ownView\(t\),i,ownView\(u\)\.metrics\)/.test(tr2) && /const PAIR_TAKES=3;/.test(b4x), "a pairwise row is measured take against take, at most three takes a side");
+    ok(/function _otherMetrics\(i\)\{ const o=state\.slots\[i===1\?0:1\]; return o\?o\.metrics:null; \}/.test(b4x) && !/_otherMetrics\(s\)/.test(b4x), "the other guitar's metrics are found by slot index, never by searching for the take object (an own view is not in state.slots)");
+    const pre2 = body("preCompareHtml");
+    ok(/const mx=mixedPaths\(i\); if\(mx\.length\)/.test(pre2) && /function mixedPaths\(i\)/.test(b4x) && /for every one of the "\+nPairs\+" pairs of takes/.test(pre2), "Before you compare warns when a guitar's takes mix paths and says the pass held for every pair");
+    const rv2 = body("renderVerdict"), pc2 = body("proseCandidates");
+    ok(/<b>Not comparable<\/b>/.test(rv2) && /<b>Comparable, but not yet confidently<\/b>/.test(rv2) && /<b>Comparable<\/b>/.test(rv2) && /Before you compare, above/.test(rv2), "At a glance opens with one of three comparability lines that refer to the strip above");
+    ok(!/level-match/.test(rv2) && !/lmOffset/.test(rv2), "INVERTED: the strip no longer rehashes the level gap");
+    ok(/for\(const c of cands\) parts\.push\(c\.html\);/.test(rv2) && /"For the player: "/.test(rv2) && /is notably louder in the "/.test(rv2) && /else if\(fails\.length\|\|typesDiffer\)\{ \/\* said above/.test(rv2) && /The takes are not comparable as they stand — /.test(body("renderProse")) && /Math\.abs\(bd\.d\)>=3/.test(rv2), "then one sentence per verdict-backed difference, a notable region gap with its dB, and what it adds up to for the player");
+    ok(/renderAnalysis\(\);\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*drawAll\(\);\n\}/.test(body("afterDataChange")), "a landing draws synchronously after renderAnalysis — the first frame never waits on the compositor");
+    ok(/clear\("brightness"\)/.test(pc2) && /provided the same pick, pickup and phrase went into both/.test(pc2) && /score:sc\(r\)\*0\.5/.test(pc2), "brightness reaches the strip with its caveat in the sentence and ranked under the instrument rows");
+    ok(/"× longer \("\+\s*fmtMs\(x\.vh\)\+" vs "\+fmtMs\(x\.vl\)\+"\), note for note\."/.test(pc2.replace(/\n/g, "")) && /who:x\.hi, tag:/.test(pc2), "Sustain prints the ratio and the two values a player would quote, and tags who for the closing line");
+  }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

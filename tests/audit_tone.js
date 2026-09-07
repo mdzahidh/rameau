@@ -14,7 +14,7 @@ const blocks=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);
 const dspSrc=blocks[0];
 const modFile=path.join(os.tmpdir(),"rameau_audit_tone_dsp.js");
 fs.writeFileSync(modFile,dspSrc+`
-module.exports={welch,detectPeaks,noteInfo,powerToDb,smoothOct,bandPower,spectralCentroid,spectralTilt,stftBands,detectOnsets,amplitudeEnvelope,attackTimes,bandDecays,autocorrF0,harmonicProfile,
+module.exports={combCheckF0,welch,detectPeaks,noteInfo,powerToDb,smoothOct,bandPower,spectralCentroid,spectralTilt,stftBands,detectOnsets,amplitudeEnvelope,attackTimes,bandDecays,autocorrF0,harmonicProfile,
  dynamicsMetrics,shortTermRms,percentile,noteInfo,midiToFreq,decimateEnvelope};`);
 const D=require(modFile);
 
@@ -132,10 +132,8 @@ function teeth(power,df,f,H){ const out=[];
     const fhi=Math.min(power.length-1,Math.floor((h+1)*f*0.965/df)); let fl=Infinity; for(let k=hi;k<=fhi;k++) if(power[k]<fl) fl=power[k];
     out.push({h,db:D.powerToDb(pk),floorDb:isFinite(fl)?D.powerToDb(fl):null}); }
   return out; }
-function guard(power,df,f0){ // never below the autocorrelation pick; lowest passing of ×1,×2,×3
-  for(const k of [1,2,3]){ const t=teeth(power,df,f0*k,8); const top=Math.max(...t.slice(0,6).map(o=>o.db));
-    const pres=t.map(o=>o.floorDb!=null&&o.db-o.floorDb>=10&&o.db>=top-30); if(pres.slice(0,6).every(Boolean)) return {k,f:f0*k,frac:pres.filter(Boolean).length/t.length}; }
-  return null; }
+function guard(power,df,f0){ // the shipped comb check (block 0) — one rule, never a copy (2026-09-06)
+  const c=D.combCheckF0(power,df,f0); return c.pass?{k:c.mult,f:c.f0,frac:c.frac}:null; }
 function fitB(power,df,f,H){ let B=0,f0=f; const used=[];
   for(let h=1;h<=H;h++){ const fc=h*f0*Math.sqrt(1+B*h*h); if(fc>=power.length*df) break;
     const lo=Math.max(2,Math.floor(fc*0.988/df)),hi=Math.min(power.length-2,Math.ceil(fc*1.012/df)); let pk=0,pi=lo; for(let k=lo;k<=hi;k++) if(power[k]>pk){pk=power[k];pi=k;}

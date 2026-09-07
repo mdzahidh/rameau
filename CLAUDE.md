@@ -949,6 +949,27 @@ build educational copy from it, never re-derive from scratch.
   `neck-sustain` row, its ear pair and its At-a-glance sentence are gone, the glossary key and
   the `TONE_EVIDENCE` manifest stay for the flag sentence and the guided step). `tests/e.test.js`
   **261**.
+- **Every take counts BUILT (2026-09-06, branch `e-feedback`; the user's principle: "wherever
+  makes sense we should take all the takes into account").** THEORY §7.6.10 amended first.
+  **(a)** The reliability band **shrinks with takes**: `rangeToSe`/`combineBands` (block 0) read
+  each guitar's spread as a standard error of its mean and combine in quadrature, calibrated so
+  two takes each reproduce the old band; `liveToneBands` reads each take **as analysed alone**
+  (`ownView`) — the mean-spectrum take 0 had biased spectral bands toward zero. **(b)**
+  `comparabilityAll` runs every pair of takes, fails if any pair fails, names the worst pair;
+  path detected **per take** (`pathForTake`), `mixedPaths` warns in Before you compare. **(c)**
+  Evidence **pooled** over takes (`poolMetrics`); Sustain is `pairwise:true` — each take of A
+  against each of B, `topTakes(i, PAIR_TAKES=3)`, geometric mean over pairs; dead spots pooled
+  (`poolDeadSpots`, strict majority of the takes that contain the note). `_otherMetrics(i)` by
+  index (the object lookup returned slot 0 for own views). **At a glance re-audited:** one
+  comparability line (Not comparable / Comparable, but not yet confidently / Comparable) that
+  refers to the strip, then **every** verdict-backed sentence in player words with one number
+  (`who`/`tag` on each candidate), a ≥ 3 dB region sentence, and *For the player: …*;
+  Brightness joins with its caveat at half score; no level-match sentence. **Comb check:** tooth
+  1 is excused the between-teeth floor test but must sit within 30 dB of the strongest tooth
+  (a first "tooth 1 optional" fix let sub-range picks through — caught by a per-note probe,
+  THEORY §7.3); `tests/audit_tone.js` calls the shipped `combCheckF0`. "Before you compare" is
+  its own card under the guitar cards (`#preCard`), missing facts name what was measured.
+  `tests/e.test.js` **286**, dsp **237**. SPEC.md 2026-09-06 "Every take counts".
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -963,7 +984,7 @@ build educational copy from it, never re-derive from scratch.
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
 - The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 187**, headless **73**
-  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp 236, e **261**. **All node suites green since the
+  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp **237**, e **286**. **All node suites green since the
   EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
   "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went
   0.999 → 1.022 dB there. The bound was not the defect: the fitter was in a local minimum on
@@ -1377,6 +1398,13 @@ build educational copy from it, never re-derive from scratch.
   whenever a comb exists. `sgCmap`/`sgTrack`/`sgDash`/`sgHue`/`sgTriad` are
   view state like `sgFrets`: unpersisted, unexported, and only the colormap is in the image
   cache key (`gkey` analysis + `cm`), never the line style.
+- **Every take counts (user principle, 2026-09-06).** Wherever a guitar has several takes and
+  the view has no time axis, all of them enter: values are means over takes (geometric on a log
+  axis), evidence is pooled, comparability runs over every pair and fails if any pair fails,
+  Sustain is measured take against take (≤ 3 a side), a dead spot needs a majority of takes,
+  and the reliability band narrows as takes accumulate (THEORY §7.6.10). A time view — the
+  spectrogram, the envelope, the card transport, the "Before you compare" lines — reads the
+  selected take and says so. A new metric that reads only take 0 needs a reason written down.
 - Keep `tests/make_samples.js` synth math identical to the in-app demo synth when
   editing either.
 - Update SPEC.md changelog, this file, and ARCHITECTURE.md at milestone boundaries and

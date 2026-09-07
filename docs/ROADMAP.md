@@ -2372,6 +2372,18 @@ the comparability verdict are one block at the top of the tone rows; Dynamic ran
 notes are readouts; Sustain and Dead spots are one row. **Open:** shrink the band as takes
 accumulate; Sustain's note matching against the other guitar's take 0 only.
 
+### 2026-09-06 — every take counts ✅ BUILT (branch `e-feedback`)
+
+*User principle: "wherever makes sense we should take all the takes into account and that should
+be one of the core architectural principles." SPEC.md 2026-09-06 "Every take counts".* Band
+narrows with takes (THEORY §7.6.10 first), comparability over every pair, evidence pooled,
+Sustain pairwise (≤ 3 takes a side), dead spots by majority, path per take with a mixed-path
+warning; At a glance re-audited (comparability line → one player-words sentence per
+verdict-backed difference → for the player); comb check tooth 1 excused the floor test only.
+**Closes** the two items left open above (band shrink; Sustain against take 0). **Open:** the
+Overtone ring and Bloom rows are `perTake` means, not pairwise — pairwise only matters where
+notes are matched across guitars, which today is Sustain alone.
+
 # Gated — do not start without explicit user go-ahead
 
 - **M3 — live input.** Still owes the task-based entry points deferred from M2.
