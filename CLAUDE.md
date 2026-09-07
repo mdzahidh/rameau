@@ -938,7 +938,14 @@ build educational copy from it, never re-derive from scratch.
   the opened pane's bar into the expanded view and back). **Safari after a screen lock:** a
   context that saw the page hidden (or WebKit's `interrupted`) is **spent** — `startPlayback`
   closes it and builds a new one (`playCtxSpent`); an idle `recLive.ctx` is dropped on hidden
-  too, a live capture never. `tests/e.test.js` **249**.
+  too, a live capture never. **"Before you compare" (user, same day):** the Take group and the
+  comparability bar are one block at the **top** of the tone rows (`preCompareHtml`): a line per
+  guitar — Level and floor · Pitch check · Material · Recording path, lights + phrases, every one
+  a readout tap — and a last line that always answers (*Fair to compare* / *Not directly
+  comparable — register (7.0 semitones apart) …* / load the other guitar). Dynamic range and
+  Between notes are **readouts now, not rows** (inside Level and floor / Recording path);
+  `TONE_GROUPS` is two groups, the take defs keep `g:"take"` (`TONE_PRE_GROUP`); `#toneCompat`
+  is gone. `tests/e.test.js` **257**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math
@@ -953,7 +960,7 @@ build educational copy from it, never re-derive from scratch.
   and 7: write the physics copy myself, freeze it by sentinel + SHA, hand the builder only
   the plumbing (Sonnet — via exec for milestones, sub-agents for small tweaks per 2026-08-26).**
 - The gate: `./tests/verify.sh` — dsp **236**, r3 42, r4 60, m27 51, r5 **332**, **e 187**, headless **73**
-  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp 236, e **249**. **All node suites green since the
+  (eight steps since E1; `--node` skips the headless step). On `e-feedback`: dsp 236, e **257**. **All node suites green since the
   EQ release pass (2026-09-05, branch `eq-release-pass`).** Step 1 had been red since `ac65835`
   "EQ match: fit each band inside its neighbours" — the single-peak bound `ok(mx < 1.0)` went
   0.999 → 1.022 dB there. The bound was not the defect: the fitter was in a local minimum on
@@ -1170,8 +1177,9 @@ build educational copy from it, never re-derive from scratch.
   `missingPhrase()` line, which is also the instruction for next time). A provisional band never
   makes a verdict; it only decides hollow vs solid. Thresholds are measured on the audit takes
   before they become constants (THEORY §7.7). Rung-3 detail lives in the readout popover, never
-  beside the dots. Three groups (Instrument /
-  Voicing / Take); only state-1 Instrument rows reach At a glance; "not distinguishable" is said
+  beside the dots. Two row groups by the player's question (How it sounds / How it rings) under a *Before you
+  compare* block that holds the take facts and the comparability verdict; only state-1 `glance`
+  rows reach At a glance; "not distinguishable" is said
   only inside a measured band; harmonic-indexed numbers exist only for notes that
   pass the comb check (`combCheckF0`) — a blank with a reason beats a confident wrong number; a
   spectral centroid is never spelled as a note. Instrument type is per card and asked, never

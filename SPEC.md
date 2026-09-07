@@ -3269,3 +3269,33 @@ so nothing there depends on it).
 in `tests/e.test.js` (219 → **241**), three mutation-checked (the crosshair reading the slot
 again, the mean not divided, the Take rows not following the selection — each caught); node
 gate green; the full gate once at the end of the batch.
+
+## 2026-09-06 — "Before you compare": the take facts and the comparability verdict, one block at the top (user; reviewer-built, branch `e-feedback`)
+
+The user read the *The take* group at the bottom of the Tone character card as "a necessary
+pre-requisite for the comparison to be fair" and asked whether it should go first, as a
+preamble, simplified to what the app needs. Yes, and merged with the comparability bar, because
+the six Take rows (per-take facts) and the bar (the pairwise judgement) answered the same
+question in two places, one of them drawn as tone axes.
+
+**Built.** `preCompareHtml()` renders the first block inside the tone rows: a *Before you
+compare* head, one line per guitar — **Level and floor · Pitch check · Material · Recording
+path**, each a light and a phrase and the same `[data-pop]` tap as every readout, plus a
+`take k of n` chip for a stack (it reads the selected take) — and a last line that **always**
+answers: *Fair to compare* (register, density and count, length, level, floor and path all
+within THEORY §7.6.10's limits), *Not directly comparable — the register (7.0 semitones apart),
+… differ too much* (each failed check with its measured gap), or *Load or record the other
+guitar to compare*. The rows a failed check greys keep their per-row reason. The separate
+`#toneCompat` bar is deleted. **Demoted to readouts, kept as measurements:** Dynamic range now
+prints inside the Level and floor readout, Between notes inside the Recording path readout
+(which already read it to detect a room); both glossary entries, both block-0 functions and the
+comparability checks stay, the checks no longer naming the two rows. `TONE_GROUPS` is two row
+groups; the four take defs keep `g:"take"` (`TONE_PRE_GROUP`) so `toneRecords`, the popover and
+the exports are unchanged (the CSV names the block for them). **Also:** Overtone ring's ear
+sentence says *partials* — the row tracks the measured, inharmonic frequencies, and *harmonic*
+is reserved for the ideal grid (overlay, coincidences, labels).
+
+**Verification, in proportion:** `node --check` ×5; `tests/e.test.js` 249 → **257** (the group
+and row contracts re-pointed, eight new — the block first in the container, the three verdict
+sentences, the two demoted readouts, no dead row named by a check, the bar gone); node gate
+green; the full gate once at the end of the batch.

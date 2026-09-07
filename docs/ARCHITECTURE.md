@@ -2145,6 +2145,15 @@ shape `canPlay()` reads — so the ear buttons ride the one playback path
 pairs were measured with an independent FFT script before shipping; the numbers are in
 SPEC.md. The Take rows have no pair by design.
 
+**Before you compare (same day, later).** The take facts left the row loop: `TONE_GROUPS` has
+two entries and the four take defs keep `g:"take"` (`TONE_PRE_GROUP`), so `toneRecords` still
+builds their records and `preCompareHtml(records,…)` renders them as the first block in
+`#toneRows` — lights and phrases with the same `[data-pop]` tap, then the comparability verdict
+that used to be the `#toneCompat` bar (now always present, "Fair to compare" included). Dynamic
+range and Between notes are printed inside the Level-and-floor and Recording-path readouts;
+their block-0 functions and glossary entries are unchanged. Anything that maps a record's group
+to a `TONE_GROUPS` entry must tolerate `"take"` (the CSV falls back to the block's name).
+
 **Traps.** `tests/e.test.js` pins `term:"sustain"`, `warmth`, `tightness`, `low-end` and
 `term:"attack"` as *absent* from `toneRowDefs` — a row named *Sustain* is fine (`name:`), a
 term is not, and prose in `ear`/`sens` must not spell those words with a hyphen. The

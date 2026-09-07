@@ -2367,7 +2367,9 @@ release pass, all still untested — then merge `e-feedback` to master.
 re-computed?" — SPEC.md 2026-09-06 (a stack of takes is shown as its mean).* Everything
 without a time axis reads the mean of a guitar's takes; the spectrogram and the envelope read
 the selected take; chips name the source; the spectrogram and envelope cards carry their own
-take picker, sharing the card's selection. **Open:** shrink the band as takes accumulate;
+take picker, sharing the card's selection. *Before you compare* (same day): the take facts and
+the comparability verdict are one block at the top of the tone rows; Dynamic range and Between
+notes are readouts. **Open:** shrink the band as takes accumulate;
 Sustain's note matching against the other guitar's take 0 only.
 
 # Gated — do not start without explicit user go-ahead

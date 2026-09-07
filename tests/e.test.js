@@ -134,7 +134,7 @@ section("E1.4 — toneRecords: evidence and state on every record, one door to a
     "String stiffness gets the two plain words and nothing else");
   const defs = body("toneRowDefs");
   for (const k of ["warmth", "low-end", "tightness", '"sustain"', 'term:"attack"']) ok(!defs.includes(k === '"sustain"' ? 'term:"sustain"' : k), "row gone from the panel: " + k.replace(/"/g, ""));
-  ok(/term:"f0-decay"/.test(defs) && /term:"dynamic-range"/.test(defs) && /g:"take", term:"dynamic-range"/.test(defs), "Fundamental decay is a row; Dynamic range is a Take row");
+  ok(/term:"f0-decay"/.test(defs) && !/term:"dynamic-range"|term:"residual"/.test(defs), "Fundamental decay is a row; Dynamic range and Between notes are readouts, not rows (2026-09-06)");
   ok(/term:"inharmonicity", name:"String stiffness", plain:true/.test(defs) && /val:s=>slotStiffnessEA\(s\.metrics\)/.test(defs), "String stiffness reads open E and A only");
   const cc = html.slice(html.indexOf("const COMPAT_CHECKS=["), html.indexOf("function comparability("));
   ok(!/"warmth"|"low-end"|"tightness"|"sustain"|"attack"/.test(cc) && /"f0-decay"/.test(cc), "comparability rows name no dead row and gate Fundamental decay on register");
@@ -184,15 +184,15 @@ section("2026-09-06 — the Tone character card re-audited under the core use ca
 {
   const defs = body("toneRowDefs"), b4 = blocks[4];
   const tg = b4.slice(b4.indexOf("const TONE_GROUPS=["), b4.indexOf("];", b4.indexOf("const TONE_GROUPS=[")));
-  ok(/id:"sound"/.test(tg) && /id:"ring"/.test(tg) && /id:"take"/.test(tg) && !/id:"inst"|id:"voice"/.test(tg), "three groups: How it sounds / How it rings / The take — Instrument and Voicing are gone");
+  ok(/id:"sound"/.test(tg) && /id:"ring"/.test(tg) && !/id:"take"|id:"inst"|id:"voice"/.test(tg) && /const TONE_PRE_GROUP="take";/.test(b4), "two row groups, How it sounds / How it rings; the take facts are the Before-you-compare block, not a group");
   ok(!/g:"inst"|g:"voice"/.test(defs), "no row points at a dead group");
   const rows = [...defs.matchAll(/\{g:"(\w+)", term:"([\w-]+)", name:"([^"]+)"/g)].map(m => ({ g: m[1], term: m[2], name: m[3] }));
   const byTerm = Object.fromEntries(rows.map(r => [r.term, r]));
-  ok(rows.length === 17, "seventeen rows", rows.length);
+  ok(rows.length === 15, "fifteen rows", rows.length);
   ok(byTerm["f0-decay"].name === "Sustain" && byTerm["neck-sustain"].name === "Dead spots" && byTerm["attack-spectrum"].name === "Pick attack", "player-speak names: Sustain, Dead spots, Pick attack");
   ok(["pickup-resonance", "body-resonance", "inharmonicity", "brightness", "even-odd", "harmonic-richness", "attack-spectrum"].every(t => byTerm[t].g === "sound") &&
      ["overtone-sustain", "bloom", "neck-sustain", "f0-decay"].every(t => byTerm[t].g === "ring") &&
-     ["pitch-check", "noise-floor", "dynamic-range", "residual", "comparability", "recording-path"].every(t => byTerm[t].g === "take"), "each row sits in the group its question belongs to");
+     ["pitch-check", "noise-floor", "comparability", "recording-path"].every(t => byTerm[t].g === "take"), "each row sits in the group its question belongs to");
   const glance = [...defs.matchAll(/term:"([\w-]+)"[^\n]*glance:true/g)].map(m => m[1]).sort();
   ok(glance.join() === ["bloom", "body-resonance", "f0-decay", "neck-sustain", "overtone-sustain", "pickup-resonance"].join(), "glance:true on exactly the rows that fed At a glance before (String stiffness stays out via plain)", glance.join());
   // Every non-text row states what is measured (unit line + `how`), what it sounds like (`ear`) and how much the playing moves it (`sens`).
@@ -503,11 +503,22 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   // Tone panel: means for note-based rows, the mean spectrum for spectral rows, the selected take for Take rows.
   const tr=body("toneRecords"), defs=body("toneRowDefs");
   const per=[...defs.matchAll(/term:"([\w-]+)", name:"[^"]+",(?: plain:true,)? perTake:true/g)].map(m=>m[1]).sort().join();
-  ok(per==="attack-spectrum,bloom,body-resonance,dynamic-range,even-odd,f0-decay,harmonic-richness,inharmonicity,neck-sustain,overtone-sustain,residual", "perTake on the eleven note-based rows — Pickup voice and Brightness read the mean spectrum", per);
+  ok(per==="attack-spectrum,bloom,body-resonance,even-odd,f0-decay,harmonic-richness,inharmonicity,neck-sustain,overtone-sustain", "perTake on the nine note-based rows — Pickup voice and Brightness read the mean spectrum", per);
   ok(/const tv=def\.text\?viewRec\(i\):s;/.test(tr) && /perVals=takes\.map\(t=>\{ let x=null; try\{ x=def\.val\(ownView\(t\),i\); \}/.test(tr) && /v=def\.log\?Math\.exp\(ok\.reduce\(\(a,x\)=>a\+Math\.log\(x\),0\)\/ok\.length\):ok\.reduce\(\(a,x\)=>a\+x,0\)\/ok\.length;/.test(tr),
     "Take rows read the selected take; perTake rows average each take's own value, geometric on a log axis");
   ok(/d="mean over "\+nT\+" takes \("\+perVals\.map\(fm\)\.join\(" · "\)\+"\)"/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints and lists the per-take values");
-  ok(/Values: means over each guitar's takes; the Take rows read the selected take/.test(body("renderToneRows")), "the panel's status line says so once");
+  ok(/Values: means over each guitar's takes; Before you compare reads the selected take/.test(body("renderToneRows")), "the panel's status line says so once");
+  // Before you compare (user, 2026-09-06): the take facts and the comparability verdict, one block at the top.
+  const pre=body("preCompareHtml");
+  ok(/toneRows\.innerHTML=preCompareHtml\(records,compat,typesDiffer,types\)\+TONE_GROUPS\.map/.test(body("renderToneRows")), "the block is the first thing in the rows container");
+  ok(/records\.filter\(r=>r\.group===TONE_PRE_GROUP\)/.test(pre) && /data-pop="'\+r\.key\+':'\+i\+'"/.test(pre) && /'<span class="light '\+l\+'"><\/span>'/.test(pre), "one line per guitar from the take records: a light and a phrase, the same tap as every readout");
+  ok(/<b>Fair to compare\.<\/b>/.test(pre) && /<b>Not directly comparable<\/b>/.test(pre) && /c\.label\+\(c\.text\?" \("\+c\.text\+"\)":""\)/.test(pre) && /Load or record the other guitar to compare/.test(pre), "the last line always answers — fair, what differs and by how much, or load the other guitar");
+  ok(!/toneCompat|compatbar/.test(html), "the separate comparability bar is gone");
+  const nf=defs.slice(defs.indexOf('term:"noise-floor"'), defs.indexOf('term:"comparability"')), rp=defs.slice(defs.indexOf('term:"recording-path"'));
+  ok(/"dynamic range "\+m\.dr\.toFixed\(1\)\+" dB/.test(nf) && /"between notes "\+Math\.abs\(m\.residual\)\.toFixed\(0\)\+" dB below the note/.test(rp), "Dynamic range lives in the Level and floor readout, Between notes in the Recording path readout");
+  ok(![...b4.matchAll(/rows:\[([^\]]*)\]/g)].some(m=>/dynamic-range|residual/.test(m[1])), "no comparability check names a row that no longer exists");
+  ok(/q\(\(TONE_GROUPS\.find\(g=>g\.id===r\.group\)\|\|\{name:"Before you compare"\}\)\.name\)/.test(b4), "the CSV names the block for a take record instead of throwing");
+  ok(/ear:\{hi:"the upper partials keep singing/.test(defs), "Overtone ring says partials, which is what it tracks");
   // The time views carry their own take picker (user, 2026-09-06): same selection as the card, never a second state.
   const wrapA=html.slice(html.indexOf('id="sgramWrapA"'), html.indexOf('id="sgramCanvasA"')), wrapB=html.slice(html.indexOf('id="sgramWrapB"'), html.indexOf('id="sgramCanvasB"'));
   ok(/<div class="takebar takesel" data-pane="0" hidden/.test(wrapA) && /select data-takesel="0"/.test(wrapA) && !/data-takesel="1"/.test(wrapA) && /<div class="takebar takesel" data-pane="1" hidden/.test(wrapB) && /select data-takesel="1"/.test(wrapB), "each spectrogram pane carries its own take picker, inside its plot wrap, hidden until a stack exists");
