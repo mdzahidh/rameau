@@ -715,6 +715,13 @@ table.datatable tr.grp td{
 }
 .prose .lead{ color:var(--dim); font-size:11px; letter-spacing:.12em; text-transform:uppercase; display:block; margin-bottom:6px; }
 .verdict{ margin-top:0; padding:14px 20px 15px; border-top:none; max-width:none; }
+/* 2026-09-07: At a glance is sections, one aspect per line */
+.verdict .gline{ margin-top:4px; }
+.verdict .gsec{ display:flex; gap:14px; align-items:baseline; margin-top:8px; padding-top:8px; border-top:1px solid var(--hair2); }
+.verdict .gsh{ flex:0 0 104px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+.verdict .gsb{ flex:1; min-width:0; }
+.verdict .gsep{ color:var(--faint); margin:0 6px; }
+.verdict .gsx{ font-size:0; }
 .tonenote{ font-size:11.5px; color:var(--dim); margin-top:12px; font-variant-numeric:tabular-nums; }
 
 /* ---------- terms ---------- */
@@ -8085,27 +8092,27 @@ function proseCandidates(){
   // `who`/`tag` feed the strip's closing "for the player" line.
   const hiLo=r=>{ const hi=r.verdict.hi; return {hi, vh:hi?r.b:r.a, vl:hi?r.a:r.b, ratio:Math.pow(2,Math.abs(r.verdict.d.d))}; };
   let r=clear("pickup-resonance");
-  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r), who:x.hi, tag:"a brighter pickup voice", html:nm(x.hi)+"'s "+termHtml("pickup-resonance","pickup voice")+" peaks higher ("+
+  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r), who:x.hi, tag:"a brighter pickup voice", short:termHtml("pickup-resonance","pickup voice")+" peaks higher ("+fmtHz(x.vh)+" vs "+fmtHz(x.vl)+")", html:nm(x.hi)+"'s "+termHtml("pickup-resonance","pickup voice")+" peaks higher ("+
     fmtHz(x.vh)+" vs "+fmtHz(x.vl)+") — the glassier, single-coil kind of bright, and as much the pickup, cable and pots as the wood."}); }
   r=clear("body-resonance");
-  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r), who:x.hi, tag:"a higher body hum", html:nm(x.hi)+"'s "+termHtml("body-resonance","body voice")+" hums higher ("+
+  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r), who:x.hi, tag:"a higher body hum", short:termHtml("body-resonance","body voice")+" hums higher ("+fmtHz(x.vh)+" vs "+fmtHz(x.vl)+")", html:nm(x.hi)+"'s "+termHtml("body-resonance","body voice")+" hums higher ("+
     fmtHz(x.vh)+" vs "+fmtHz(x.vl)+") — a tighter, smaller-box low end."}); }
   // String stiffness is demoted (E1): open E/A only, plain words, never in At a glance.
   r=clear("overtone-sustain");
-  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"overtones that ring longer", html:"The "+termHtml("overtone-sustain","overtones")+" of "+nm(x.hi)+" ring "+x.ratio.toFixed(1)+"× longer ("+
+  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"overtones that ring longer", short:termHtml("overtone-sustain","overtones")+" ring "+x.ratio.toFixed(1)+"× longer ("+fmtMs(x.vh)+" vs "+fmtMs(x.vl)+")", html:"The "+termHtml("overtone-sustain","overtones")+" of "+nm(x.hi)+" ring "+x.ratio.toFixed(1)+"× longer ("+
     fmtMs(x.vh)+" vs "+fmtMs(x.vl)+" to fall 20 dB)."}); }
   r=clear("f0-decay");
-  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"longer sustain", html:termHtml("f0-decay","Sustain")+" of "+nm(x.hi)+" was "+x.ratio.toFixed(1)+"× longer ("+
+  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"longer sustain", short:termHtml("f0-decay","sustain")+" "+x.ratio.toFixed(1)+"× longer ("+fmtMs(x.vh)+" vs "+fmtMs(x.vl)+")", html:termHtml("f0-decay","Sustain")+" of "+nm(x.hi)+" was "+x.ratio.toFixed(1)+"× longer ("+
     fmtMs(x.vh)+" vs "+fmtMs(x.vl)+"), note for note."}); }
   // Brightness reaches the strip since 2026-09-06 — with its caveat in the sentence: pick
   // position and the pickup selector move it as much as the guitar does (THEORY §7.4), so it
   // ranks under the instrument rows and is blocked by a register mismatch like any other.
   r=clear("brightness");
-  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r)*0.5, who:x.hi, tag:"an audibly brighter voice", html:nm(x.hi)+" is audibly "+termHtml("brightness","brighter")+" — its tonal centre sits at "+
+  if(r){ const x=hiLo(r); cands.push({fam:"tone", score:sc(r)*0.5, who:x.hi, tag:"an audibly brighter voice", short:"audibly "+termHtml("brightness","brighter")+" ("+fmtHz(x.vh)+" vs "+fmtHz(x.vl)+")", html:nm(x.hi)+" is audibly "+termHtml("brightness","brighter")+" — its tonal centre sits at "+
     fmtHz(x.vh)+" against "+fmtHz(x.vl)+" — provided the same pick, pickup and phrase went into both."}); }
   // Dead spots pooled over the takes (every take counts): flagged only where the note dies early in most takes.
   for(let i=0;i<2;i++){ const ds=poolDeadSpots(slotTakes(i).map(t=>t.metrics)); if(ds.flags.length){
-    const f=ds.flags[0], nn=esc(noteStr(f.f0,state.a4).split(" ")[0]); cands.push({fam:"time", score:0.5, who:i, tag:"a note that dies early ("+nn+")", html:nm(i)+" has a note that dies early — "+nn+" falls 20 dB in "+fmtMs(f.t20)+
+    const f=ds.flags[0], nn=esc(noteStr(f.f0,state.a4).split(" ")[0]); cands.push({fam:"time", score:0.5, who:i, tag:"a note that dies early ("+nn+")", short:nn+" "+termHtml("neck-sustain","dies early")+" ("+fmtMs(f.t20)+" vs "+fmtMs(f.ref)+" for its neighbours"+(ds.takes>1?", "+f.inTakes+" of "+f.ofTakes+" takes":"")+")", html:nm(i)+" has a note that dies early — "+nn+" falls 20 dB in "+fmtMs(f.t20)+
       " against "+fmtMs(f.ref)+" for its neighbours"+(ds.takes>1?", in "+f.inTakes+" of "+f.ofTakes+" takes":"")+"; a candidate "+termHtml("neck-sustain","dead spot")+", worth playing again."}); } }
   cands.sort((a,b)=>b.score-a.score);
   return cands;
@@ -8180,28 +8187,39 @@ function renderVerdict(){
     const lv=liveToneBands();
     if(fails.length||typesDiffer) parts.push("<b>Not comparable</b> as they stand — "+(fails.length?"the "+fails.map(c=>c.label).join(", ")+(fails.length>1?" differ":" differs")+" too much between the takes":"they are different kinds of guitar")+" (Before you compare, above); the rows that rest on that carry no verdict.");
     else if(!banded) parts.push("<b>Comparable, but not yet confidently</b> — the takes match (Before you compare, above), but until each guitar has two takes nothing can say how much a number moves on its own.");
-    else parts.push("<b>Comparable</b> — the takes match (Before you compare, above) and the reliability bands are "+(lv.ready?"measured from "+[0,1].map(i=>slotTakes(i).length).join(" + ")+" takes":"the ones saved earlier")+".");
+    else parts.push("<b>Comparable</b> — the takes match (Before you compare, above); reliability bands "+(lv.ready?"measured from "+[0,1].map(i=>slotTakes(i).length).join(" + ")+" takes":"saved earlier")+".");
     const cands=proseCandidates();
-    for(const c of cands) parts.push(c.html);
+    // 2026-09-07 (user: "too verbose … one aspect at a time, succinctly, details in the popouts"):
+    // the strip is sections — Pair / Sound / Ring / Loudest gap / For the player — each one
+    // line, each item the guitar's name and a short clause with one number; the caveats and
+    // the long form stay in the row popovers and in "Reading the measurements" below.
+    const byWho=list=>[0,1].filter(i=>list.some(c=>c.who===i)).map(i=>slotNameHtml(i)+" — "+list.filter(c=>c.who===i).map(c=>c.short).join(' <span class="gsep">·</span> '));
+    parts.push({h:"Sound", items:byWho(cands.filter(c=>c.fam==="tone"))});
+    parts.push({h:"Ring", items:byWho(cands.filter(c=>c.fam==="time"))});
     const bdAll=biggestRegionDelta();
-    const bd=bdAll?bdAll.best:null, bdFloor=bdAll?bdAll.floored:null;
+    const bd=bdAll?bdAll.best:null, bdFloor=bdAll?bdAll.floored:null, gap=[];
     if(bd&&Math.abs(bd.d)>=3){
-      parts.push(slotNameHtml(bd.d>0?0:1)+" is notably louder in the "+termHtml(bd.r.key,bd.r.label.toLowerCase())+" band (+"+Math.abs(bd.d).toFixed(1)+" dB, "+fmtHz(bd.f0)+"–"+fmtHz(bd.f1)+" — their widest audible gap).");
+      gap.push(slotNameHtml(bd.d>0?0:1)+" is notably louder in the "+termHtml(bd.r.key,bd.r.label.toLowerCase())+" band (+"+Math.abs(bd.d).toFixed(1)+" dB, "+fmtHz(bd.f0)+"–"+fmtHz(bd.f1)+"), their widest audible gap");
     }
     // Disclose, never rewrite: a bigger Δ that lives under the floor is named as
     // what it is — a difference of silences — rather than dropped or promoted.
     if(bdFloor&&Math.abs(bdFloor.d)>=3&&(!bd||Math.abs(bdFloor.d)>Math.abs(bd.d))){
-      parts.push(termHtml(bdFloor.r.key,bdFloor.r.label.toLowerCase())+" shows a wider gap on paper, but both sit below the floor there — a difference of silences, not a tone difference.");
+      gap.push(termHtml(bdFloor.r.key,bdFloor.r.label.toLowerCase())+" is wider on paper, but both sit below the floor there — a difference of silences, not a tone difference");
     }
+    parts.push({h:"Loudest gap", items:gap});
     if(cands.length){
       const by=[0,1].map(i=>cands.filter(c=>c.who===i).map(c=>c.tag));
-      parts.push("For the player: "+[0,1].filter(i=>by[i].length).map(i=>slotNameHtml(i)+" brings "+listWords(by[i])).join("; ")+" — the same phrase on both, so what is left is the hands.");
+      parts.push({h:"For the player", items:[[0,1].filter(i=>by[i].length).map(i=>slotNameHtml(i)+" brings "+listWords(by[i])).join("; ")+" — the same phrase on both, so what is left is the hands"]});
     }
     else if(fails.length||typesDiffer){ /* said above: nothing is compared until the takes match */ }
     else if(banded) parts.push("No verdict-backed difference — as guitars these two are not distinguishable on these takes.");
     else parts.push(cheapestUpgrade());
   }
-  verdictPara.innerHTML='<span class="lead">At a glance</span>'+parts.join(" ");
+  // A string is a plain line; {h,items} is a section, skipped when it has nothing to say.
+  // The hidden `gsx` spans keep textContent readable (the share image quotes it).
+  const line=p=>typeof p==="string"?'<div class="gline">'+p+'</div>'
+    :(p.items.length?'<div class="gsec"><span class="gsh">'+p.h+'<span class="gsx">: </span></span><span class="gsb">'+p.items.join('<span class="gsx">; </span><br>')+'<span class="gsx">. </span></span></div>':"");
+  verdictPara.innerHTML='<span class="lead">At a glance</span>'+parts.map(line).join("");
 }
 
 function renderToneNote(){

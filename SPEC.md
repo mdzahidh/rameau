@@ -3581,3 +3581,21 @@ feel*; the read-alike line names the *overtone stretch*. The glossary entry is r
 stretch** (key `inharmonicity` unchanged, hook *string stiffness, not string feel*) and its
 musician's paragraph spells out the tension-versus-stretch opposition and that the number says
 nothing about playability. THEORY §7.6.1 already had the physics; no test moved.
+
+## 2026-09-07 — At a glance in sections
+
+**User:** *"At a glance is a bit too verbose — organize it in clear sections that talk about one
+aspect at a time, succinctly; leave details to popouts."*
+
+**Change.** `renderVerdict` now builds **sections**, each one line with a small heading in the
+left column: **Pair** (the comparability line, unchanged in substance), **Sound** (the `tone`
+candidates), **Ring** (the `time` candidates, dead spots included), **Loudest gap** (the region
+sentence and, when it applies, the floor disclosure) and **For the player**. Inside a section the
+items are grouped by guitar — *Single-coil 25.5″ — pickup voice peaks higher (3.70 vs 2.40 kHz) ·
+audibly brighter (1.00 kHz vs 474 Hz)* — using a new `short` form on every `proseCandidates()`
+entry: the clause after the name, one number, no caveat. The caveats (*the glassier, single-coil
+kind of bright…*, *provided the same pick…*) live on in the long `html` form, which *Reading the
+measurements* under the tone rows still prints, and in each term's popover. A section with nothing
+to say is not rendered. Hidden `gsx` spans carry ": " and "; " so `textContent` — what the share
+image quotes — still reads as sentences. Single-guitar and not-comparable cases are unchanged.
+`tests/e.test.js` re-pointed (the section pushes, and every candidate must carry `short`).

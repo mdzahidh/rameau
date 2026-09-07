@@ -993,8 +993,9 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
       "overtone ring is a time-domain difference and prints the ratio a player would quote");
     // 2026-09-06: the strip prints EVERY verdict-backed sentence (user's re-audit), so the
     // Q5 "other family" pick is subsumed — both families still print when both cleared.
-    ok(/for\(const c of cands\) parts\.push\(c\.html\);/.test(rv),
-      "the strip prints every verdict-backed sentence, both families included");
+    // 2026-09-07: in sections — every tone candidate under Sound, every time candidate under Ring.
+    ok(/h:"Sound", items:byWho\(cands\.filter\(c=>c\.fam==="tone"\)\)/.test(rv) && /h:"Ring", items:byWho\(cands\.filter\(c=>c\.fam==="time"\)\)/.test(rv),
+      "the strip prints every verdict-backed candidate, both families included (Sound / Ring sections since 2026-09-07)");
     ok(/cands\.sort\(\(a,b\)=>b\.score-a\.score\);/.test(pc) && /cands\.slice\(0,4\)/.test(body("renderProse")),
       "the tone panel's prose still reads the same ranked list — summary and detail cannot disagree");
   }
