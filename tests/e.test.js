@@ -698,8 +698,25 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     ok((b4.match(/"# "\+APP_URL\+" · source "\+APP_REPO,/g) || []).length === 5 && /app:APP_NAME, url:APP_URL, repo:APP_REPO, type:"snapshot"/.test(b4) && /lines\.push\("made with "\+APP_NAME\+" · "\+APP_URL\);/.test(body("eqSettingsText")), "every CSV header, the JSON snapshot and the EQ settings text carry the address");
     const sh = body("exportShareImage");
     ok(/W=1200, H=630/.test(sh) && /drawSpectrumScene\(ctx,plotW,plotH,buildSpecModel\(true\),\[\]\)/.test(sh) && /verdictPara\.textContent/.test(sh) && /_exportPngCanvas\(cv, "rameau-share_"/.test(sh), "the share image is 1200×630, draws the same spectrum scene as the plot, quotes At a glance, and saves through the PNG path");
-    ok(/idxs\.forEach\(i=>\{ state\.slotTypes\[i\]="solid"; \}\);/.test(body("loadDemo")) && /function runLandingHooks\(\)/.test(b4) && /if\(landingHooks\.feedback\) openFeedback\(\);/.test(body("runLandingHooks")) && /scrollIntoView\(\)/.test(body("runLandingHooks")), "the demo declares its kind; ?feedback and ?scrollto wait for the data they describe");
+    ok(/idxs\.forEach\(i=>\{ state\.slotTypes\[i\]="solid"; state\.slotNames\[i\]=DEMO_GUITARS\[i\?"H":"S"\]\.name; \}\);/.test(body("loadDemo")) && /function runLandingHooks\(\)/.test(b4) && /if\(landingHooks\.feedback\) openFeedback\(\);/.test(body("runLandingHooks")) && /scrollIntoView\(\)/.test(body("runLandingHooks")), "the demo declares its kind; ?feedback and ?scrollto wait for the data they describe");
     ok(!/fetch\(|XMLHttpRequest|\.name\b/.test(sh) && /id="shareImgBtn"/.test(html) && /id="shareLinkBtn"/.test(html) && /navigator\.clipboard\.writeText\(APP_URL\)/.test(body("copyAppLink")), "INVERTED: sharing sends nothing and names no file; the buttons sit on the At a glance card and Copy link copies the app's address");
+  }
+  section("2026-09-06 — the demo pair: two construction-modelled solidbodies, two takes each, one phrase");
+  {
+    const A = "// ---------- demo pair: two solidbodies, one phrase (2026-09-06) ----------\n", B = "// ---------- end demo pair ----------";
+    const b4 = blocks[4], blk = b4.slice(b4.indexOf(A) + A.length, b4.indexOf(B));
+    const ms = fs.readFileSync(path.join(__dirname, "make_samples.js"), "utf8"), mblk = ms.slice(ms.indexOf(A) + A.length, ms.indexOf(B));
+    ok(blk.length > 2000 && blk === mblk, "the synth block in index.html and tests/make_samples.js are byte-identical", blk.length + " vs " + mblk.length);
+    ok(!/fender|strat|gibson|les paul|telecaster|sg\b/i.test(blk), "INVERTED: the demo names no maker and no model");
+    const ld = body("loadDemo");
+    ok(/for\(let k=1;k<=2;k\+\+\)/.test(ld) && /demoTake\(g,k\)/.test(ld) && /await analyzeSlot\(i,slot,undefined,k>1\)/.test(ld) && /idxs\.forEach\(recAbort\)/.test(ld), "loadDemo lands two takes per guitar through analyzeSlot, appending the second, after aborting any capture");
+    const m = new Function(blocks[0] + "\n" + blk + "\nreturn {demoTake, DEMO_GUITARS, DEMO_PHRASE};")();
+    ok(m.DEMO_PHRASE.filter(e => e[0] != null).length === 14 && m.DEMO_PHRASE.some(e => e[0] == null) && m.DEMO_GUITARS.S.dead && m.DEMO_GUITARS.S.dead.midi === 63 && !m.DEMO_GUITARS.H.dead, "fourteen notes with one rest; only the single-coil guitar carries a dead spot (D♯4)");
+    ok(m.DEMO_GUITARS.S.rate !== m.DEMO_GUITARS.H.rate && m.DEMO_GUITARS.S.pickup[0] > m.DEMO_GUITARS.H.pickup[0] && m.DEMO_GUITARS.S.t20 < m.DEMO_GUITARS.H.t20, "the two guitars differ in sample rate, pickup resonance (single-coil higher) and sustain (humbucker longer)");
+    const a1 = m.demoTake(m.DEMO_GUITARS.S, 1), a1b = m.demoTake(m.DEMO_GUITARS.S, 1), a2 = m.demoTake(m.DEMO_GUITARS.S, 2);
+    let same = a1.length === a1b.length, diff = false, peak = 0; for (let i = 0; i < a1.length; i++) { if (a1[i] !== a1b[i]) same = false; if (i < a2.length && a1[i] !== a2[i]) diff = true; peak = Math.max(peak, Math.abs(a1[i])); }
+    ok(same && diff && Math.abs(peak - 0.7) < 0.01 && a1.length / m.DEMO_GUITARS.S.rate > 18, "a take is deterministic, take 2 differs from take 1 (timing and pick jitter), and every take peaks at 0.7 before the hiss", peak);
+    ok(["demo-singlecoil-44k_take1", "demo-singlecoil-44k_take2", "demo-humbucker-48k_take1", "demo-humbucker-48k_take2"].every(n => fs.existsSync(path.join(__dirname, "..", "samples", n + ".wav"))) && !fs.existsSync(path.join(__dirname, "..", "samples", "demo-bright-44k.wav")), "the four demo WAVs are in samples/ and the old pair is gone");
   }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

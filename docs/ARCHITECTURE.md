@@ -2481,3 +2481,42 @@ metrics) are carried as stored values and labeled as such.
 - A numeric probe replicating `computeTimeMetrics` end-to-end was used to validate the
   demo pair (onset times/count, attack, T20s, DR, f0, richness) against what the UI
   displays; the reference numbers live in the SPEC changelog discussion of 2026-08-19.
+
+## The demo pair (2026-09-06)
+
+`loadDemo()` synthesises two guitars × two takes in the page (block 4, between the sentinels
+`// ---------- demo pair: two solidbodies, one phrase (2026-09-06) ----------` and
+`// ---------- end demo pair ----------`; `tests/make_samples.js` carries the same block byte for
+byte and writes it out as `samples/demo-*.wav`). The guitars are described by construction —
+`DEMO_GUITARS.S` a bridge single-coil on a 25.5″ scale at 44.1 kHz, `DEMO_GUITARS.H` a neck
+humbucker on 24.75″ at 48 kHz — never by maker.
+
+**`demoString(rate, f0, dur, o, rand)`** is an extended Karplus–Strong loop of length
+`N = rate/f0 − 0.5 − apDelay`, where 0.5 is the two-tap loss filter's delay and `apDelay` the
+allpass's DC phase delay. The excitation is **shaped, not noise**: the two-level velocity pulse of
+an ideal pluck at fraction `pos` (`+1` for `i < D`, `−D/(N−D)` after — zero mean), run twice
+around the loop through a one-pole `lp` (the pick's softness), with `noise` × white for texture,
+then a second circular difference at fraction `pu` for the pickup's position (the comb THEORY
+§7.6.5 predicts). Loop: `w = damp·(S·v + (1−S)·next)`, then one first-order allpass with
+coefficient `−disp` (higher partials see a shorter loop → sharp → a positive B). `slow=[amp,k]`
+runs a second copy of the loop from the same excitation with `damp^k` — a slower polarisation —
+so the envelope has two stages. A click (`click` ms of differentiated noise) and a 60 ms
+raised-cosine release finish the note.
+
+**`demoTake(g, take)`** places `DEMO_PHRASE` from t = 1.5 s (take 2 jitters onset by ±20 ms,
+`pos` by ±10 %, level by ±0.8 dB from a seeded LCG), sets each note's loop loss from its T20
+(`g.t20·(f0/110)^−0.35`, or `g.dead.t20` for the dead note), **scales the allpass per note**
+(`1 − (1 − g.disp)·f0/110`, so B reads alike on E and A — one fixed allpass gives B ∝ f0),
+**mutes every note just before the next pluck** (the last rings 0.5 s past its slot), runs the
+sum through one RBJ low-pass (`pickup=[fc,Q]`), normalises to 0.7 and adds the same −78 dBFS hiss
+to both guitars. The file ends 1 s after the last note.
+
+Why each of those is there — the shaped pluck (noise leaves random harmonics that fail the
+comb check), the comb positions off every fraction 1/2…1/6 (a pluck at 0.20 nulls harmonic 5
+exactly), the mute before the next pluck (partials of the old and the new note inside one STFT
+bin beat at their spacing and the flux detector reads the beats as onsets), the lead-in/rest/
+tail (the floor is a 10th percentile of 25 ms frames), the 0.7 s slot for the dead note (pitch
+is read from the middle of the slot), the quiet-and-much-slower second polarisation (a knee
+must sit inside the 30 dB `twoStageDecay` fits) — is in SPEC.md 2026-09-06 with the numbers.
+The scratch probe that mirrors the per-note pass (`computeTimeMetrics`) over block 0 + the
+synth block is the way to re-tune it; do not tune by looking at the page.

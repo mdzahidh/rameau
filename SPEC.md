@@ -3403,10 +3403,13 @@ and six of six launches drew both panes afterwards. `tests/e.test.js` **287** pi
    strings — not a blocker, but worth highlighting, because some of the tone difference is then the
    strings. B cannot split scale length from string construction from audio alone, so as a row it
    compared strings and called it guitars. Now one line in "Before you compare"
-   (`stiffnessLineHtml`): *Strings and scale differ — stiffness B 1.21 vs 2.05 ×10⁻⁴ on the open E and
-   A (Majesty 1.7× stiffer). Expected between two guitars … so some of the brightness and ring
-   difference below is the strings*, or *Strings and scale read alike*, judged against the
-   provisional band from THEORY §7.4. B is the mean over each guitar's takes. **Never a blocker,
+   (`stiffnessLineHtml`): *Strings and scale differ — … Expected between two guitars … so some of the
+   brightness and ring difference below is the strings*, or *Strings and scale read alike*, judged
+   against the provisional band from THEORY §7.4. On the user's SG and Majesty (same strings, both in
+   E♭) it reads **B 1.87 vs 1.66 ×10⁻⁴ — read alike**: the Majesty measures 0.89× the SG, and
+   physics says 0.887 — at a fixed pitch and gauge B ∝ 1/L⁴, and (24.75/25.5)⁴ = 0.887. (An earlier
+   draft of this entry quoted an invented "1.7× stiffer" example; corrected 2026-09-06 when the
+   user asked whether it made sense — it did not, and the app never printed it.) B is the mean over each guitar's takes. **Never a blocker,
    never greys a row** (inverted contract). The row, its ear pair and the `plain` code path are gone;
    the glossary entry, `slotStiffnessEA`, the evidence manifest and the guided open-strings step stay.
 2. **"Save as bands" is part of the export.** The button and its toast are gone. A JSON snapshot
@@ -3473,3 +3476,93 @@ sharing and the GitHub elements, README led by screenshots.* Built:
 **Verification, in proportion:** `tests/e.test.js` 298 → **305** (head metadata, the images in the
 repository, the footers/headers count, the share image's shape and the inverted no-network rule,
 the demo kind and the hooks); the screenshots read by eye; full gate at the end of the day.
+
+## 2026-09-06 — the demo pair rebuilt: two construction-modelled solidbodies, two takes each, one phrase
+
+**User request:** *"generate two synths that are pretty close to what would be expected from a
+Fender Strat and Les Paul (without naming names) and shows the full feature sets."*
+
+**What ships.** `loadDemo()` lands **two takes of each of two guitars** — *Single-coil 25.5″*
+(44.1 kHz) and *Humbucker 24.75″* (48 kHz), named by construction, never by maker — playing the
+same phrase: a riff up the A string (A2 C3 D3 E3 G3 A3, then the blue note D♯4 and E4), a rest,
+then the six open strings rung out one at a time; 14 notes in 20.2 s. Take 2 differs from take 1
+by seeded timing (±20 ms), pick-position and level jitter, so the pair is a real repeatability
+measurement, not the same file twice. The two slots are declared solidbody and named on landing.
+
+**The string model** (`demoString`, block 4, sentinel-fenced, and byte-identical in
+`tests/make_samples.js` — `tests/e.test.js` asserts it): extended Karplus–Strong with a **shaped
+pluck** — the two-level velocity pulse an ideal string carries after a pluck at fraction `pos`
+(0.14 on both: the player), softened by a one-pole for the pick (`lp`: hard on the single-coil
+guitar, soft on the humbucker) with 6 % noise for life; a second circular difference at the
+**pickup's position** (`pu` 0.065 — a bridge single-coil — against 0.24, a neck humbucker; THEORY
+§7.6.5 is what that comb does to the even/odd balance); per-period loop loss from the note's T20
+(`t20` scaled by (f₀/110)^−0.35 across the neck), a high-frequency loss `S`, a first-order
+allpass for inharmonicity whose coefficient is set at A2 and **scaled per note** so B reads about
+the same on every string; a **second, slower polarisation** `slow=[amp, exponent]` for the
+two-stage decay; a pick click; then one resonant low-pass for the pickup (3.6 kHz Q 2.4 against
+2.4 kHz Q 1.5) and the same −78 dBFS hiss on both. The single-coil guitar carries a **dead spot at
+D♯4** (T20 0.09 s where its neighbours sit near 0.9 s).
+
+**What the page then says, read from a headless render (`?demo&open=all`):** *Fair to compare*
+across all four pairs of takes (register G3 on every take, 14 notes each, floors −78 dBFS,
+DI detected); *Strings and scale differ — B 1.03 vs 1.65 ×10⁻⁴ (1.6× stiffer)*; bands measured
+from 2 + 2 takes; verdicts on Pickup voice (3.70 vs 2.40 kHz), Brightness (1.00 kHz vs 474 Hz),
+Even/odd (+0.6 vs +3.3 dB), Harmonic richness (+13.0 vs +4.9 dB), Overtone ring (723 ms vs
+1.00 s), Sustain (825 ms vs 1.26 s), the D♯4 dead spot flagged in 2 of 2 takes, Bloom measured
+on both (knee 465 vs 770 ms), Pick attack *not distinguishable* (the same pick, as it should be),
+and an At a glance paragraph that ends *For the player: …*. The share image and the README
+screenshots were re-captured from this render.
+
+**What it took, recorded because each is a trap for the next synth:**
+- **Noise excitation is not a pluck.** The old Karplus–Strong filled the loop with white noise,
+  whose one-period spectrum is random per harmonic — a harmonic 15–20 dB down by chance fails
+  the comb check's tooth test, differently on every note and take, and the register medians of
+  the two takes then disagreed by 5 st. The shaped pulse gives a smooth 1/n spectrum with only
+  the two combs on it; every note on every take passes at ×1.
+- **Do not pluck at 0.20.** A pluck at a fifth of the string nulls the fifth harmonic exactly,
+  and tooth 5 sat 30–36 dB under the top tooth on every humbucker note. Both comb positions
+  (`pos`, `pu`) were chosen off every integer fraction up to 6.
+- **Overlapping open strings invent onsets.** With each string ringing 0.5 s under the next,
+  partials of the old and new note that fall inside one 2048-point window bin beat at their
+  spacing (E2's 5th against A2's 4th: 28 Hz) and the half-wave-rectified flux sees ~25 Hz bumps
+  above 1.6× its local median. The humbucker take read 27–29 onsets. An isolated note produces no
+  flux at all after its attack, so the fix is the player's, not the detector's: every note is
+  muted just before the next pluck and only the last one rings out. (This is also what the
+  recording guide asks for.)
+- **The floor is a percentile.** `dynamicsMetrics` takes the 10th percentile of 25 ms frames, so a
+  take with long notes and little silence reports its quietest *tails* as the floor (−42 to −51
+  dBFS against the single-coil's −75), and the pair failed the 10 dB floor test. 1.5 s lead-in,
+  a 1 s rest and 1 s of tail put 15 % of the file on hiss; both takes now read −78.
+- **Pitch is read from the middle of the slot.** The per-note pass takes f₀ from the temporal
+  middle of the segment, so a note that has decayed 60 dB by then (the dead spot in a 1.9 s slot,
+  the last note of a 4 s tail) loses its pitch and with it its decay, and the dead spot cannot be
+  flagged. The dead note now sits in a 0.7 s slot and the file ends 1 s after the last note.
+- **Two-stage decay needs a knee inside 30 dB.** `twoStageDecay` fits the envelope from the peak
+  to −30 dB and asks for early/late ≥ 1.5 at gain ≥ 0.4. A second polarisation at −7 dB decaying
+  at 0.6× the rate gives a soft knee near −30 dB (ratio 1.2–1.4, undetected); the quiet, much
+  slower shape (−12 dB at 0.25×, or −10.5 dB at 0.25×) gives a knee at −14 to −16 dB and ratios of
+  2–3 on every note. The sustain each guitar reports is then set by that slow tail, which is why
+  the humbucker reads 1.5× rather than the 2× its fast loss alone would give.
+- **Stiffness from an allpass is B ∝ f₀.** One first-order allpass adds the same phase-delay swing
+  to every loop, which is a smaller fraction of a longer loop, so the open E read half the A. The
+  coefficient is now scaled per note (`1 − (1 − disp)·f₀/110`), and E and A read within 15 % as
+  they do on a real set. B 1.03 vs 1.65 ×10⁻⁴ is about what a 9-gauge set on 25.5″ against a
+  10-gauge set on 24.75″ would give (B ∝ d²/L² at fixed pitch).
+
+**A layout defect found by the render, fixed:** with four takes the Tone character card's
+reliability line (`.tonestatus`, `white-space:nowrap`) outgrew 1440 px and scrolled the whole
+page sideways (`scrollWidth` 1517). It wraps now.
+
+**Also in this batch:** the SPEC's earlier illustration of the stiffness sentence quoted invented
+numbers (*1.21 vs 2.05, 1.7× stiffer*); the user asked whether that made sense for their own two
+guitars, and it did not — measured, the app prints **B 1.87 vs 1.66 ×10⁻⁴ — read alike** for the
+SG and the Majesty with the same strings at E♭, a 0.89× ratio against the 0.887 that
+(24.75/25.5)⁴ predicts at fixed gauge and pitch. The example was replaced with the measured one.
+
+**Verification, in proportion:** `tests/e.test.js` 305 → **312** (the synth block byte-identical
+between `index.html` and `tests/make_samples.js`, no maker or model named, `loadDemo` lands two
+takes through `analyzeSlot`, fourteen notes with one rest and one dead spot, the two guitars
+differ in rate / pickup / sustain, a take is deterministic and take 2 differs, the four WAVs
+present and the old pair gone); the per-note pass mirrored in a scratch probe over block 0 until
+every take read 14/14; one headless render read for the sentences quoted above; screenshots by
+eye; full gate at the end.

@@ -595,15 +595,15 @@ was run against the three audit takes (§7.1) and the synthetic demo pair throug
 per-note pass (`computeTimeMetrics`, scratch driver over block 0 + block 4) before it was
 written into `TONE_EVIDENCE` in block 0. Counts are what each take actually supplied.
 
-**What the takes supply** (E♭ standard for the audit takes, E standard for the demo):
+**What the takes supply** (E♭ standard for the audit takes, E standard for the demo; the demo rows are the 2026-09-06 pair — two construction-modelled solidbodies, two takes each, fourteen notes with every note muted before the next pluck — measured with the scratch probe that mirrors the per-note pass, SPEC.md 2026-09-06):
 
 | Take | comb-checked notes / span | SNR | open strings | open E · A best partial count | notes ringing ≥ 1.5 s with partial decays | two-stage fits | fundamental decays (T20) | attack spectra |
 |---|---|---|---|---|---|---|---|---|
 | Les Paul | 12 / 24.0 st | 38 dB | 6 of 6 | 14 · 14 | 6 | 3 | 4 | 9 |
 | SG | 11 / 26.4 st | 39 dB | 6 of 6 | 14 · 14 | 6 | 3 | 6 | 10 |
 | Majesty | 14 / 23.9 st | 44 dB | 6 of 6 | 14 · 14 | 6 | 4 | 5 | 7 |
-| demo-bright | 6 / 24.0 st | 34 dB | 6 of 6 | 14 · 14 | 1 (6 with partials) | 6 | 1 | 5 |
-| demo-warm | 6 / 24.0 st | 68 dB | 6 of 6 | 14 · 14 | 1 (6 with partials) | 3 | 3 | 5 |
+| demo single-coil, take 1 · 2 | 14 / 24.1 st | 59 · 58 dB | 6 of 6 | 12 · 13 | 7 | 9 | 13 | 12 |
+| demo humbucker, take 1 · 2 | 14 / 24.0 st | 63 · 63 dB | 6 of 6 | 10 · 13 | 7 | 6 | 14 | 12 |
 
 Only onsets followed by ≥ 0.45 s become notes at all (`NOTE_MIN_GAP`), so a riff with 85
 onsets yields 17 candidates; and only the `NOTE_MAX_HEAVY` = 12 longest get the partial,
