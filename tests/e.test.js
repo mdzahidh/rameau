@@ -188,13 +188,13 @@ section("2026-09-06 — the Tone character card re-audited under the core use ca
   ok(!/g:"inst"|g:"voice"/.test(defs), "no row points at a dead group");
   const rows = [...defs.matchAll(/\{g:"(\w+)", term:"([\w-]+)", name:"([^"]+)"/g)].map(m => ({ g: m[1], term: m[2], name: m[3] }));
   const byTerm = Object.fromEntries(rows.map(r => [r.term, r]));
-  ok(rows.length === 15, "fifteen rows", rows.length);
-  ok(byTerm["f0-decay"].name === "Sustain" && byTerm["neck-sustain"].name === "Dead spots" && byTerm["attack-spectrum"].name === "Pick attack", "player-speak names: Sustain, Dead spots, Pick attack");
+  ok(rows.length === 14, "fourteen rows", rows.length);
+  ok(byTerm["f0-decay"].name === "Sustain" && !byTerm["neck-sustain"] && byTerm["attack-spectrum"].name === "Pick attack", "player-speak names: Sustain (Dead spots merged into it), Pick attack");
   ok(["pickup-resonance", "body-resonance", "inharmonicity", "brightness", "even-odd", "harmonic-richness", "attack-spectrum"].every(t => byTerm[t].g === "sound") &&
-     ["overtone-sustain", "bloom", "neck-sustain", "f0-decay"].every(t => byTerm[t].g === "ring") &&
+     ["overtone-sustain", "bloom", "f0-decay"].every(t => byTerm[t].g === "ring") &&
      ["pitch-check", "noise-floor", "comparability", "recording-path"].every(t => byTerm[t].g === "take"), "each row sits in the group its question belongs to");
   const glance = [...defs.matchAll(/term:"([\w-]+)"[^\n]*glance:true/g)].map(m => m[1]).sort();
-  ok(glance.join() === ["bloom", "body-resonance", "f0-decay", "neck-sustain", "overtone-sustain", "pickup-resonance"].join(), "glance:true on exactly the rows that fed At a glance before (String stiffness stays out via plain)", glance.join());
+  ok(glance.join() === ["bloom", "body-resonance", "f0-decay", "overtone-sustain", "pickup-resonance"].join(), "glance:true on the five rows that speak for the guitar (String stiffness stays out via plain)", glance.join());
   // Every non-text row states what is measured (unit line + `how`), what it sounds like (`ear`) and how much the playing moves it (`sens`).
   const numeric = rows.filter(r => !["pitch-check", "noise-floor", "comparability", "recording-path"].includes(r.term));
   const rowSrc = t => { const i = defs.indexOf('term:"' + t + '"'); const j = defs.indexOf("\n    {g:", i + 1); return defs.slice(i, j < 0 ? undefined : j); };
@@ -221,7 +221,7 @@ section("2026-09-06 — the Tone character card re-audited under the core use ca
   // The synthesized pairs.
   const te = b4.slice(b4.indexOf("const TONE_EAR={"), b4.indexOf("const _earCache={};"));
   const earKeys = [...te.matchAll(/^  "([\w-]+)":\{lo:"/gm)].map(m => m[1]);
-  ok(earKeys.length === 11 && earKeys.every(k => byTerm[k] && byTerm[k].g !== "take"), "eleven pairs, one per guitar row, none for a Take row", earKeys.join());
+  ok(earKeys.length === 10 && earKeys.every(k => byTerm[k] && byTerm[k].g !== "take"), "ten pairs, one per guitar row, none for a Take row", earKeys.join());
   ok(earKeys.every(k => new RegExp('"' + k + '":\\{lo:"[^"]+", hi:"[^"]+", changed:"[^"]+",\\s*make:w=>').test(te)), "each pair has two labels, a `changed` sentence and a maker");
   ok(/THEORY §7\.2/.test(te) && /§7\.6\.2/.test(b4.slice(b4.indexOf("// ---------- ear examples"), b4.indexOf("const TONE_EAR={"))), "the pairs cite the THEORY sections they enact");
   ok(/e0\[\(i-D\+N\)%N\]/.test(body("earKs")), "the pluck-position comb is circular (a linear one left the first D samples uncombed and the even partials alive)");
@@ -423,7 +423,7 @@ section("E6 — the copy is frozen, the type has three values, the rows and the 
   ok(/types:\["solid","hollow"\], piezo:true/.test(b4) && /types:\["hollow","acoustic"\]/.test(b4), "Pickup voice belongs to solid + hollow (and an acoustic on a piezo); Body voice to hollow + acoustic");
   const tr = body("toneRecords");
   ok(/rec\.evidence\[i\]=\{state:4, have:\{\}, need:\{\}, missing:\[\{what:"type", other:types\[i\]\}\]\};/.test(tr), "a typed row with no meaning on one side of a pair collapses that side with missing {what:'type'}");
-  ok(/ROOM_ROWS\.has\(def\.term\)&&s\.metrics\.room&&s\.metrics\.room\.outlasts/.test(tr) && /const ROOM_ROWS=new Set\(\["overtone-sustain","bloom","f0-decay","neck-sustain"\]\);/.test(b4), "the four decay rows drop to partial when the room outlasts the note, with the room named");
+  ok(/ROOM_ROWS\.has\(def\.term\)&&s\.metrics\.room&&s\.metrics\.room\.outlasts/.test(tr) && /const ROOM_ROWS=new Set\(\["overtone-sustain","bloom","f0-decay"\]\);/.test(b4), "the four decay rows drop to partial when the room outlasts the note, with the room named");
   ok(/s\.metrics\.path=pathFor\(i\);/.test(tr), "the resolved path rides on the metrics, so comparability and the glossary read one value");
   ok(/m\.room=roomTail\(shortTermRms\(x,rate\),0\.025,times,m\.noiseFloor\);/.test(b4) && /m\.room\.outlasts=roomOutlastsNote\(m\.room,ref\);/.test(b4) && /if\(!ref\|\|lt>ref\) ref=lt;/.test(b4), "computeTimeMetrics reads the tail once and judges it against the slower of the fundamental's T20 and the late two-stage slope");
   ok(/const tr=tapResonance\(db,wt\.df\);/.test(b4) && /welch\(tap,rate,TAP_WELCH_N,TAP_WELCH_N>>1,null\)/.test(b4), "the tap branch reads both modes through tapResonance at the block-0 window");
@@ -503,7 +503,7 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   // Tone panel: means for note-based rows, the mean spectrum for spectral rows, the selected take for Take rows.
   const tr=body("toneRecords"), defs=body("toneRowDefs");
   const per=[...defs.matchAll(/term:"([\w-]+)", name:"[^"]+",(?: plain:true,)? perTake:true/g)].map(m=>m[1]).sort().join();
-  ok(per==="attack-spectrum,bloom,body-resonance,even-odd,f0-decay,harmonic-richness,inharmonicity,neck-sustain,overtone-sustain", "perTake on the nine note-based rows — Pickup voice and Brightness read the mean spectrum", per);
+  ok(per==="attack-spectrum,bloom,body-resonance,even-odd,f0-decay,harmonic-richness,inharmonicity,overtone-sustain", "perTake on the eight note-based rows — Pickup voice and Brightness read the mean spectrum", per);
   ok(/const tv=def\.text\?viewRec\(i\):s;/.test(tr) && /perVals=takes\.map\(t=>\{ let x=null; try\{ x=def\.val\(ownView\(t\),i\); \}/.test(tr) && /v=def\.log\?Math\.exp\(ok\.reduce\(\(a,x\)=>a\+Math\.log\(x\),0\)\/ok\.length\):ok\.reduce\(\(a,x\)=>a\+x,0\)\/ok\.length;/.test(tr),
     "Take rows read the selected take; perTake rows average each take's own value, geometric on a log axis");
   ok(/d="mean over "\+nT\+" takes \("\+perVals\.map\(fm\)\.join\(" · "\)\+"\)"/.test(tr) && /d="from the mean spectrum of "\+slotMeanOf\(i\)\+" takes"/.test(tr), "the readout says which kind of mean it prints and lists the per-take values");
@@ -519,6 +519,13 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   ok(![...b4.matchAll(/rows:\[([^\]]*)\]/g)].some(m=>/dynamic-range|residual/.test(m[1])), "no comparability check names a row that no longer exists");
   ok(/q\(\(TONE_GROUPS\.find\(g=>g\.id===r\.group\)\|\|\{name:"Before you compare"\}\)\.name\)/.test(b4), "the CSV names the block for a take record instead of throwing");
   ok(/ear:\{hi:"the upper partials keep singing/.test(defs), "Overtone ring says partials, which is what it tracks");
+  // Sustain and Dead spots merged (user, 2026-09-06): one row, the flags in its detail and readout; the flag sentence still reaches At a glance.
+  const sus=defs.slice(defs.indexOf('term:"f0-decay"'), defs.indexOf('term:"brightness"'));
+  ok(!/term:"neck-sustain"/.test(defs) && /flagged as a dead spot/.test(sus) && /" · dead spots over "\+m\.neckN\+" notes: "\+\(fl\.length\?fl\.join\(" · "\):"none flagged"\)/.test(sus), "Sustain carries the dead-spot flags in its unit line and its detail");
+  const pcm=body("proseCandidates");
+  ok(!/clear\("neck-sustain"\)/.test(pcm) && /clear\("f0-decay"\)/.test(pcm) && /m\.neckFlags&&m\.neckFlags\.length/.test(pcm) && /termHtml\("neck-sustain","dead spot"\)/.test(pcm), "At a glance keeps one Sustain sentence and the dead-spot flag sentence");
+  ok(/def\.term==="f0-decay"&&!both\?" · play frets 0, 3, 5, 7, 9 and 12 on every string"/.test(body("missingPhrase")), "the neck-walk hint moved to Sustain");
+  ok(/key:"neck-sustain", name:"Dead spots"/.test(html), "the glossary keeps the dead-spot entry the flag sentence links to, under its player name");
   // The time views carry their own take picker (user, 2026-09-06): same selection as the card, never a second state.
   const wrapA=html.slice(html.indexOf('id="sgramWrapA"'), html.indexOf('id="sgramCanvasA"')), wrapB=html.slice(html.indexOf('id="sgramWrapB"'), html.indexOf('id="sgramCanvasB"'));
   ok(/<div class="takebar takesel" data-pane="0" hidden/.test(wrapA) && /select data-takesel="0"/.test(wrapA) && !/data-takesel="1"/.test(wrapA) && /<div class="takebar takesel" data-pane="1" hidden/.test(wrapB) && /select data-takesel="1"/.test(wrapB), "each spectrogram pane carries its own take picker, inside its plot wrap, hidden until a stack exists");

@@ -3295,7 +3295,19 @@ the exports are unchanged (the CSV names the block for them). **Also:** Overtone
 sentence says *partials* — the row tracks the measured, inharmonic frequencies, and *harmonic*
 is reserved for the ideal grid (overlay, coincidences, labels).
 
-**Verification, in proportion:** `node --check` ×5; `tests/e.test.js` 249 → **257** (the group
-and row contracts re-pointed, eight new — the block first in the container, the three verdict
-sentences, the two demoted readouts, no dead row named by a check, the bar gone); node gate
-green; the full gate once at the end of the batch.
+**Sustain and Dead spots merged (user, same batch: "merge the sustain and dead spots too").**
+They were one measurement in two rows — the fundamental's time to fall 20 dB, once matched
+note-for-note across the takes, once over every note plus the flags. Now one row, **Sustain**:
+the matched median is the number; the dead-spot flags (a note under a third of the median of
+its neighbours within an octave, THEORY §7.6.7) print in its short line, its detail and its
+readout; the neck-walk hint moved to it; At a glance keeps one Sustain sentence and the flag
+sentence ("has a note that dies early…"); the `neck-sustain` glossary entry stays as *Dead
+spots* because that sentence links to it; `TONE_EVIDENCE["neck-sustain"]` stays because the
+guided protocol's neck-walk step declares it. The synthesized dead-spot pair went with the row
+(ten pairs).
+
+**Verification, in proportion:** `node --check` ×5; `tests/e.test.js` 249 → **261** (the group
+and row contracts re-pointed, twelve new — the block first in the container, the three verdict
+sentences, the two demoted readouts, no dead row named by a check, the bar gone, the merged
+row's flags, the prose, the hint, the glossary entry); `tests/dsp.test.js`'s prose slice
+re-pointed; node gate green; the full gate once at the end of the batch.

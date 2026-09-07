@@ -987,7 +987,7 @@ function approx(a, b, tol) { return Math.abs(a - b) <= tol; }
       "a sentence exists only when the row's difference cleared its band and no comparability check blocked it");
     for (const k of ["brightness", "warmth", "low-end", "even-odd", "attack", "dynamic-range"])
       ok(!new RegExp('clear\\("' + k + '"\\)').test(pc), "voicing row " + k + " never reaches At a glance");
-    const sus = pc.slice(pc.indexOf('clear("overtone-sustain")'), pc.indexOf('clear("neck-sustain")'));
+    const sus = pc.slice(pc.indexOf('clear("overtone-sustain")'), pc.indexOf('clear("f0-decay")')); // Dead spots merged into Sustain 2026-09-06
     ok(/fam:"time"/.test(sus) && /ratio\.toFixed\(1\)\+"\u00d7 longer/.test(sus),
       "overtone ring is a time-domain difference and prints the ratio a player would quote");
     ok(/const other=cands\.find\(c=>c\.fam!==cands\[0\]\.fam\);/.test(rv),

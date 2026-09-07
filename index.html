@@ -2736,7 +2736,7 @@ const COMPAT_CHECKS=[
    fmt:(a,b)=>Math.abs(a-b).toFixed(0)+" dB apart", rows:[]},
   // E6.4: a mic take against a DI take — the room is in one decay and not the other.
   {key:"path", label:"recording path", val:m=>m.path, test:(a,b)=>a===b||a==="unknown"||b==="unknown",
-   fmt:(a,b)=>a+" vs "+b, rows:["brightness","residual","f0-decay","overtone-sustain","bloom","neck-sustain"]},
+   fmt:(a,b)=>a+" vs "+b, rows:["brightness","f0-decay","overtone-sustain","bloom"]},
 ];
 function comparability(mA, mB){
   const out=[];
@@ -4181,14 +4181,14 @@ const GLOSSARY=[
     measure:"Goertzel power at each partial (harmonics 1–8, at the inharmonic frequencies from B) per 4096-pt Hann frame, hop 512, from the onset peak until −25 dB or the next onset; accepted with ≥ 6 frames, ≥ 6 dB of observed decay and a slope steeper than −1 dB/s. The row prints the geometric mean of partials 3–8 over the matched open strings; the per-partial times are below.",
     values(state){ return _vals(state, s=>{ const {notes,matched}=_instNotes(s.metrics); const ls=notes.filter(n=>n.partials).map(n=>noteStr(n.f0,state.a4).split(" ")[0]+": "+n.partials.map(t=>t==null?"—":t.toFixed(1)).join(" / ")+" s"); return ls.length ? ls.join("   ·   ")+(matched?"":"   (pitched notes, no open strings found)") : null; }); } },
 
-  { key:"neck-sustain", name:"Sustain across the neck", cat:"Tone descriptors", hook:"dead spots",
+  { key:"neck-sustain", name:"Dead spots", cat:"Tone descriptors", hook:"the notes that won't ring — part of the Sustain row since 2026-09-06",
     musician:"Every guitar has a note or two that just won't ring — a dead spot. It is the neck absorbing that note's energy. Where the dead spots fall, and how deep they are, is a felt property of one particular guitar.",
     science:"The neck and body have bending modes; where the neck's admittance is high at a played note's frequency, the string drives the neck instead of ringing and its energy leaves fast (THEORY §7.6.7, Fleischer & Zwicker). Non-uniform sustain across the neck is the solidbody's structural signature.",
     measure:"The time for the fundamental to shed 20 dB, for every note that passes the pitch check. The row prints the median; a note under one third of the median of the notes within an octave of it (at least three of them) is flagged with its name — a low string's fundamental rings far longer than a plain G's for reasons that are the string, so notes are only judged against their neighbours. A flag is a candidate, not a verdict — play the note again.",
     values(state){ return _vals(state, s=>{ const m=s.metrics; if(m.neckMedian==null) return null; const fl=(m.neckFlags||[]).map(f=>noteStr(f.f0,state.a4).split(" ")[0]+" "+fmtMs(f.t20)); return "median "+fmtMs(m.neckMedian)+" over "+m.neckN+" notes"+(fl.length?"  ·  flagged: "+fl.join(", "):"  ·  none flagged"); }); } },
 
-  { key:"f0-decay", name:"Fundamental decay", cat:"Tone descriptors", hook:"how long the note itself lasts",
-    musician:"How long the note you played keeps sounding — not its overtones, the note. Compared note for note when two takes are loaded, so an open E is only ever measured against an open E.",
+  { key:"f0-decay", name:"Sustain", cat:"Tone descriptors", hook:"how long the note itself lasts — and the notes that don't",
+    musician:"How long the note you played keeps sounding — not its overtones, the note. Compared note for note when two takes are loaded, so an open E is only ever measured against an open E. The same measurement over every note also finds the dead spots: a note that dies in a third of the time its neighbours take is flagged by name.",
     science:"The fundamental loses energy to the air, inside the string and through the bridge into the body at its own rate (THEORY §7.6.2): a straight line in dB with slope −8.686 ⁄ τ, and 2.303·τ seconds to shed 20 dB. It replaces the fixed-band decay rows (Tightness, Sustain), which moved with register because their band stayed put while the notes moved (§7.4).",
     measure:"Goertzel power at the comb-checked f₀ per 4096-pt Hann frame, hop 512, regression from the post-onset peak until −25 dB or the next onset; accepted with ≥ 6 frames, ≥ 6 dB of observed decay and a slope steeper than −1 dB/s. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, and the row prints the median over those.",
     values(state){ return _vals(state, s=>{ const o=state.slots[0]&&state.slots[1]?_otherMetrics(s):null; const ns=_f0DecayNotes(s.metrics,o); return ns.length ? ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · ") : null; }); } },
@@ -7491,26 +7491,19 @@ function toneRowDefs(){
      fmt:(v,s)=>"turns at "+fmtMs(v),
      detail:(v,s)=>{ const b=slotBloom(s.metrics); return b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · median over "+b.n+(b.n===1?" note":" notes")+" that fit two stages"; },
      reason:s=>s.metrics.notes?"one slope fits — no knee":"analysed before this row existed"},
-    {g:"ring", term:"neck-sustain", name:"Dead spots", perTake:true, glance:true,
-     unit:"seconds for the fundamental to fall 20 dB — median over every pitched note; a note under a third of its neighbours is flagged",
-     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak and the time it takes to fall 20 dB. The row prints the median; a note under one third of the median of the notes within an octave of it (at least three) is flagged by name as a candidate dead spot.",
-     ear:{hi:"an even neck — every note rings out about as long as its neighbours", lo:"a dead spot — one note thuds and dies while the ones around it ring on"},
-     sens:{k:"mid", note:"a decay rate is not set by the pick (THEORY §7.6.2), but this median follows the phrase — a riff up the neck rings shorter than one on the low strings (§7.4), which is why Sustain matches notes across the takes and this row does not"},
-     lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
-     val:s=>s.metrics.neckMedian,
-     fmt:(v,s)=>fmtMs(v),
-     detail:(v,s)=>{ const m=s.metrics, fl=(m.neckFlags||[]).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref));
-       return "median over "+m.neckN+" notes · "+(fl.length?fl.join(" · "):"none flagged"); },
-     reason:s=>s.metrics.notes?"fewer than 6 notes with a measurable decay":"analysed before this row existed"},
+    // Sustain and Dead spots were one measurement in two rows (the fundamental's T20, one matched
+    // across the takes, one over every note plus the flags); merged on the user's call, 2026-09-06.
     {g:"ring", term:"f0-decay", name:"Sustain", perTake:true, glance:true,
-     unit:"seconds for the fundamental to fall 20 dB — median over the notes both takes share, matched by pitch",
-     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak until it has fallen 25 dB or the next note begins, and the time it takes to fall 20 dB. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, so an open E is only ever measured against an open E; the row prints the median.",
-     ear:{hi:"the note hangs in the air — you can hold it, bend it, let it sing before the next one", lo:"the note is gone sooner — it drops away and you have to keep the line moving"},
+     unit:"seconds for the fundamental to fall 20 dB — median over the notes both takes share, matched by pitch; a note under a third of its neighbours is flagged as a dead spot",
+     how:"For every note that passes the pitch check, the fundamental's level frame by frame from the onset peak until it has fallen 25 dB or the next note begins, and the time it takes to fall 20 dB. With two takes loaded only notes whose pitch appears on both sides (±50 ¢) count, so an open E is only ever measured against an open E; the row prints the median. Over every pitched note of the take, a note under one third of the median of the notes within an octave of it (at least three) is flagged by name as a candidate dead spot — the neck absorbing that note (THEORY §7.6.7).",
+     ear:{hi:"the note hangs in the air — you can hold it, bend it, let it sing before the next one", lo:"the note is gone sooner — it drops away and you have to keep the line moving; a dead spot is one note doing that while its neighbours ring on"},
      sens:{k:"low", note:"a decay rate is set by the string's losses into the air and the body (THEORY §7.6.2), not by how hard it was hit; matching note for note removes the register (§7.4), which is what moved the old fixed-band rows"},
      lo:0.3, hi:12, log:true, ticks:["0.3 s","12 s"], more:"rings longer",
      val:s=>_median(_f0DecayNotes(s.metrics,both?_otherMetrics(s):null).map(n=>n.t20)),
      fmt:v=>fmtMs(v),
-     detail:(v,s)=>{ const ns=_f0DecayNotes(s.metrics,both?_otherMetrics(s):null); return "time for the fundamental to fall 20 dB, median over "+ns.length+(both?" matched":"")+(ns.length===1?" note":" notes")+(ns.length?" · "+ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · "):""); },
+     detail:(v,s)=>{ const ns=_f0DecayNotes(s.metrics,both?_otherMetrics(s):null), m=s.metrics, fl=(m.neckFlags||[]).map(f=>"⚑ "+esc(noteStr(f.f0,state.a4).split(" ")[0])+" "+fmtMs(f.t20)+" against "+fmtMs(f.ref));
+       return "time for the fundamental to fall 20 dB, median over "+ns.length+(both?" matched":"")+(ns.length===1?" note":" notes")+(ns.length?" · "+ns.map(n=>noteStr(n.f0,state.a4).split(" ")[0]+" "+fmtMs(n.t20)).join(" · "):"")+
+         (m.neckN?" · dead spots over "+m.neckN+" notes: "+(fl.length?fl.join(" · "):"none flagged"):""); },
      reason:s=>s.metrics.notes?(both?"no note this take shares with the other":"no note with a measurable decay"):"analysed before this row existed"},
     // ---- How it sounds (continued): the pick-sensitive rows, tagged as such ----
     {g:"sound", term:"brightness", name:"Brightness",
@@ -7640,7 +7633,7 @@ function _fmtDelta(d,def){ if(d.log) return "×"+Math.pow(2,Math.abs(d.d)).toFix
 // banded, 2 measured, 3 partial, 4 not measurable. The state is the honesty; a verdict
 // (`diff`/`same`) exists only through the one door below — a band measured on the
 // user's own takes. A provisional band never reaches it.
-const ROOM_ROWS=new Set(["overtone-sustain","bloom","f0-decay","neck-sustain"]);
+const ROOM_ROWS=new Set(["overtone-sustain","bloom","f0-decay"]);
 function toneRecords(){
   _liveBands=null;
   const both=bothLoaded(), types=[slotType(0),slotType(1)], typesDiffer=both&&!!types[0]&&!!types[1]&&types[0]!==types[1];
@@ -7739,7 +7732,7 @@ function missingPhrase(x, def){
     case "ring": return "needs "+x.need+" notes ringing "+RING_MIN_SEC+" s or more — "+n(x.have)+" here";
     case "stage": return "needs "+x.need+" notes that fall in two stages — "+n(x.have)+" here";
     case "decays": return "needs "+x.need+(def&&def.term==="f0-decay"&&both?" notes both takes share":" notes with a measured decay")+" — "+n(x.have)+" here"+
-      (def&&def.term==="neck-sustain"?" · play frets 0, 3, 5, 7, 9 and 12 on every string":"");
+      (def&&def.term==="f0-decay"&&!both?" · play frets 0, 3, 5, 7, 9 and 12 on every string":"");
     case "attacks": return "needs "+x.need+" clean note attacks — "+n(x.have)+" here";
     case "band": return "the gap is inside the audit's own spread ("+_fmtBand(x.log?{oct:x.need}:{abs:x.need},def||{})+") — a second take of either guitar would settle it";
     case "analysis": return "re-analyse the take — it was measured before this row existed";
@@ -7945,9 +7938,6 @@ function proseCandidates(){
   r=clear("overtone-sustain");
   if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+"'s "+termHtml("overtone-sustain","overtones ring")+
     " longer — "+fmtMs(hi?r.b:r.a)+" to fall 20 dB against "+fmtMs(hi?r.a:r.b)+", about "+ratio.toFixed(1)+"× longer."}); }
-  r=clear("neck-sustain");
-  if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+" "+termHtml("neck-sustain","sustains")+
-    " longer across the neck — a median "+fmtMs(hi?r.b:r.a)+" over "+(state.slots[hi].metrics.neckN)+" notes against "+fmtMs(hi?r.a:r.b)+" over "+(state.slots[1-hi].metrics.neckN)+", about "+ratio.toFixed(1)+"× longer."}); }
   r=clear("f0-decay");
   if(r){ const hi=r.verdict.hi, ratio=Math.pow(2,Math.abs(r.verdict.d.d)); cands.push({fam:"time", score:sc(r), html:nm(hi)+"'s notes "+termHtml("f0-decay","last")+
     " longer — "+fmtMs(hi?r.b:r.a)+" for the fundamental to fall 20 dB against "+fmtMs(hi?r.a:r.b)+", note for note, about "+ratio.toFixed(1)+"× longer."}); }
@@ -10963,8 +10953,6 @@ const TONE_EAR={
     make:w=>earKs(196,2.6,{S:w==="hi"?0.97:0.5, damp:0.995})},
   "bloom":{lo:"turns at 0.15 s", hi:"turns at 0.9 s", changed:"the same long note with a two-slope envelope imposed — 20 dB/s until the knee, 4 dB/s after it; only the knee time moves",
     make:w=>earKnee(earKs(147,3,{S:0.95,damp:0.9995}), w==="hi"?0.9:0.15, 20, 4)},
-  "neck-sustain":{lo:"one note dies early", hi:"all four ring evenly", changed:"four notes up the neck; in the lower example the third is given far more loss per round trip — a dead spot — and nothing else changes",
-    make:w=>earSeq([[110,0],[131,0.7],[165,1.4],[196,2.1]].map(([f,t],k)=>[earKs(f,1.5,{S:0.8,damp:(w==="lo"&&k===2)?0.95:0.99}),t]))},
   "f0-decay":{lo:"a shorter ring", hi:"a longer ring", changed:"the same plucked string with more or less loss per round trip — only the decay rate differs",
     make:w=>earKs(165,2.6,{S:0.8,damp:w==="hi"?0.993:0.972})},
   "brightness":{lo:"centroid low", hi:"centroid high", changed:"the same string plucked with a dark (low-passed) excitation through a dull loop, and with a bright one through a loop that keeps its highs",
