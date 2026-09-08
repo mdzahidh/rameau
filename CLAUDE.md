@@ -1012,9 +1012,9 @@ build educational copy from it, never re-derive from scratch.
   waits for it: `hold` on `REC_PROTOCOL` steps (walk 36 × 1½ s = 54, open strings about 2 s each
   = 12 — the prompt's own numbers, never the table's), `guidedTick()` advances on notes **and**
   `guideHold(st)`, the countdown chip runs on a held step once the guitar is heard, and
-  `guideListHtml()` draws the whole protocol with ✓ / – / ▶ / ○ marks in the arming panel and in
-  the running prompt (one builder). **Phase 2 — hearing whether the right notes were played — is
-  a ROADMAP task, not started**; it waits for the user's word. `tests/e.test.js` **315**.
+  `guideListHtml()` draws the whole protocol with ✓ / – / ▶ / ○ marks, a one-line `brief` of what
+  each step asks, and its measure, in the arming panel and in the running prompt (one builder). **Phase 2 — hearing whether the right notes were played — is
+  a ROADMAP task, not started**; it waits for the user's word. `tests/e.test.js` **316**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math

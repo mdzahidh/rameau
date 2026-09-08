@@ -434,6 +434,7 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .recsteps li{ display:flex; gap:8px; align-items:baseline; padding:2px 0; }
 .recsteps .m{ width:1.2em; text-align:center; flex:0 0 auto; }
 .recsteps .n{ flex:1 1 auto; }
+.recsteps .b{ font-weight:400; color:var(--dim); }
 .recsteps .q{ color:var(--faint); white-space:nowrap; }
 .recsteps li.now{ color:var(--ink); font-weight:600; }
 .recsteps li.done .m{ color:var(--ink); }
@@ -8865,15 +8866,16 @@ function drawWave(i){
 // states (36 notes × 1½ s = 54; six open strings ringing about 2 s each = 12): a step that
 // names a period does not advance before it has run that long, however many onsets were
 // counted — a rushed walk gives the decay rows nothing to read (user request 2026-09-08).
+// `brief` is the one-line version of the prompt the checklist prints beside the step name.
 // Phase 2 — hearing whether the *right* notes were played — is a ROADMAP item, not this.
 const REC_PROTOCOL_VERSION=1;
 const REC_PROTOCOL=[
-  {id:"silence", name:"silence", prompt:"Don’t play. Three seconds of quiet sets the noise floor.", unlocks:[], when:"always", advance:"seconds:3"},
-  {id:"open", name:"open strings", prompt:"Pluck the six open strings, low to high. Let each ring out, about 2 s each.", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6", hold:12},
-  {id:"walk", name:"neck walk", prompt:"Frets 0, 3, 5, 7, 9 and 12 on every string, about 1½ s each.", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36", hold:54},
-  {id:"anchors", name:"anchors", prompt:"5th fret on each string, three plucks each. Medium pick, neck pickup.", unlocks:["attack-spectrum","bloom"], when:"always", advance:"onsets:18"},
-  {id:"tap", name:"tap test", prompt:"Palm-mute the strings and knock the bridge three times.", unlocks:["body-resonance"], when:"hollow", advance:"taps:3"},
-  {id:"mic", name:"mic placement", prompt:"Note where the mic stands. It must not move for the other guitar.", unlocks:[], when:"mic", advance:"seconds:3"},
+  {id:"silence", name:"silence", prompt:"Don’t play. Three seconds of quiet sets the noise floor.", brief:"stay quiet", unlocks:[], when:"always", advance:"seconds:3"},
+  {id:"open", name:"open strings", prompt:"Pluck the six open strings, low to high. Let each ring out, about 2 s each.", brief:"six open strings, low to high, let each ring", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6", hold:12},
+  {id:"walk", name:"neck walk", prompt:"Frets 0, 3, 5, 7, 9 and 12 on every string, about 1½ s each.", brief:"frets 0 · 3 · 5 · 7 · 9 · 12 on every string", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36", hold:54},
+  {id:"anchors", name:"anchors", prompt:"5th fret on each string, three plucks each. Medium pick, neck pickup.", brief:"5th fret, three plucks per string, neck pickup", unlocks:["attack-spectrum","bloom"], when:"always", advance:"onsets:18"},
+  {id:"tap", name:"tap test", prompt:"Palm-mute the strings and knock the bridge three times.", brief:"mute the strings, knock the bridge", unlocks:["body-resonance"], when:"hollow", advance:"taps:3"},
+  {id:"mic", name:"mic placement", prompt:"Note where the mic stands. It must not move for the other guitar.", brief:"note the mic position", unlocks:[], when:"mic", advance:"seconds:3"},
 ];
 for(const st of REC_PROTOCOL) for(const k of st.unlocks) if(!TONE_EVIDENCE[k]) throw new Error("REC_PROTOCOL step "+st.id+" unlocks an unknown row: "+k);
 // A played step counts notes only once the guitar is heard REC_GUIDE_SNR_MIN dB above the
@@ -8905,7 +8907,7 @@ function guideListHtml(steps,idx,done,skipped){
   return '<ol class="recsteps">'+steps.map((st,k)=>{
     const cls=done.includes(st.id)?"done":skipped.includes(st.id)?"skipped":k===idx?"now":"todo";
     const mark=cls==="done"?"✓":cls==="skipped"?"–":cls==="now"?"▶":"○";
-    return '<li class="'+cls+'"><span class="m">'+mark+'</span><span class="n">'+esc(st.name)+'</span><span class="q">'+esc(guideStepMeasure(st))+(cls==="skipped"?" · skipped":"")+'</span></li>';
+    return '<li class="'+cls+'"><span class="m">'+mark+'</span><span class="n">'+esc(st.name)+(st.brief?' <span class="b">— '+esc(st.brief)+'</span>':"")+'</span><span class="q">'+esc(guideStepMeasure(st))+(cls==="skipped"?" · skipped":"")+'</span></li>';
   }).join("")+'</ol>';
 }
 function _guideProgressText(g){

@@ -2404,7 +2404,7 @@ the landing page opens on *Not directly comparable* — honest, but a first impr
 
 *SPEC.md 2026-09-08.* `hold` per step (the prompt's own period: walk 54 s, open strings 12 s),
 advance on notes **and** time, countdown on held steps, `guideListHtml()` in the arming panel
-and the running prompt. `tests/e.test.js` 315.
+and the running prompt, each row with a one-line brief of the step. `tests/e.test.js` 316.
 
 ### Guided take — phase 2: hear the notes (user request 2026-09-08, not started)
 
