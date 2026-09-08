@@ -272,7 +272,7 @@ section("E2.1 — a slot holds takes: one door, one array, no cycle in the seria
   ok(/Object\.defineProperty\(r,"takes",\{value:recs, enumerable:false/.test(b4), "takes is non-enumerable — JSON.stringify never meets the cycle");
   ok(/async function analyzeSlot\(i,slot,seq,append\)/.test(b4) && /if\(append&&state\.slots\[i\]\) attachTake\(i,slot\);/.test(b4), "analyzeSlot has an append path that attaches instead of replacing");
   ok(/if\(!slot\.takes\) _bindTakes\(\[slot\]\);/.test(b4), "…and a re-analysis of the primary keeps its sibling takes");
-  ok(/loadFileIntoSlot\(i,audio\[0\],\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take");
+  ok(/loadFilesIntoSlot\(i,files,\{append:!!state\.slots\[i\]\}\)/.test(b4), "a file dropped on a loaded slot adds a take (through the multi-file door since 2026-09-08)");
   ok(/if\(!append&&!\(opts&&opts\.keep\)\)\{ state\.slotNames\[i\]=""; state\.slotTypes\[i\]=null; state\.slotPaths\[i\]=null; \}/.test(b4), "the name, the type and the path override stay on the slot when a take is added or replaced from the stack (opts.keep), and drop when a new guitar replaces the slot");
   const lr = body("landRecording");
   ok(/const append=!!state\.slots\[i\]&&!keep;/.test(lr) && /if\(pr&&pr\.replace!=null&&slotTakes\(i\)\.length>1\) removeTake\(i,pr\.replace\);/.test(lr) && /processing:proc\|\|null, protocol:protocol\|\|null \},seq,append\)/.test(lr),
@@ -660,6 +660,11 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     const bloomSrc = blocks[4].slice(blocks[4].indexOf('term:"bloom"'), blocks[4].indexOf('term:"f0-decay"'));
     ok(/more:"turns later"/.test(bloomSrc) && /clear\("bloom"\)/.test(body("proseCandidates")) && /score:sc\(r\)\*0\.5, who:x\.hi, tag:"a later bloom"/.test(body("proseCandidates")),
       "Bloom has a verdict word and a half-score At a glance sentence with its caveat");
+    // 2026-09-08: several files picked at once land as takes of one guitar, in order.
+    const lfs = body("loadFilesIntoSlot");
+    ok(/await loadFileIntoSlot\(i,list\[0\],opts\);/.test(lfs) && /for\(let k=1;k<list\.length;k\+\+\)\{ if\(!state\.slots\[i\]\) return; await loadFileIntoSlot\(i,list\[k\],\{append:true\}\); \}/.test(lfs)
+       && (html.match(/id="fileInput[01]" accept="[^"]*" multiple hidden>/g) || []).length === 2 && !/loadFileIntoSlot\(i,f,/.test(blocks[4]) && /loadFilesIntoSlot\(i,files,\{append:!!state\.slots\[i\]\}\)/.test(body("handleDrop")),
+      "the file inputs take several files; the first lands as the click asked and the rest append one at a time — from the picker and from a drop of three or more");
     ok(/toneBandDomain\(k\)&&isFinite/.test(body("snapshotBands")) && (blocks[4].match(/if\(b&&toneBandDomain\(k\)&&isFinite\(b\.v\)&&b\.v>=0\)/g) || []).length === 2, "saved bands carry and restore a noband row's measured band too");
     // (b) comparability over every pair
     const a1 = { registerMidi: 50, levelRms: -20 }, a2 = { registerMidi: 51, levelRms: -21 }, b1 = { registerMidi: 52, levelRms: -22 }, b2 = { registerMidi: 58, levelRms: -40 };

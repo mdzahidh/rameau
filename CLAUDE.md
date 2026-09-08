@@ -1036,6 +1036,10 @@ build educational copy from it, never re-derive from scratch.
   (never provisional), `toneRecords()` asks every non-text row, saved bands accept it, and Bloom
   has `more:"turns later"` + a half-score At a glance sentence. On the user's six takes: band
   0.75 oct, gap 2.03 oct, verdict. `tests/e.test.js` **328**.
+- **Multi-file pick BUILT (2026-09-08, master; user request, quick).** File inputs are `multiple`;
+  `loadFilesIntoSlot(i,files,opts)` lands the first per the click and appends the rest as takes,
+  awaited in order (a parallel load would bump `loadSeq[i]` and abort the one in flight); drops of
+  three or more go to the card dropped on. `tests/e.test.js` **329**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math

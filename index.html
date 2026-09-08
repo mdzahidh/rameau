@@ -1079,8 +1079,8 @@ kbd{
     <div class="filerow">
       <div class="filecard empty" id="card0" style="--slot-c:var(--slot-a)" tabindex="0" role="button" aria-label="Load file A"></div>
       <div class="filecard empty" id="card1" style="--slot-c:var(--slot-b)" tabindex="0" role="button" aria-label="Load file B"></div>
-      <input type="file" id="fileInput0" accept=".wav,.aif,.aiff,.mp3,.m4a,.mp4,.flac,.json,audio/*" hidden>
-      <input type="file" id="fileInput1" accept=".wav,.aif,.aiff,.mp3,.m4a,.mp4,.flac,.json,audio/*" hidden>
+      <input type="file" id="fileInput0" accept=".wav,.aif,.aiff,.mp3,.m4a,.mp4,.flac,.json,audio/*" multiple hidden>
+      <input type="file" id="fileInput1" accept=".wav,.aif,.aiff,.mp3,.m4a,.mp4,.flac,.json,audio/*" multiple hidden>
     </div>
 
     <!-- before you compare (2026-09-06): the pre-requisite for everything below, said once -->
@@ -6123,6 +6123,17 @@ async function loadFileIntoSlot(i,file,opts){
   }
 }
 
+// Several files picked at once for one card (user request 2026-09-08): the first lands the
+// way the click asked (replace / append / fresh), every further one appends as another take
+// of the same guitar — in order, one at a time, because a second load into a slot bumps
+// loadSeq[i] and would abort the one in flight. A snapshot among them loads alone.
+async function loadFilesIntoSlot(i,files,opts){
+  const list=Array.from(files||[]).filter(Boolean); if(!list.length) return;
+  const json=list.find(f=>/\.json$/i.test(f.name)||f.type==="application/json");
+  if(json){ await loadFileIntoSlot(i,json,opts); return; }
+  await loadFileIntoSlot(i,list[0],opts);
+  for(let k=1;k<list.length;k++){ if(!state.slots[i]) return; await loadFileIntoSlot(i,list[k],{append:true}); }
+}
 async function analyzeSlot(i,slot,seq,append){
   if(seq==null) seq=++loadSeq[i];
   // append: a second take for a loaded slot. The card stays loaded and shows the new
@@ -11435,10 +11446,9 @@ function handleDrop(files,x){
     loadSnapshotFile(json).catch(err=>toast("Snapshot: "+(err.message||"could not be read."),true));
     return;
   }
-  const audio=files.slice(0,2);
-  if(!audio.length) return;
-  if(audio.length===2){ loadFileIntoSlot(0,audio[0]); loadFileIntoSlot(1,audio[1]); }
-  else { const i=pickDropSlot(x); loadFileIntoSlot(i,audio[0],{append:!!state.slots[i]}); }
+  if(!files.length) return;
+  if(files.length===2){ loadFileIntoSlot(0,files[0]); loadFileIntoSlot(1,files[1]); }
+  else { const i=pickDropSlot(x); loadFilesIntoSlot(i,files,{append:!!state.slots[i]}); }   // one file, or three or more: takes of the guitar dropped on
 }
 
 // ---------- controls ----------
@@ -12070,16 +12080,16 @@ function boot(){
       if(gd){ state.recGuided=!!gd.checked; saveSettings(); renderCard(i); return; }
     });
     fileInputs[i].addEventListener("change",()=>{
-      const f=fileInputs[i].files[0], pf=pendingFile[i]; pendingFile[i]=null;
-      if(!f){ fileInputs[i].value=""; return; }
+      const fl=Array.from(fileInputs[i].files||[]), pf=pendingFile[i]; pendingFile[i]=null;
+      fileInputs[i].value="";
+      if(!fl.length) return;
       // E2: "+ Add take" appends; a per-take ⟳ replaces that take (remove, then add —
       // the name stays, it is the same guitar); the slot-level ⟳ on a one-take slot
-      // replaces the slot as before.
-      if(pf&&pf.append&&state.slots[i]) loadFileIntoSlot(i,f,{append:true});
-      else if(pf&&pf.replace!=null&&slotTakes(i).length>1){ removeTake(i,pf.replace); loadFileIntoSlot(i,f,{append:true}); }
-      else if(pf&&pf.replace!=null&&state.slots[i]) loadFileIntoSlot(i,f,{keep:true});   // the stack's only take: same guitar, new take
-      else loadFileIntoSlot(i,f);
-      fileInputs[i].value="";
+      // replaces the slot as before. Several files: the first as above, the rest append.
+      if(pf&&pf.append&&state.slots[i]) loadFilesIntoSlot(i,fl,{append:true});
+      else if(pf&&pf.replace!=null&&slotTakes(i).length>1){ removeTake(i,pf.replace); loadFilesIntoSlot(i,fl,{append:true}); }
+      else if(pf&&pf.replace!=null&&state.slots[i]) loadFilesIntoSlot(i,fl,{keep:true});   // the stack's only take: same guitar, new take
+      else loadFilesIntoSlot(i,fl);
     });
   });
 

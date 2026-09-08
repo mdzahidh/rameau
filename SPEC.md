@@ -3734,3 +3734,17 @@ gap 2.03 oct → *distinguishable*, the Majesty's bloom turning 4.1× later. The
 guitar whose takes swing an octave or more will swallow a smaller gap, and the row will say *not
 distinguishable* with the per-take values in its readout. `tests/e.test.js` 323 → **328**,
 mutation-checked (the row gate and the sentence).
+
+## 2026-09-08 — several files at once into one guitar's card
+
+**User:** *"add a quick feature to be able to load multiple files within a single guitar's card
+together with multiple files selected in the file selector."*
+
+**Change.** Both hidden file inputs take `multiple`. `loadFilesIntoSlot(i, files, opts)` lands the
+first file the way the click asked (fresh / append / replace-that-take) and appends every further
+one as another take of the same guitar, **one at a time, awaited** — a second load into a slot
+bumps `loadSeq[i]` and would abort the one in flight — stopping if the slot empties; a snapshot
+among the files loads alone. The change handler and `handleDrop` route through it: two dropped
+files still split across the cards, one or three-or-more go to the card dropped on. Quick feature:
+`node --check`, node suites, one contract (mutation-checked: dropping the `await` fails it), the
+E2 drop contract re-pointed. `tests/e.test.js` **329**.
