@@ -16,13 +16,15 @@ words, and never uploaded: the whole app is one HTML file that runs in your brow
 guitars — same picking, same amp, same cable, same room — and drop one recording on each
 card. Because you and the phrase stay the same, what the plots show is the guitar.
 
-- **Before you compare** says whether the two takes are a fair pair (register, note count,
-  level, noise floor, recording path) and whether the strings and scale differ — so a
-  difference below can be read as the guitar and not as the take.
-- **At a glance** puts it in one paragraph: *Sustain of the Les Paul was 1.6× longer (1.55 s
-  vs 900 ms), note for note. The SG is audibly brighter — its tonal centre sits at 658 Hz
-  against 486 Hz.* Every sentence stands on a measured difference that cleared its own
-  reliability band; when nothing does, it says so.
+- **Before you compare** ticks off what the two recordings share — register, note count,
+  level, noise floor, recording path — whether the strings and scale differ, and whether the
+  reliability bands are measured yet, so a difference below can be read as the guitar and not
+  as the take.
+- **At a glance** answers in sections, one line each: *Sound* (*Single-coil — audibly brighter
+  (1.00 kHz vs 474 Hz) · pickup voice peaks higher (3.70 vs 2.40 kHz)*), *Ring* (*Humbucker —
+  overtones ring 1.4× longer · sustain 1.5× longer*), the loudest gap, and what it adds up to
+  for the player. Every item stands on a measured difference that cleared its own reliability
+  band; the details sit one click away.
 - **Spectrum and difference** — long-term average spectra with named regions, band energies,
   and a matched-EQ suggestion drawn on the face of a real device.
 - **Spectrograms and envelopes** — with a harmonic overlay that predicts where each string's
