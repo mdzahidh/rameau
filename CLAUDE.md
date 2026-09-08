@@ -1015,6 +1015,14 @@ build educational copy from it, never re-derive from scratch.
   `guideListHtml()` draws the whole protocol with ✓ / – / ▶ / ○ marks, each step's full prompt,
   and its measure, in the arming panel and in the running prompt (one builder). **Phase 2 — hearing whether the right notes were played — is
   a ROADMAP task, not started**; it waits for the user's word. `tests/e.test.js` **316**.
+- **Default names + Path control BUILT (2026-09-08, master; user request).** `slotDefaultName(i)`
+  (*Guitar A* / *Guitar B*) is the label until a name is typed — `slotLabel`/`slotDesc`/`slotFull`
+  and the saved file's slug (`guitar-a_<date>_take1.wav`; the `rameau_` fallback is gone) all read
+  it; `slotName()` stays empty so placeholder and INAM prefill still know a default from a name.
+  The card head has a **Path** select beside Type (`pathCtlHtml`: Auto detect showing what
+  `detectedPath(i,t)` read, or DI / Microphone / Piezo), the same `state.slotPaths` and
+  `setSlotPath()` as the readout's override; `setSlotPath` re-renders card + Before you compare +
+  rows at once, and the unknown-path fact says *click here to set it*. `tests/e.test.js` **319**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math

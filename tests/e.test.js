@@ -469,8 +469,15 @@ section("E7 — the name in the file: a WAV round trip, the sniffer unmoved, the
   ok(D.wavFileSlug("Les Paul (1959)!") === "les-paul-1959" && D.wavFileSlug("  Zahid’s  Lés_Paul ") === "zahids-les-paul" && D.wavFileSlug("") === "" && D.wavFileSlug("日本") === "", "the slug rule: lowercase, spaces to hyphens, [a-z0-9-] only");
   const b4 = blocks[4];
   const tf = body("takeFileName");
-  ok(/slug\+"_"\+new Date\(\)\.toISOString\(\)\.slice\(0,10\)\+"_take"\+\(\(k\|\|0\)\+1\)\+suffix\+"\.wav"/.test(tf) && /return "rameau_"\+sanitizeName\(s\.name\)\+"\.wav";/.test(tf) && /other===slug\)\?\(i\?"_b":"_a"\):""/.test(tf),
-    "the filename is {slug}_{date}_take{n}.wav, the old rameau_ name when unnamed, _a/_b only on a clash");
+  ok(/slug\+"_"\+new Date\(\)\.toISOString\(\)\.slice\(0,10\)\+"_take"\+\(\(k\|\|0\)\+1\)\+suffix\+"\.wav"/.test(tf) && /wavFileSlug\(slotLabel\(i\)\)/.test(tf) && !/rameau_/.test(tf) && /other===slug/.test(tf),
+    "the filename is {slug}_{date}_take{n}.wav from the label — guitar-a until named, never the old rameau_ name — _a/_b only on a clash");
+  // 2026-09-08: default names, and the path control on the card.
+  ok(/function slotDefaultName\(i\)\{ return "Guitar "\+SLOT_LETTER\[i\]; \}/.test(blocks[4]) && /return slotName\(i\)\|\|slotDefaultName\(i\);/.test(body("slotLabel")) && /return _clip\(slotLabel\(i\),max\);/.test(body("slotDesc")),
+    "a guitar is Guitar A / Guitar B until named, on every surface that prints the label");
+  ok(/pathCtlHtml\(i\)\+/.test(body("renderCard")) && /class="slotpath"/.test(body("pathCtlHtml")) && /\["auto","Auto detect"/.test(body("pathCtlHtml")) && /closest\("\.slotpath"\); if\(pth\) setSlotPath\(i,pth\.value\);/.test(blocks[4]),
+    "the card head carries a Path control — Auto detect by default — writing through setSlotPath");
+  ok(/renderCard\(i\); renderPreCompare\(\); renderToneRows\(\);/.test(body("setSlotPath")) && /return detectedPath\(i,t\);/.test(body("pathForTake")) && /PATH_WORD\[detectedPath\(i,s\)\]/.test(body("openTonePop")),
+    "setting the path re-renders the card, Before you compare and the rows at once; the detector is read through one function");
   const st = body("saveTake");
   ok(/wavWrite\(t\.audioBuf,meta\)/.test(st) && /software:APP_NAME/.test(st) && /rmau:\{ app:APP_NAME, name:name\|\|"", type, take:\(k\|\|0\), protocol:pr\|\|null/.test(st), "saveTake writes through wavWrite with INFO and rmau");
   ok(/toast\("Saved "\+fn\+" — "/.test(st) && /title="Save as '\+esc\(takeFileName\(i,k\)\)/.test(body("renderCard")), "the save line and the button say the name they will use");
@@ -521,7 +528,7 @@ section("2026-09-06 — a stack of takes is shown as its mean; the time views fo
   const pre=body("preCompareHtml");
   ok(/preCompare\.innerHTML=preCompareHtml\(records,compat,typesDiffer,types\);/.test(body("renderPreCompare")) && /renderPreCompare\(\);\n\s*renderVerdict\(\);/.test(body("renderAnalysis")) && html.indexOf('id="preCard"')<html.indexOf('id="verdictCard"') && html.indexOf('id="preCard"')>html.indexOf('id="card1"'), "the block has its own card under the guitar cards, above At a glance, rendered before the strip");
   ok(/\.precompare \.ghead\{ display:flex; gap:10px;/.test(html) && /what the two recordings must share before a difference below can be read as the guitar/.test(body("preCompareHtml")), "the head has its gap back and a plain hint");
-  ok(/r\.def\.miss\?r\.def\.miss:r\.def\.name\+" — not measured"/.test(body("preCompareHtml")) && /Recording path not known — could not tell DI from microphone; set it in the readout/.test(body("toneRowDefs")) && (body("toneRowDefs").match(/miss:"/g)||[]).length===3, "a missing fact says what it was looking for");
+  ok(/r\.def\.miss\?r\.def\.miss:r\.def\.name\+" — not measured"/.test(body("preCompareHtml")) && /Recording path not known — could not tell DI from microphone: click here to set it/.test(body("toneRowDefs")) && (body("toneRowDefs").match(/miss:"/g)||[]).length===3, "a missing fact says what it was looking for");
   ok(/records\.filter\(r=>r\.group===TONE_PRE_GROUP\)/.test(pre) && /data-pop="'\+r\.key\+':'\+i\+'"/.test(pre) && /'<span class="light '\+l\+'"><\/span>'/.test(pre), "one line per guitar from the take records: a light and a phrase, the same tap as every readout");
   ok(/mark\("ok"\)\+'<b>Fair to compare<\/b>/.test(pre) && /mark\("bad"\)\+'<b>Not directly comparable<\/b>/.test(pre) && /<b>Reliable<\/b>/.test(pre) && /<b>Not yet reliable<\/b>/.test(pre) && /\.precompare \.light::before\{ content:"✓"; \}/.test(html) && /c\.label\+\(c\.text\?" \("\+c\.text\+\(nPairs>1&&c\.pair\?" — take "/.test(pre) && /Load or record the other guitar to compare/.test(pre), "the last lines always answer — fair or what differs (with a ✓ / ! / ✕ mark), reliable or what is missing, or load the other guitar (2026-09-07)");
   ok(!/toneCompat|compatbar/.test(html), "the separate comparability bar is gone");

@@ -2090,6 +2090,12 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   `REC_GUIDE_WARN_S`, and `_guideFail` discards at `REC_GUIDE_WAIT_S` and re-arms the panel with
   the reason (`cardUI.fail`). 25 dB is the E1 manifest's usable minimum, chosen so the take
   lands and the rows disclose; the two timers are unmeasured judgement until a real capture.
+- **The recording path has two doors and one writer (2026-09-08).** The card head's Path select
+  and the readout's override both call `setSlotPath(i,v)`, which re-renders the card, Before you
+  compare and the tone rows together; `detectedPath(i,t)` is the only place the detector is asked
+  what it read on its own, so "Auto detect — direct (DI)" on the card and "Auto detect (direct
+  (DI))" in the readout cannot differ. A default guitar name (`slotDefaultName`) is printed by the
+  label helpers but never stored — `slotName()` empty is what "unnamed" means.
 - **`slotType(i)` may be `null`.** Every reader that compares it to a string is unaffected
   (`null !== "solid"`), which is exactly why the tests pin the three places that must treat it
   specially: the row filter (`types[i]==null` keeps the row, collapsed), `typesDiffer` (both must

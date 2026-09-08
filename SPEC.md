@@ -3646,3 +3646,28 @@ unlocks, the protocol written on the take and the WAV `rmau` chunk are unchanged
 `tests/e.test.js` 312 → **316**, all four mutation-checked. **Phase 2 — hearing whether the right notes were played — is recorded in
 docs/ROADMAP.md as its own task**, not started: it needs a pitch reading per onset against the
 step's expected notes, and the comb check is the only pitch reader in the app today.
+
+## 2026-09-08 — default names, and the recording path as a card control
+
+**User:** *"By default the Guitar Names are Guitar A and Guitar B until new names are given and
+that should be used for saving files etc. When DI is not detected automatically, the BEFORE YOU
+COMPARE section should clearly mention to click "here" to set it and once its set, it should
+reflect immediately. The DI mode (Auto Detect, DI) etc should be configuration at the top of the
+audio card per guitar and by default "Auto Detect", but this is also where it can be overriden or
+set after the recordings are done."*
+
+**Change.** (1) `slotDefaultName(i)` = *Guitar A* / *Guitar B* is the identity wherever a label
+prints until the guitar is named: `slotLabel`, `slotDesc` (which used to fall back to the file
+name) and `slotFull` read it, and `takeFileName` slugs the label — `guitar-a_2026-09-08_take1.wav`
+— so the old `rameau_<file>` fallback is gone. `slotName()` stays empty for an unnamed guitar,
+so the card placeholder and the INAM prefill still tell a default from a typed name; the WAV's
+`INAM` carries only a typed name (a default written into the file would come back as a name on
+reload). (2) The Recording path fact in Before you compare reads *Recording path not known —
+could not tell DI from microphone: click here to set it*; it was already the readout tap, and
+`setSlotPath()` now re-renders the card, Before you compare and the rows in one call, so the
+change shows everywhere at once. (3) The card head gains a **Path** control beside Type —
+*Auto detect — direct (DI)* / *Auto detect — not known, choose below* / Direct (DI) / Microphone
+/ Piezo pickup — writing the same `state.slotPaths` through the same `setSlotPath()` as the
+readout's override, before or after the takes land; `detectedPath(i,t)` is the one reader of
+what the detector alone says, and `pathForTake` calls it. `tests/e.test.js` 316 → **319**, two
+contracts re-pointed, three new, all mutation-checked.

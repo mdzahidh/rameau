@@ -417,7 +417,7 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .filesub .takecount{ font-size:11px; color:var(--dim); flex:none; }
 .typelbl{ font-size:11px; color:var(--dim); display:inline-flex; align-items:center; gap:4px; }
 .typelbl .slottype{ margin-right:0; }
-.typelbl.unset .slottype{ color:var(--ink); border-color:var(--hair2); font-style:italic; }  /* not set yet — the one control the tone rows are waiting on */
+.typelbl.unset .slottype, .typelbl.unset .slotpath{ color:var(--ink); border-color:var(--hair2); font-style:italic; }  /* not set yet — the one control the tone rows are waiting on */
 /* E2.5: readiness — one dot and one phrase; the tap is the numbers */
 /* The guided prompt reads as a prompt (user test 2026-09-06): one big bold line, the step
    label small above it, progress + Skip on their own row below, a countdown where the step is
@@ -5781,7 +5781,12 @@ const SLOT_LETTER=["A","B"];
 // slotFull() covers the sites that printed both (a user name says it once).
 function _clip(s,max){ s=String(s).trim(); return s.length>max ? s.slice(0,max-1)+"\u2026" : s; }
 function slotName(i){ const n=state.slotNames&&state.slotNames[i]; return n?String(n).trim():""; }
-function slotLabel(i){ return slotName(i)||SLOT_LETTER[i]; }
+// A guitar is "Guitar A" / "Guitar B" until it is named (user, 2026-09-08): that default is the
+// identity everywhere a name would print — legends, prose, Before you compare, the saved file's
+// name — while slotName() stays empty so the card's placeholder and the INAM prefill still know
+// the difference between a default and a name the user typed.
+function slotDefaultName(i){ return "Guitar "+SLOT_LETTER[i]; }
+function slotLabel(i){ return slotName(i)||slotDefaultName(i); }
 // Instrument type per slot (THEORY §7.6.4/7.6.6): asked, never inferred — a solidbody
 // has no radiated body resonance to measure and a hollow body's LTAS carries its
 // modes where the pickup hump would be read. Cross-type pairs are never differenced.
@@ -5806,11 +5811,16 @@ function setSlotType(i,t){
 // Never written into the type. pathFor(i) is take 0's.
 function pathForTake(i,t){
   const o=state.slotPaths&&state.slotPaths[i]; if(o) return o;
-  if(!t||!t.metrics) return "unknown";
+  return detectedPath(i,t);
+}
+function pathFor(i){ return pathForTake(i,state.slots[i]); }
+// What the detector alone says about a take (the override ignored) — the card's Path control
+// and the readout's override both print it beside "Auto detect".
+function detectedPath(i,t){
+  t=t||state.slots[i]; if(!t||!t.metrics) return "unknown";
   const m=t.metrics;
   return recordingPath({room:m.room||null, noteT20:m.room?m.room.noteT20:null, channels:t.info?t.info.channels:null, stereoDiffDb:m.stereoDiffDb, type:slotType(i)});
 }
-function pathFor(i){ return pathForTake(i,state.slots[i]); }
 // The detected paths a guitar's takes disagree on (unknown ignored; empty under an override).
 function mixedPaths(i){
   if(state.slotPaths&&state.slotPaths[i]) return [];
@@ -5822,18 +5832,17 @@ function setSlotPath(i,v){
   state.slotPaths=state.slotPaths||[null,null];
   state.slotPaths[i]=(v==="di"||v==="mic"||v==="piezo")?v:null;
   closePopover();
-  renderToneRows(); renderProse(); renderVerdict(); renderToneNote();
+  // The card's Path control, Before you compare and the tone rows all read state.slotPaths —
+  // every one re-renders here, so a change in one place shows in the others at once.
+  renderCard(i); renderPreCompare(); renderToneRows(); renderProse(); renderVerdict(); renderToneNote();
 }
-function slotDesc(i,max){
-  const n=slotName(i); if(n) return _clip(n,max);
-  const s=state.slots[i]; return s?shortName(s.name,max):"";
-}
+function slotDesc(i,max){ return _clip(slotLabel(i),max); }
 const SLOT_NAME_MAX=28;
 function slotBtn(i){ return _clip(slotLabel(i),12); }
 function slotFull(i,max){
   const n=slotName(i); if(n) return _clip(n,max);
   const s=state.slots[i];
-  return SLOT_LETTER[i]+(s?" \u00b7 "+shortName(s.name,max):"");
+  return slotDefaultName(i)+(s?" \u00b7 "+shortName(s.name,max):"");
 }
 let COLORS=["#f0a13e","#44c2d4"];
 const GRID=makeLogGrid(700,60,20000);
@@ -7721,7 +7730,7 @@ function toneRowDefs(){
     {g:"take", term:"recording-path", name:"Recording path", text:true,
      unit:"how the sound got into the file — a mic'd take carries the room, a DI take does not",
      light:(s,i)=>pathForTake(i,s)==="unknown"?"warn":"good",
-     val:(s,i)=>{ const p=pathForTake(i,s); if(p==="unknown") return "Recording path not known — could not tell DI from microphone; set it in the readout"; return PATH_WORD[p]+(state.slotPaths&&state.slotPaths[i]?" · set by you":" · detected"); },
+     val:(s,i)=>{ const p=pathForTake(i,s); if(p==="unknown") return "Recording path not known — could not tell DI from microphone: click here to set it"; return PATH_WORD[p]+(state.slotPaths&&state.slotPaths[i]?" · set by you":" · detected"); },
      detail:(v,s)=>{ const m=s.metrics, b=[]; if(s.info&&s.info.channels!=null) b.push(s.info.channels+(s.info.channels===1?" channel":" channels")+(m.stereoDiffDb!=null&&isFinite(m.stereoDiffDb)?" · L − R "+m.stereoDiffDb.toFixed(0)+" dB against the mid":""));
        if(m.room) b.push("tail after the last note T20 "+m.room.t20.toFixed(2)+" s"+(m.room.noteT20?" against the note's "+m.room.noteT20.toFixed(2)+" s":"")+(m.room.outlasts?" — the room's":" — the string's")); else b.push("no tail to read after the last note");
        if(m.residual!=null&&isFinite(m.residual)) b.push("between notes "+Math.abs(m.residual).toFixed(0)+" dB below the note (median over gaps of 0.3 s or more — the room and the mic's distance show up here, THEORY §7.6.9)");
@@ -8002,7 +8011,7 @@ function openTonePop(key,i,anchor){
   if(d.term==="recording-path"){ // E6.4: the override — the user's fact, stored with the take
     const cur=(state.slotPaths&&state.slotPaths[i])||"auto";
     html+=sec("Override",'<p>If the detection is wrong, say so here — it is stored with the take and never changes the guitar\u2019s type.</p><select data-pathsel="'+i+'">'+
-      [["auto","Detected ("+PATH_WORD[recordingPath({room:s.metrics.room||null, noteT20:s.metrics.room?s.metrics.room.noteT20:null, channels:s.info?s.info.channels:null, stereoDiffDb:s.metrics.stereoDiffDb, type:slotType(i)})]+")"],["di","Direct (DI)"],["mic","Microphone"],["piezo","Piezo pickup"]].map(([v,l])=>'<option value="'+v+'"'+(v===cur?" selected":"")+'>'+l+'</option>').join("")+'</select>');
+      [["auto","Auto detect ("+PATH_WORD[detectedPath(i,s)].toLowerCase()+")"],["di","Direct (DI)"],["mic","Microphone"],["piezo","Piezo pickup"]].map(([v,l])=>'<option value="'+v+'"'+(v===cur?" selected":"")+'>'+l+'</option>').join("")+'</select>');
   }
   html+=sec("Method",p(termHtml(d.term,"The full measurement")+" — musician’s ear, the physics, and how it is computed."));
   stopPlayback();
@@ -8091,6 +8100,15 @@ function renderToneRows(){
     :"Reliability: provisional until each guitar has two takes")
     +(lv.ready?" ("+lv.perSlot.map((p,i)=>slotTakes(i).length).join(" + ")+" takes — the band narrows as takes accumulate)":"")
     +([0,1].some(i=>slotTakes(i).length>1)?" · Values: means over each guitar's takes; Before you compare reads the selected take":"");
+}
+// The recording path control on the card head (user, 2026-09-08): Auto detect by default,
+// showing what the detector read; DI / Microphone / Piezo override it, before or after the
+// takes land. Same state as the readout's override select — one writer, setSlotPath().
+function pathCtlHtml(i){
+  const cur=(state.slotPaths&&state.slotPaths[i])||"auto", det=detectedPath(i);
+  const opts=[["auto","Auto detect"+(state.slots[i]?" — "+(det==="unknown"?"not known, choose below":PATH_WORD[det].toLowerCase()):"")],["di","Direct (DI)"],["mic","Microphone"],["piezo","Piezo pickup"]];
+  return '<label class="typelbl pathlbl'+(cur==="auto"&&state.slots[i]&&det==="unknown"?" unset":"")+'">Path <select class="slotpath" title="How the sound got into the file — DI, microphone or piezo. Auto detect reads it from the take; choose to override, before or after recording.">'+
+    opts.map(([v,l])=>'<option value="'+v+'"'+(v===cur?" selected":"")+'>'+esc(l)+'</option>').join("")+'</select></label>';
 }
 // Guitar name in slot color — same identity the plot legend uses.
 function slotNameHtml(i){
@@ -8781,6 +8799,7 @@ function renderCard(i){
     '<option value="solid"'+(slotType(i)==="solid"?" selected":"")+'>Solidbody electric</option>'+
     '<option value="hollow"'+(slotType(i)==="hollow"?" selected":"")+'>Hollowbody electric</option>'+
     '<option value="acoustic"'+(slotType(i)==="acoustic"?" selected":"")+'>Acoustic</option></select></label>'+
+    pathCtlHtml(i)+
     '<button class="iconbtn" data-act="clear" title="Clear this card — every take, the name and the kind">✕ Clear</button></span></div>'+
     '<div class="takelist">'+takeRows+adding+addRow+'</div>'+
     transportHtml(i)+
@@ -10543,9 +10562,8 @@ function encodeWavFloat32(ab){
 // slot is unnamed; _a/_b only when both slots would produce the same name.
 function takeFileName(i,k){
   const s=slotTakes(i)[k||0]; if(!s) return "";
-  const slug=wavFileSlug(slotName(i));
-  if(!slug) return "rameau_"+sanitizeName(s.name)+".wav";
-  const other=wavFileSlug(slotName(1-i));
+  const slug=wavFileSlug(slotLabel(i));   // "guitar-a" until the guitar is named
+  const other=wavFileSlug(slotLabel(1-i));
   const suffix=(state.slots[1-i]&&other===slug)?(i?"_b":"_a"):"";
   return slug+"_"+new Date().toISOString().slice(0,10)+"_take"+((k||0)+1)+suffix+".wav";
 }
@@ -11744,6 +11762,7 @@ function boot(){
   resetSettingsBtn.addEventListener("click", resetSettings);
   cards.forEach((card,i)=>card.addEventListener("change",e=>{
     const t=e.target.closest(".slottype"); if(t) setSlotType(i,t.value);
+    const pth=e.target.closest(".slotpath"); if(pth) setSlotPath(i,pth.value);
   }));
   // E2.3: the switch is read-only — the app sets it from the takes in the slots.
   if(debugLoadBtn) debugLoadBtn.addEventListener("click",()=>loadDemo());
