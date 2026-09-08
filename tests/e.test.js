@@ -364,8 +364,8 @@ section("E3 — the guided take: unlocks from TONE_EVIDENCE, the analysis onset 
     "an onset step advances only when it has both enough notes and the held time");
   ok(/guideListHtml\(g\.steps,g\.idx,g\.done,g\.skipped\)/.test(body("guideHtml")) && /guideListHtml\(guidedStepsFor\(i\),-1,\[\],\[\]\)/.test(body("renderCard")) && /class="recsteps"/.test(body("guideListHtml")),
     "the checklist of every step is drawn in the arming panel and inside the running prompt, from one builder");
-  ok(proto.every(s => typeof s.brief === "string" && s.brief.length > 0 && s.brief.length <= 48) && /esc\(st\.brief\)/.test(body("guideListHtml")),
-    "every step carries a one-line brief and the checklist prints it beside the name");
+  ok(proto.every(s => !("brief" in s)) && /esc\(st\.prompt\)/.test(body("guideListHtml")),
+    "the checklist prints each step's full prompt — the running step's own sentence, never a second version");
 }
 
 section("E4 — the Band Energy fold: one builder, two strips, a step line, the chip, the axis");

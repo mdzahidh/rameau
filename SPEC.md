@@ -3638,9 +3638,10 @@ step wants 54 s in all*. The level gate, warn and give-up timers are untouched (
 still fails at `REC_GUIDE_WAIT_S` if nothing is heard). **The checklist:** `guideListHtml()`
 draws every step of the slot's protocol with its state (✓ done, – skipped, ▶ now, ○ to do) and
 its measure (*36 notes · 54 s*, *3 knocks*) — in the arming panel before the take (all pending)
-and inside the running prompt, from one builder. Each row also prints a one-line `brief` of
-what the step asks (*frets 0 · 3 · 5 · 7 · 9 · 12 on every string*) beside the name — the
-prompt's instruction shortened, never a different one (user follow-up the same day). Steps,
+and inside the running prompt, from one builder. Each row also prints the step's **full prompt**
+beside the name — the same sentence the running step shows, with its counts and times, so the
+list and the prompt cannot say different things (user follow-up the same day; a shortened
+`brief` was tried first and dropped). Steps,
 unlocks, the protocol written on the take and the WAV `rmau` chunk are unchanged.
 `tests/e.test.js` 312 → **316**, all four mutation-checked. **Phase 2 — hearing whether the right notes were played — is recorded in
 docs/ROADMAP.md as its own task**, not started: it needs a pitch reading per onset against the
