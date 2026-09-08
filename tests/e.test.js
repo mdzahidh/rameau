@@ -356,6 +356,14 @@ section("E3 — the guided take: unlocks from TONE_EVIDENCE, the analysis onset 
   ok(/data-recguided/.test(body("renderCard")) && /data-act="recskip"/.test(body("guideHtml")), "the arming panel has the switch and a running step can be skipped");
   ok(/skippedFor\(r\.def\.term\)/.test(body("openReadinessPop")), "the readiness tap names the skipped step beside the row it would have fed");
   ok(/<h4>The guided take<\/h4>/.test(html) && /<h4>What to play — three parts, in this order<\/h4>/.test(html), "the recording guide gained one paragraph and lost nothing");
+  // 2026-09-08: a step that states a period waits for it, and the whole list is shown.
+  const walk = proto.find(s => s.id === "walk"), open = proto.find(s => s.id === "open");
+  ok(walk.hold === 54 && /1½ s each/.test(walk.prompt) && open.hold === 12 && /about 2 s each/.test(open.prompt) && proto.filter(s => s.hold).length === 2,
+    "hold is the time the prompt itself states — 36 × 1½ s and 6 × 2 s — and no step holds without saying so");
+  ok(/if\(g\.count>=\+n&&g\.elapsed>=guideHold\(st\)\)\{ _guideAdvance\(cap,false\); \}/.test(body("guidedTick")) && /return st&&st\.hold\?\+st\.hold:0;/.test(body("guideHold")),
+    "an onset step advances only when it has both enough notes and the held time");
+  ok(/guideListHtml\(g\.steps,g\.idx,g\.done,g\.skipped\)/.test(body("guideHtml")) && /guideListHtml\(guidedStepsFor\(i\),-1,\[\],\[\]\)/.test(body("renderCard")) && /class="recsteps"/.test(body("guideListHtml")),
+    "the checklist of every step is drawn in the arming panel and inside the running prompt, from one builder");
 }
 
 section("E4 — the Band Energy fold: one builder, two strips, a step line, the chip, the axis");

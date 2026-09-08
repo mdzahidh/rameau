@@ -2000,6 +2000,11 @@ Read docs/THEORY.md §7 first — the audit is the reason for every choice here.
   skipped* beside Body voice instead of *needs a tap*.
 - **Off means byte-identical.** `cap.guide` is null when `state.recGuided` is false; every
   guided branch is `if(cap.guide)`.
+- **A step that states a time waits for it (2026-09-08).** `hold` on a step is the period the
+  prompt names (walk 54 s, open strings 12 s) and the advance is `count >= n && elapsed >= hold`;
+  `guideHold(st)` is the one reader. The countdown chip runs for a held step once the guitar is
+  heard, and the checklist (`guideListHtml`) is drawn by one builder into both the arming panel
+  and the running prompt, so the list before the take and the list during it cannot differ.
 
 ### E4 (session 34): the Band Energy fold
 

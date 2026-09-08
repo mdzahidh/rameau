@@ -1008,6 +1008,13 @@ build educational copy from it, never re-derive from scratch.
   overlapping open strings invent onsets; the floor is a 10th percentile; pitch is read mid-slot;
   a detectable knee must sit inside 30 dB; one allpass gives B ∝ f₀). `.tonestatus` no longer
   `nowrap` (four takes made the page scroll sideways). `tests/e.test.js` **312**.
+- **Guided take phase 1 BUILT (2026-09-08, master; user request).** A step that states a period
+  waits for it: `hold` on `REC_PROTOCOL` steps (walk 36 × 1½ s = 54, open strings about 2 s each
+  = 12 — the prompt's own numbers, never the table's), `guidedTick()` advances on notes **and**
+  `guideHold(st)`, the countdown chip runs on a held step once the guitar is heard, and
+  `guideListHtml()` draws the whole protocol with ✓ / – / ▶ / ○ marks in the arming panel and in
+  the running prompt (one builder). **Phase 2 — hearing whether the right notes were played — is
+  a ROADMAP task, not started**; it waits for the user's word. `tests/e.test.js` **315**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math

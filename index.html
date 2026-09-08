@@ -429,6 +429,16 @@ input[type=number]::-webkit-inner-spin-button{ opacity:.4; }
 .recstep .recprog{ font-variant-numeric:tabular-nums; color:var(--dim); }
 .recstep .reccount{ font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); line-height:1; }
 .recstep.warn{ border-color:#d94a3d; }
+.recsteps{ list-style:none; margin:8px 0 0; padding:8px 0 0; border-top:1px solid var(--hair); font-size:11.5px; color:var(--dim); font-variant-numeric:tabular-nums; }
+.recpanel>.recsteps{ margin:0 0 8px; padding:0; border-top:0; }
+.recsteps li{ display:flex; gap:8px; align-items:baseline; padding:2px 0; }
+.recsteps .m{ width:1.2em; text-align:center; flex:0 0 auto; }
+.recsteps .n{ flex:1 1 auto; }
+.recsteps .q{ color:var(--faint); white-space:nowrap; }
+.recsteps li.now{ color:var(--ink); font-weight:600; }
+.recsteps li.done .m{ color:var(--ink); }
+.recsteps li.done .n{ text-decoration:line-through; text-decoration-color:var(--hair); }
+.recsteps li.skipped{ opacity:.6; }
 .recstep.warn .recprog{ color:#d94a3d; }
 .recnote.recfail{ color:#d94a3d; }
 .tonestatus{ font-size:11px; color:var(--dim); min-width:0; flex:1 1 100%; }  /* wraps: with four takes the line outgrew 1440 px and scrolled the page sideways (2026-09-06) */
@@ -1583,7 +1593,10 @@ kbd{
       at a time — three seconds of silence, the six open strings, a neck walk (frets 0, 3, 5,
       7, 9 and 12 on every string), anchors at the 5th fret, and a tap test for hollow or
       acoustic guitars — advancing as it hears you play, each step labelled by the rows it
-      unlocks. Skip any step; the rows it feeds simply stay at whatever the rest supports. A
+      unlocks, with the whole list and a mark per step beside the prompt. A step that names a
+      time (the neck walk asks for about 1½ s a note, the open strings about 2 s) waits that
+      long as well as counting notes, because the decay rows need each note to ring. Skip any
+      step; the rows it feeds simply stay at whatever the rest supports. A
       second guided take of the same guitar turns its rows from measured into banded.</p>
 
     <h4>What to play — three parts, in this order</h4>
@@ -8686,7 +8699,8 @@ function renderCard(i){
         '<div class="recnote recwarn">'+esc(warn)+'</div>'+
         (ui.fail?'<div class="recnote recfail">'+esc(ui.fail)+'</div>':"")+
         '<div class="recrow"><label class="switch" title="Step-by-step prompts: silence, open strings, a neck walk, anchors'+((slotType(i)==="hollow"||slotType(i)==="acoustic")?", a tap test":"")+' — each step labelled by the rows it unlocks. Off records a free take."><input type="checkbox" data-recguided'+(state.recGuided?" checked":"")+'><span class="tk"></span><span class="lbl">Guided</span></label>'+
-          '<span class="recnote" style="margin:0">'+(state.recGuided?"prompts advance as you play; skip any step":"a free take — the rows it supports fill in afterwards")+'</span></div>'+
+          '<span class="recnote" style="margin:0">'+(state.recGuided?"prompts advance as you play and wait the time each step asks for; skip any step":"a free take — the rows it supports fill in afterwards")+'</span></div>'+
+        (state.recGuided?guideListHtml(guidedStepsFor(i),-1,[],[]):"")+
         '<div class="recrow"><button class="btn" data-act="recstart">● Start recording</button></div>';
     }
     card.innerHTML=head+'<div class="recpanel">'+body+'</div>';
@@ -8847,12 +8861,16 @@ function drawWave(i){
 // seconds:n counts the clock, onsets:n / taps:n count onsets from the SAME detector the
 // analysis uses (stftBands → detectOnsets) over the step's own samples. `when` gates a
 // step on the slot's type ("hollow") or the recording path ("mic" — E6 supplies the
-// detector; until then a mic step is never active).
+// detector; until then a mic step is never active). `hold` is the time the prompt itself
+// states (36 notes × 1½ s = 54; six open strings ringing about 2 s each = 12): a step that
+// names a period does not advance before it has run that long, however many onsets were
+// counted — a rushed walk gives the decay rows nothing to read (user request 2026-09-08).
+// Phase 2 — hearing whether the *right* notes were played — is a ROADMAP item, not this.
 const REC_PROTOCOL_VERSION=1;
 const REC_PROTOCOL=[
   {id:"silence", name:"silence", prompt:"Don’t play. Three seconds of quiet sets the noise floor.", unlocks:[], when:"always", advance:"seconds:3"},
-  {id:"open", name:"open strings", prompt:"Pluck the six open strings, low to high. Let each ring out.", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6"},
-  {id:"walk", name:"neck walk", prompt:"Frets 0, 3, 5, 7, 9 and 12 on every string, about 1½ s each.", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36"},
+  {id:"open", name:"open strings", prompt:"Pluck the six open strings, low to high. Let each ring out, about 2 s each.", unlocks:["inharmonicity","overtone-sustain","f0-decay"], when:"always", advance:"onsets:6", hold:12},
+  {id:"walk", name:"neck walk", prompt:"Frets 0, 3, 5, 7, 9 and 12 on every string, about 1½ s each.", unlocks:["neck-sustain","pickup-resonance","bloom","brightness","even-odd","harmonic-richness"], when:"always", advance:"onsets:36", hold:54},
   {id:"anchors", name:"anchors", prompt:"5th fret on each string, three plucks each. Medium pick, neck pickup.", unlocks:["attack-spectrum","bloom"], when:"always", advance:"onsets:18"},
   {id:"tap", name:"tap test", prompt:"Palm-mute the strings and knock the bridge three times.", unlocks:["body-resonance"], when:"hollow", advance:"taps:3"},
   {id:"mic", name:"mic placement", prompt:"Note where the mic stands. It must not move for the other guitar.", unlocks:[], when:"mic", advance:"seconds:3"},
@@ -8874,28 +8892,50 @@ function guidedStepsFor(i){
   const mic=pathFor(i)==="mic"||(t==="acoustic"&&pathFor(i)!=="piezo");
   return REC_PROTOCOL.filter(st=>st.when==="always"||(st.when==="hollow"&&(t==="hollow"||t==="acoustic"))||(st.when==="mic"&&mic));
 }
+function guideHold(st){ return st&&st.hold?+st.hold:0; }
+// What a step asks for, in the checklist's own words: "3 s", "6 notes · 12 s", "3 knocks".
+function guideStepMeasure(st){
+  const [kind,n]=st.advance.split(":");
+  const what=kind==="seconds"?n+" s":n+(kind==="taps"?" knocks":" notes");
+  return what+(guideHold(st)?" · "+guideHold(st)+" s":"");
+}
+// The whole protocol at a glance: every step with its state. Rendered in the arming panel
+// (all pending) and inside the running prompt, so the player always sees where they are.
+function guideListHtml(steps,idx,done,skipped){
+  return '<ol class="recsteps">'+steps.map((st,k)=>{
+    const cls=done.includes(st.id)?"done":skipped.includes(st.id)?"skipped":k===idx?"now":"todo";
+    const mark=cls==="done"?"✓":cls==="skipped"?"–":cls==="now"?"▶":"○";
+    return '<li class="'+cls+'"><span class="m">'+mark+'</span><span class="n">'+esc(st.name)+'</span><span class="q">'+esc(guideStepMeasure(st))+(cls==="skipped"?" · skipped":"")+'</span></li>';
+  }).join("")+'</ol>';
+}
 function _guideProgressText(g){
   const st=g.steps[g.idx]; if(!st) return "All steps done — stop when you’re ready, or keep playing.";
   const [kind,n]=st.advance.split(":");
   if(kind==="seconds") return "";   // the countdown says it
+  const holdLeft=Math.max(0,Math.ceil(guideHold(st)-g.elapsed));
   if(!g.heard){
     const left=Math.max(0,Math.ceil(REC_GUIDE_WAIT_S-g.elapsed));
     if(g.elapsed>=REC_GUIDE_WARN_S) return "Nothing heard yet — stopping in "+left+" s unless the guitar sounds (Skip keeps the take going)";
     if(g.snr!=null&&isFinite(g.snr)) return "Waiting for the guitar — "+Math.max(0,g.snr).toFixed(0)+" dB above the background so far, "+REC_GUIDE_SNR_MIN+" needed";
     return "Waiting for the guitar…";
   }
-  return g.count+" / "+n+(kind==="taps"?" knocks":" notes");
+  const notes=g.count+" / "+n+(kind==="taps"?" knocks":" notes");
+  if(!guideHold(st)) return notes;
+  if(g.count>=+n&&holdLeft>0) return notes+" — keep going, this step wants "+guideHold(st)+" s in all";
+  return notes+(holdLeft>0?" · at least "+holdLeft+" s more":"");
 }
 function guideHtml(cap){
   const g=cap.guide; if(!g) return "";
   const st=g.steps[g.idx];
   const warn=!!(st&&st.advance.indexOf("seconds:")!==0&&!g.heard&&g.elapsed>=REC_GUIDE_WARN_S);
-  const secs=st&&st.advance.indexOf("seconds:")===0?Math.max(0,Math.ceil(+st.advance.split(":")[1]-g.elapsed)):null;
+  const secs=st&&st.advance.indexOf("seconds:")===0?Math.max(0,Math.ceil(+st.advance.split(":")[1]-g.elapsed)):
+             st&&guideHold(st)&&g.heard?Math.max(0,Math.ceil(guideHold(st)-g.elapsed)):null;   // a held step counts down once the guitar is heard
   return '<div class="recstep'+(warn?" warn":"")+'">'+
     (st?'<span class="k">Step '+(g.idx+1)+' of '+g.steps.length+' · '+esc(st.name)+'</span><b>'+esc(st.prompt)+'</b>':'<b>'+esc(_guideProgressText(g))+'</b>')+
     '<div class="recrow2">'+(secs!=null?'<span class="reccount" title="seconds left">'+secs+'</span>':"")+
     '<span class="recprog">'+(st?esc(_guideProgressText(g)):"")+'</span>'+
-    (st?'<button class="iconbtn" data-act="recskip" title="Skip this step — the rows it feeds stay at whatever the rest supports">Skip</button>':"")+'</div></div>';
+    (st?'<button class="iconbtn" data-act="recskip" title="Skip this step — the rows it feeds stay at whatever the rest supports">Skip</button>':"")+'</div>'+
+    guideListHtml(g.steps,g.idx,g.done,g.skipped)+'</div>';
 }
 // Called from the capture's own 100 ms tick. Cheap ticks count the clock; every fifth one
 // re-runs the onset detector over the step's samples so far.
@@ -8918,7 +8958,7 @@ function guidedTick(cap,card){
         if(g.heard){
           const sb=stftBands(x,rate,[[60,200],[200,1200],[2000,6000]]);
           g.count=detectOnsets(sb.flux,sb.frameRate).length;
-          if(g.count>=+n){ _guideAdvance(cap,false); }
+          if(g.count>=+n&&g.elapsed>=guideHold(st)){ _guideAdvance(cap,false); }   // enough notes AND the time the prompt asked for
         } else if(g.elapsed>=REC_GUIDE_WAIT_S){
           _guideFail(cap,"Stopped and discarded — nothing was heard "+REC_GUIDE_SNR_MIN+" dB above the background for "+REC_GUIDE_WAIT_S+" s"+
             (g.snr!=null&&isFinite(g.snr)?" (best was "+Math.max(0,g.snr).toFixed(0)+" dB)":"")+". Bring the noise down or the guitar up, check the meter, and start again.");

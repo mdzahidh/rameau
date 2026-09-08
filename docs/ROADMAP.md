@@ -79,6 +79,7 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E7 — the name in the file` |
 | **R6** | **Interval consonance explainer** — joint period, comb alignment, Plomp–Levelt/Sethares roughness. Now also carries **R6.4**, the overlay's time bound (was R5.4). | ⏸ blocked: two `docs/THEORY.md` §2.5 numeric caveats are unresolved (R6.4 is not blocked) | `# R6 — Interval consonance explainer` |
 | **Warped sgram difference** | Replace the removed pixel-wise spectrogram difference with an onset-warped / DTW one. | ⏸ deferred until after R6 | `### Deferred — warped spectrogram difference` |
+| **Guided take, phase 2** | Hear whether the *right* notes were played — a pitch reading per onset against the step's expected notes. Phase 1 (hold the stated time, checklist) built 2026-09-08. | ⏸ next, on the user's word | `### Guided take — phase 2` |
 | **M3** | Live input; still owes the task-based entry points deferred from M2. | 🚫 gated on explicit user go-ahead | `# Gated` |
 | **M4** | Chain measure. | 🚫 gated on explicit user go-ahead | `# Gated` |
 | **Tension landscape** | From `docs/STORY.md`; unscheduled. | 🚫 gated, unscheduled | `# Gated` |
@@ -2398,6 +2399,29 @@ image + Copy link, demo declares its kind, `?scrollto`/deferred `?feedback`, REA
 screenshots, GitHub topics/description. **Owner:** social preview image, push, release tag,
 posts (communities, Show HN, video). **Open:** the demo pair's own floors differ by 38 dB, so
 the landing page opens on *Not directly comparable* — honest, but a first impression to revisit.
+
+### 2026-09-08 — guided take phase 1: hold the stated time, checklist ✅ BUILT
+
+*SPEC.md 2026-09-08.* `hold` per step (the prompt's own period: walk 54 s, open strings 12 s),
+advance on notes **and** time, countdown on held steps, `guideListHtml()` in the arming panel
+and the running prompt. `tests/e.test.js` 315.
+
+### Guided take — phase 2: hear the notes (user request 2026-09-08, not started)
+
+- **Goal.** During a played step, read the pitch of each onset live and count only notes that
+  match what the step asked for — the open strings in order, the walk's frets on each string, the
+  anchors' 5th-fret notes — and say on the prompt which expected notes were heard and which not.
+- **Shape.** Per onset, a short window after it through the one pitch reader the app has
+  (`combCheckF0`, ×1/×2/×3 with teeth 1–6) against the step's expected MIDI list built from
+  `tuningMidi(state.tuning)` + the step's frets; a hit inside a tolerance to be measured on the
+  audit takes before it becomes a constant (THEORY §7.3 has the comb check's own numbers). The
+  checklist marks the note heard, not just the count. Nothing here changes what lands: the take
+  is still raw PCM, and a wrong note is a disclosure on the prompt, never a refusal.
+- **Owes first.** The chord case the user named ("notes and chords") — no step plays a chord
+  today, so either a chord step is added to `REC_PROTOCOL` with a row it unlocks, or "chords"
+  stays out; flag, don't improvise. The live cost: `combCheckF0` on every onset from a 100 ms tick.
+- **Done when** a walk played with one wrong fret shows that fret unheard on the checklist, and a
+  correct walk advances exactly as phase 1 does.
 
 # Gated — do not start without explicit user go-ahead
 

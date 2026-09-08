@@ -3616,3 +3616,30 @@ under the title is shorter too. **At a glance** drops its *Comparable* opener: i
 line (amber) only for *Not comparable* or *Comparable, but not yet reliable*, and otherwise starts
 at **Sound**. `tests/e.test.js` re-pointed (marks, the two reliability strings, the inverted
 absence of the Comparable opener).
+
+## 2026-09-08 — the guided take waits the time it asks for, and shows the whole list
+
+**User:** *"for the guided recording, in addition to saying what to do in the prompt, also have
+a checked list to see all the steps at a glance. And as you go through the guidance, do also
+wait for the time period that the instruction is saying, e.g. if the instruction is saying Pick
+0,3,5,7.. fret for every string and each for 1.5 seconds, and do wait for at least 1.5 seconds
+and best try to detect and count if you heard all the correct notes and chords. First version
+of this, just wait for the time period, in the second phase lets try to actively detect if the
+correct thing was done by hearing the audio live."*
+
+**Change (phase 1).** `REC_PROTOCOL` steps gain a `hold` — the time the prompt itself states,
+never a number of their own: the neck walk 36 × 1½ s = **54 s**, the open strings **12 s** (the
+prompt now says *about 2 s each*; it said only *let each ring out*). `guidedTick()` advances an
+onset step only when it has **both** enough notes and the held time (`guideHold(st)`), so a
+rushed walk can no longer hand the decay rows nothing to read. The prompt's countdown, which
+used to exist only for clock steps, runs for a held step once the guitar is heard, and the
+progress line says *12 / 36 notes · at least 41 s more* or *36 / 36 notes — keep going, this
+step wants 54 s in all*. The level gate, warn and give-up timers are untouched (a held step
+still fails at `REC_GUIDE_WAIT_S` if nothing is heard). **The checklist:** `guideListHtml()`
+draws every step of the slot's protocol with its state (✓ done, – skipped, ▶ now, ○ to do) and
+its measure (*36 notes · 54 s*, *3 knocks*) — in the arming panel before the take (all pending)
+and inside the running prompt, from one builder. Steps, unlocks, the protocol written on the
+take and the WAV `rmau` chunk are unchanged. `tests/e.test.js` 312 → **315**, all three
+mutation-checked. **Phase 2 — hearing whether the right notes were played — is recorded in
+docs/ROADMAP.md as its own task**, not started: it needs a pitch reading per onset against the
+step's expected notes, and the comb check is the only pitch reader in the app today.
