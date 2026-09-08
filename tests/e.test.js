@@ -293,7 +293,7 @@ section("E2.3 — bands from takes: the spread across one guitar's takes, live, 
   ok(/const lv=liveToneBands\(\); const lb=lv\.ready&&lv\.bands\[key\];/.test(tb) && tb.indexOf("lv.ready") < tb.indexOf("state.toneBands&&state.toneBands[key]") && tb.indexOf("state.toneBands[key]") < tb.indexOf("provisional:true"),
     "precedence: live from the takes, then saved, then provisional");
   ok(/measured:true, live:true/.test(tb), "a live band is a measured band — it opens the verdict door");
-  ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /const c=combineBands\(a,b\); if\(c\) out\[k\]=c;/.test(lv) && /toneBandsFromTakes\(vals, TONE_BANDS_DEFAULT\)/.test(lv), "live bands need two or more takes in BOTH slots, and combine the two spreads as a standard error (every take counts, 2026-09-06)");
+  ok(/if\(per\[0\]&&per\[1\]\)/.test(lv) && /const c=combineBands\(a,b\); if\(c\) out\[k\]=c;/.test(lv) && /toneBandsFromTakes\(vals, doms\)/.test(lv), "live bands need two or more takes in BOTH slots, and combine the two spreads as a standard error (every take counts, 2026-09-06)");
   ok(/takes\.map\(t=>\{ try\{ const v=def\.val\(ownView\(t\),i\);/.test(lv), "…and every take's value comes from the same def.val the panel prints, on the take as analysed alone (never the mean spectrum take 0 carries)");
   ok(/state\.toneRepeat=lv\.ready;/.test(rr) && /toneBandsStatus\.textContent=\(lv\.ready\?"Reliability: measured from the takes on the cards"/.test(rr) && !/toneSaveBandsBtn|saveToneBands/.test(html) && !/toneRepeatToggle/.test(html),
     "the switch and the Save button are gone (2026-09-06); a status line says where the bands come from");
@@ -648,6 +648,19 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     ok(mono && D.rangeToSe(R, 1) == null && D.combineBands({ v: R, n: 1 }, { v: R, n: 2 }) == null, "the per-side error falls monotonically with n (past the d₂ table too) and one take yields no band");
     const tb2 = body("toneBandFor");
     ok(/const lv=liveToneBands\(\); const lb=lv\.ready&&lv\.bands\[key\];/.test(tb2) && /oct:lb\.v, measured:true, live:true/.test(tb2), "toneBandFor reads the combined value as the band it was reading before");
+    // 2026-09-08 (user: a two-octave Bloom gap never reached At a glance with three takes a side):
+    // a noband row has no provisional band but still a domain, so a band is measured from takes.
+    const tbd = body("toneBandDomain");
+    ok(/if\(!def\|\|def\.text\|\|!def\.noband\) return null;/.test(tbd) && /return def\.log\?\{oct:true\}:\{abs:true\};/.test(tbd) && /const dom=toneBandDomain\(key\); if\(!dom\) return null;/.test(tb2) && /return d\?Object\.assign\(\{provisional:true\},d\):null;/.test(tb2),
+      "a noband row's band domain comes from its axis and it never gets a provisional band");
+    const lv2 = body("liveToneBands");
+    ok(/if\(def\.text\) continue;\s*const dom=toneBandDomain\(def\.term\); if\(!dom\) continue;/.test(lv2) && !/def\.noband/.test(lv2) && /for\(const k in per\[0\]\)/.test(lv2),
+      "the live band pass no longer skips noband rows, and combines every key it measured");
+    ok(/if\(!def\.text\) rec\.band=toneBandFor\(def\.term\);/.test(body("toneRecords")) && !/!def\.noband\) rec\.band/.test(body("toneRecords")), "the row asks for its band whether or not it is noband — null until measured");
+    const bloomSrc = blocks[4].slice(blocks[4].indexOf('term:"bloom"'), blocks[4].indexOf('term:"f0-decay"'));
+    ok(/more:"turns later"/.test(bloomSrc) && /clear\("bloom"\)/.test(body("proseCandidates")) && /score:sc\(r\)\*0\.5, who:x\.hi, tag:"a later bloom"/.test(body("proseCandidates")),
+      "Bloom has a verdict word and a half-score At a glance sentence with its caveat");
+    ok(/toneBandDomain\(k\)&&isFinite/.test(body("snapshotBands")) && (blocks[4].match(/if\(b&&toneBandDomain\(k\)&&isFinite\(b\.v\)&&b\.v>=0\)/g) || []).length === 2, "saved bands carry and restore a noband row's measured band too");
     // (b) comparability over every pair
     const a1 = { registerMidi: 50, levelRms: -20 }, a2 = { registerMidi: 51, levelRms: -21 }, b1 = { registerMidi: 52, levelRms: -22 }, b2 = { registerMidi: 58, levelRms: -40 };
     const all = D.comparabilityAll([a1, a2], [b1, b2]);

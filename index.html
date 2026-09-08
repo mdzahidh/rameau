@@ -7669,7 +7669,7 @@ function toneRowDefs(){
      how:"Each note's broadband level in dB, 10 ms frames, from the onset peak to −30 dB, fitted as two straight lines with one knee placed where the residual is smallest. A note counts when the knee removes 40 % of the one-line residual and the early slope is at least 1.5× the late one; the row prints the median knee time and both slopes.",
      ear:{hi:"a late turn: the note drops for a moment and then seems to hold — what players call bloom, or natural compression", lo:"an early turn: the note settles into its long tail almost at once and reads as steady rather than swelling"},
      sens:{k:"high", note:"the knee time ran 0.1–3.2 s across the notes of one guitar in the audit (THEORY §7.5) — this row carries no band and no verdict until yours is measured"},
-     lo:0.1, hi:4, log:true, ticks:["0.1 s","4 s"], noband:true,
+     lo:0.1, hi:4, log:true, ticks:["0.1 s","4 s"], noband:true, more:"turns later",
      val:s=>{ const b=slotBloom(s.metrics); return b?b.knee:null; },
      fmt:(v,s)=>"turns at "+fmtMs(v),
      detail:(v,s)=>{ const b=slotBloom(s.metrics); return b.early.toFixed(0)+" → "+b.late.toFixed(0)+" dB/s · median over "+b.n+(b.n===1?" note":" notes")+" that fit two stages"; },
@@ -7783,20 +7783,22 @@ function liveToneBands(){
   if(_liveBands) return _liveBands;
   const per=[0,1].map(i=>{
     const takes=slotTakes(i); if(takes.length<2) return null;
-    const vals={};
+    const vals={}, doms={};
     for(const def of toneRowDefs()){
-      if(def.text||def.noband||!TONE_BANDS_DEFAULT[def.term]) continue;
+      if(def.text) continue;
+      const dom=toneBandDomain(def.term); if(!dom) continue;
+      doms[def.term]=dom;
       // Each take as analysed on its own (take 0 carries the mean spectrum — a band read
       // off the mean would be biased toward zero); the row's own def.val, same as the panel.
       vals[def.term]=takes.map(t=>{ try{ const v=def.val(ownView(t),i); return (v==null||!isFinite(v))?null:v; }catch(_e){ return null; } });
     }
-    return toneBandsFromTakes(vals, TONE_BANDS_DEFAULT);
+    return toneBandsFromTakes(vals, doms);
   });
   const out={};
   // Every take counts (2026-09-06, THEORY §7.6.10): the two spreads combine as the standard
   // error of a difference of means, so the band narrows as takes accumulate; two takes each
   // reproduce the old "larger spread" exactly.
-  if(per[0]&&per[1]) for(const k in TONE_BANDS_DEFAULT){
+  if(per[0]&&per[1]) for(const k in per[0]){
     const a=per[0][k], b=per[1][k]; if(!a||!b) continue;
     const c=combineBands(a,b); if(c) out[k]=c;
   }
@@ -7806,13 +7808,24 @@ function liveToneBands(){
 // The reliability band for a row, in order of trust: measured live from the takes in the
 // slots (E2.3), else measured and saved earlier (gsSettings v5), else the provisional
 // value from THEORY §7.4 — which never yields a verdict (E1).
+// The domain a row's band lives in — log₂ (oct) or linear (abs). A row in TONE_BANDS_DEFAULT
+// has a provisional band there; a `noband` row (Bloom, 2026-09-08) has NO provisional band but
+// still a domain, read off its axis, so a band can be measured for it from the user's own takes.
+// "No guessed band" and "no band ever" were the same thing until the user asked why a
+// two-octave Bloom gap never reached At a glance with three takes a side.
+function toneBandDomain(key){
+  const d=TONE_BANDS_DEFAULT[key]; if(d) return d.oct!=null?{oct:true}:{abs:true};
+  const def=toneRowDefs().find(x=>x.term===key); if(!def||def.text||!def.noband) return null;
+  return def.log?{oct:true}:{abs:true};
+}
 function toneBandFor(key){
-  const d=TONE_BANDS_DEFAULT[key]; if(!d) return null;
+  const dom=toneBandDomain(key); if(!dom) return null;
+  const d=TONE_BANDS_DEFAULT[key]||null;
   const lv=liveToneBands(); const lb=lv.ready&&lv.bands[key];
-  if(lb&&isFinite(lb.v)) return d.oct!=null?{oct:lb.v, measured:true, live:true}:{abs:lb.v, measured:true, live:true};
+  if(lb&&isFinite(lb.v)) return dom.oct?{oct:lb.v, measured:true, live:true}:{abs:lb.v, measured:true, live:true};
   const mv=state.toneBands&&state.toneBands[key];
-  if(mv&&isFinite(mv.v)) return d.oct!=null?{oct:mv.v, measured:true}:{abs:mv.v, measured:true};
-  return Object.assign({provisional:true},d);
+  if(mv&&isFinite(mv.v)) return dom.oct?{oct:mv.v, measured:true}:{abs:mv.v, measured:true};
+  return d?Object.assign({provisional:true},d):null;   // a noband row without a measured band has none
 }
 function _fmtBand(b,def){ const v=b.oct!=null?b.oct:b.abs; return b.oct!=null?(v<1?"±"+((Math.pow(2,v)-1)*100).toFixed(0)+" %":"×"+Math.pow(2,v).toFixed(1)):("±"+(def.term==="warmth"||def.term==="low-end"?(v*100).toFixed(0)+" pts":v.toFixed(1)+(def.term==="attack-spectrum"?" oct":" dB"))); }
 function _fmtDelta(d,def){ if(d.log) return "×"+Math.pow(2,Math.abs(d.d)).toFixed(2);
@@ -7898,7 +7911,7 @@ function toneRecords(){
         rec.detail[i]=d; }catch(_e){ rec.detail[i]=""; }
     }
     if(def.piezo&&[0,1].some(i=>state.slots[i]&&types[i]==="acoustic"&&applies(def,i))) rec.name="Pickup voice (piezo)";
-    if(!def.text&&!def.noband) rec.band=toneBandFor(def.term);
+    if(!def.text) rec.band=toneBandFor(def.term);   // a noband row gets one only once measured from takes
     let d=null;
     if(rec.a!=null&&rec.b!=null) d=rec.band?bandVerdict(rec.a,rec.b,rec.band):(def.log?{d:Math.log2(rec.a/rec.b),log:true}:{d:rec.a-rec.b,log:false});
     const rs=toneRowState(rec.evidence.map(e=>e?e.state:null), rec.band, d);
@@ -8179,6 +8192,12 @@ function proseCandidates(){
   r=clear("f0-decay");
   if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r), who:x.hi, tag:"longer sustain", short:termHtml("f0-decay","sustain")+" "+x.ratio.toFixed(1)+"× longer ("+fmtMs(x.vh)+" vs "+fmtMs(x.vl)+")", html:termHtml("f0-decay","Sustain")+" of "+nm(x.hi)+" was "+x.ratio.toFixed(1)+"× longer ("+
     fmtMs(x.vh)+" vs "+fmtMs(x.vl)+"), note for note."}); }
+  // Bloom reaches the strip since 2026-09-08 — only with a band measured from the user's own
+  // takes (it has no provisional one), and at half score with its caveat: the knee time moves
+  // with the pick as much as with the guitar (THEORY §7.5), which is what the band now measures.
+  r=clear("bloom");
+  if(r){ const x=hiLo(r); cands.push({fam:"time", score:sc(r)*0.5, who:x.hi, tag:"a later bloom", short:termHtml("bloom","bloom")+" turns "+x.ratio.toFixed(1)+"× later ("+fmtMs(x.vh)+" vs "+fmtMs(x.vl)+")", html:"The "+termHtml("bloom","bloom")+" of "+nm(x.hi)+" turns "+x.ratio.toFixed(1)+"× later ("+
+    fmtMs(x.vh)+" vs "+fmtMs(x.vl)+" from the pick to the slow tail) — a difference your own takes could tell apart, provided the same pick and attack went into both."}); }
   // Brightness reaches the strip since 2026-09-06 — with its caveat in the sentence: pick
   // position and the pickup selector move it as much as the guitar does (THEORY §7.4), so it
   // ranks under the instrument rows and is blocked by a register mismatch like any other.
@@ -10967,7 +10986,7 @@ function exportJSON(){
 
 function snapshotBands(){
   const lv=liveToneBands(), out={};
-  if(lv.ready){ for(const k in lv.bands) if(TONE_BANDS_DEFAULT[k]&&isFinite(lv.bands[k].v)) out[k]={v:lv.bands[k].v}; return {toneBands:out, toneBandsAt:new Date().toISOString()}; }
+  if(lv.ready){ for(const k in lv.bands) if(toneBandDomain(k)&&isFinite(lv.bands[k].v)) out[k]={v:lv.bands[k].v}; return {toneBands:out, toneBandsAt:new Date().toISOString()}; }
   if(state.toneBandsAt&&state.toneBands&&Object.keys(state.toneBands).length) return {toneBands:Object.assign({},state.toneBands), toneBandsAt:state.toneBandsAt};
   return {};
 }
@@ -11102,7 +11121,7 @@ function loadSettings(){
         if(typeof j.recGuided==="boolean") state.recGuided=j.recGuided;   // E3, additive: absent → on
         if(j.toneBands&&typeof j.toneBands==="object"){
           state.toneBands={};
-          for(const k in j.toneBands){ const b=j.toneBands[k]; if(b&&TONE_BANDS_DEFAULT[k]&&isFinite(b.v)&&b.v>=0) state.toneBands[k]={v:+b.v}; }
+          for(const k in j.toneBands){ const b=j.toneBands[k]; if(b&&toneBandDomain(k)&&isFinite(b.v)&&b.v>=0) state.toneBands[k]={v:+b.v}; }
           state.toneBandsAt=typeof j.toneBandsAt==="string"?j.toneBandsAt:null;
         }
         // v1 had harmonics:boolean, v2 has stringHarmonics:6x4
@@ -11204,7 +11223,7 @@ function applySnapshot(snap){
   // the old Save button did, now a property of loading the file that carries them.
   if(st.toneBands&&typeof st.toneBands==="object"&&typeof st.toneBandsAt==="string"){
     state.toneBands={};
-    for(const k in st.toneBands){ const b=st.toneBands[k]; if(b&&TONE_BANDS_DEFAULT[k]&&isFinite(b.v)&&b.v>=0) state.toneBands[k]={v:+b.v}; }
+    for(const k in st.toneBands){ const b=st.toneBands[k]; if(b&&toneBandDomain(k)&&isFinite(b.v)&&b.v>=0) state.toneBands[k]={v:+b.v}; }
     state.toneBandsAt=st.toneBandsAt; saveSettings();
   }
   for(const f of snap.files.slice(0,2)){

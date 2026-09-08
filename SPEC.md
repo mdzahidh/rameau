@@ -3708,3 +3708,29 @@ the recording guide gains a *Tuning — the same on both guitars* paragraph befo
 Comparability glossary entry says it is the one assumption the strip does not check, and the
 README says *same tuning* in the premise and the use steps. Lifting it is a deferred ROADMAP
 item (*per-guitar tuning*) with the read-through of what the setting touches. No test moved.
+
+## 2026-09-08 — Bloom can earn a band from the takes, so it can reach At a glance
+
+**User:** *"i added 3 takes of les_paul and majesty each when i compare them, i see fairly
+large difference in their bloom but its not summarized in the glance, why?"* — then, on the
+caveat: *"understood the caveat, if the spread of bloom is too high among the takes, that it's
+truly hard to make a verdict."*
+
+**Diagnosis.** Bloom is `noband` (the audit's knee times ran 0.1–3.2 s across one guitar's notes,
+THEORY §7.5) and had no `TONE_BANDS_DEFAULT` entry — and the live-band pass skipped both, so the
+row's own promise (*no band and no verdict until yours is measured*) was never kept: no band, no
+verdict, nothing for At a glance to quote. "No guessed band" and "no band ever" had been the same
+thing.
+
+**Change.** `toneBandDomain(key)` — a row in the default table keeps its provisional band; a
+`noband` row has **no provisional band but a domain read off its axis** (`log` → oct), so
+`liveToneBands()` measures its band from the takes like any other and `toneBandFor()` returns it
+(and null, never a provisional one, before that). `toneRecords()` asks for every non-text row's
+band; snapshot save/restore accept any key with a domain. Bloom gains `more:"turns later"` and an
+At a glance sentence at **half score** with its caveat (the pick moves the knee), like Brightness.
+**Measured on the user's six takes through the shipped analysis in node:** Les Paul knees 370 /
+160 / 100 ms (spread 1.89 oct), Majesty 640 / 710 / 880 ms (0.46 oct), combined band 0.75 oct,
+gap 2.03 oct → *distinguishable*, the Majesty's bloom turning 4.1× later. The caveat stands: a
+guitar whose takes swing an octave or more will swallow a smaller gap, and the row will say *not
+distinguishable* with the per-take values in its readout. `tests/e.test.js` 323 → **328**,
+mutation-checked (the row gate and the sentence).

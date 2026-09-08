@@ -1030,6 +1030,12 @@ build educational copy from it, never re-derive from scratch.
   never in At a glance. `deadSpotCountText(f)` is the one count string (*in 1 of 1 readable takes
   (of 3)*). Diagnosed on the user's own six takes with a node probe of `computeTimeMetrics`
   (block 0 + the extracted function; no Chrome). THEORY §7.6.10 amended. `tests/e.test.js` **323**.
+- **Bloom earns a live band BUILT (2026-09-08, master; user report).** `toneBandDomain(key)`
+  separates "no provisional band" from "no band ever": a `noband` row (Bloom) has a domain off its
+  axis, `liveToneBands()` measures its band from the takes, `toneBandFor()` returns that or null
+  (never provisional), `toneRecords()` asks every non-text row, saved bands accept it, and Bloom
+  has `more:"turns later"` + a half-score At a glance sentence. On the user's six takes: band
+  0.75 oct, gap 2.03 oct, verdict. `tests/e.test.js` **328**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math

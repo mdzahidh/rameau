@@ -582,6 +582,11 @@ so before anything is compared.
 that is what the mean was made from. **Sustain** matches notes between each take of A and each
 take of B (±50 ¢), takes the median per pair, and averages the pairs; at most three takes per
 guitar enter (the three with the most pitched notes), so the pair count stays at nine or fewer.
+**Bloom** (§7.6.3) has no provisional band — the audit's knee times were too spread to guess one
+— but it takes a *measured* band from the takes like every other row (amended 2026-09-08); on
+three takes a side of the user's Les Paul and Majesty the combined band was 0.75 oct against a
+2.03 oct gap, so the row reached a verdict. When one guitar's takes swing more than the gap, the
+row says *not distinguishable*, which is the honest reading of a pick-sensitive knee.
 A **dead spot** (§7.6.7) is reported only when the note dies early in a strict majority of the
 takes that contain it **and** the note was readable (passed the comb check, with a measured
 decay) in a majority of all the guitar's takes — one weak pluck in one take is a pluck, the same
