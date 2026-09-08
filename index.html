@@ -1035,8 +1035,8 @@ kbd{
     </div>
     <div class="globals">
       <div class="field">
-        <label for="tuningSel">Tuning</label>
-        <select id="tuningSel">
+        <label for="tuningSel" title="One tuning for both guitars — the app assumes the two were tuned the same way. The open-string axis, the anatomy regions, the stiffness reading and the guided take all derive from it.">Tuning</label>
+        <select id="tuningSel" title="One tuning for both guitars — the app assumes the two were tuned the same way.">
           <option value="estd">E standard</option>
           <option value="eb">E♭ standard</option>
           <option value="dstd">D standard</option>
@@ -1497,9 +1497,11 @@ kbd{
         reading. Two unrelated recordings will load, but the comparison then mixes the player
         and the room in with the guitar, and the panel says so.</span></li>
 
-      <li><b>Set the tuning you actually played.</b> Top bar, next to A4. The open-string
-        axis and the anatomy regions are derived from it, so Drop D read as E standard
-        puts the landmarks in the wrong place.
+      <li><b>Set the tuning you actually played — the same for both guitars.</b> Top bar,
+        next to A4. There is one tuning setting, and the app assumes both guitars were tuned
+        that way: the open-string axis, the anatomy regions, the string-stiffness reading and
+        the guided take all derive from it, so Drop D read as E standard puts the landmarks in
+        the wrong place. Two guitars in different tunings are not a comparison this app makes.
         <span class="sub">Leave A4 at 440 Hz unless you deliberately tuned elsewhere.</span></li>
 
       <li><b>Keep Level-match on while comparing.</b> It cancels the broadband loudness
@@ -1579,6 +1581,13 @@ kbd{
         exactly for the second guitar. Aiming at the soundhole exaggerates the body's air
         resonance and flatters whichever guitar is closer to the mic.</li>
     </ul>
+
+    <h4>Tuning — the same on both guitars</h4>
+    <p>The app assumes the two guitars were tuned the same way, to the tuning set in the top
+      bar. Tune both to it before you record: the sustain and dead-spot readings pair each note
+      of one guitar with the same note on the other, and the open-string rows look for the open
+      strings at that tuning. A guitar in another tuning finds no partners and its rows go
+      quiet, or read the wrong strings.</p>
 
     <h4>Levels</h4>
     <ul>
@@ -4360,7 +4369,7 @@ const GLOSSARY=[
     musician:E6_COPY.path.musician, science:E6_COPY.path.science, measure:E6_COPY.path.measure,
     values(state){ return _vals(state, (s,i)=>{ const p=s.metrics.path; return p?(({di:"direct (DI)",mic:"microphone",piezo:"piezo pickup",unknown:"not known"})[p]||p)+(s.metrics.pathSet?" · set by you":" · detected"):null; }); } },
   { key:"comparability", name:"Comparability", cat:"Method", hook:"what level-match cannot fix",
-    musician:"Level-matching makes two takes equally loud. It cannot make a riff played high match one played low, or a busy take match a sparse one. When the two takes differ in what was played, the rows that depend on it show no delta and the panel says why.",
+    musician:"Level-matching makes two takes equally loud. It cannot make a riff played high match one played low, or a busy take match a sparse one. When the two takes differ in what was played, the rows that depend on it show no delta and the panel says why. One assumption is not checked: both guitars are taken to be in the tuning set in the top bar — the note-by-note rows pair notes by pitch and the open-string rows look for the open strings at that tuning, so two guitars tuned differently are not a comparison this app makes.",
     science:"The audit (THEORY §7.4) found register moves the fixed-band shares and the centroid one-for-one, note density moves attack and decay medians, and the noise floor moves tilt and dynamic range. A difference in those is a difference in the takes, not the guitars.",
     measure:"Register: median pitched f₀ within 5 semitones. Note density and onset count: ratio ≤ 1.5. Noise floor: within 10 dB. Duration: ratio ≤ 2. Level: within 12 dB. A failed check greys the rows it affects. Thresholds are provisional. Reliability bands: a row's difference inside its band prints “not distinguishable”; bands come from the repeatability mode (two takes of one guitar) and until then from the audit, labelled provisional.",
     values(state){ if(!state.slots[0]||!state.slots[1]) return []; return comparability(state.slots[0].metrics||{},state.slots[1].metrics||{}).map(c=>({slot:0,label:c.label,value:c.ok?"ok":c.text})); } },

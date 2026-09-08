@@ -1461,6 +1461,10 @@ build educational copy from it, never re-derive from scratch.
   whenever a comb exists. `sgCmap`/`sgTrack`/`sgDash`/`sgHue`/`sgTriad` are
   view state like `sgFrets`: unpersisted, unexported, and only the colormap is in the image
   cache key (`gkey` analysis + `cm`), never the line style.
+- **One tuning for both guitars (user decision, 2026-09-08).** The app assumes the two guitars
+  were tuned the same way, to the one Tuning setting, and says so in the control's tooltip, the
+  how-to modal, the recording guide, the Comparability glossary and the README. Per-guitar
+  tuning is a deferred ROADMAP item; do not add a second tuning reader without it.
 - **Every take counts (user principle, 2026-09-06).** Wherever a guitar has several takes and
   the view has no time axis, all of them enter: values are means over takes (geometric on a log
   axis), evidence is pooled, comparability runs over every pair and fails if any pair fails,

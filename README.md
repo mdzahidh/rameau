@@ -13,8 +13,9 @@ words, and never uploaded: the whole app is one HTML file that runs in your brow
 ## What you get
 
 **One player, two guitars, the same phrase.** You record the same riff on two of your own
-guitars — same picking, same amp, same cable, same room — and drop one recording on each
-card. Because you and the phrase stay the same, what the plots show is the guitar.
+guitars — same picking, same amp, same cable, same room, **same tuning** — and drop one
+recording on each card. Because you and the phrase stay the same, what the plots show is the
+guitar.
 
 - **Before you compare** ticks off what the two recordings share — register, note count,
   level, noise floor, recording path — whether the strings and scale differ, and whether the
@@ -84,8 +85,11 @@ to install.
 2. **Name each guitar and set its kind** (solidbody, hollow body, acoustic) on its card.
    The kind selects what is measured — a solidbody's signature is its pickup hump, a hollow
    body's is its air resonance.
-3. **Set the tuning you actually played.** The open-string axis and the anatomy regions
-   derive from it.
+3. **Set the tuning you actually played — the same for both guitars.** There is one tuning
+   setting and the app assumes both guitars were tuned that way: the open-string axis, the
+   anatomy regions, the string-stiffness reading and the guided take derive from it, and the
+   sustain and dead-spot rows pair notes by pitch. Two guitars in different tunings are not a
+   comparison this app makes.
 4. **Add a second take of each guitar.** That is what tells the app how much a number moves
    on its own, and it starts to give verdicts from there.
 5. **Leave Level-match on while comparing.** It cancels the broadband loudness gap
@@ -96,7 +100,7 @@ names, the dots on the plots — and opens what it measures with your numbers al
 substituted into the formula.
 
 **How you record matters more than anything in this app.** Change only the guitar:
-same player, same part, same signal chain, same room, same gain staging. The in-app
+same player, same part, same tuning, same signal chain, same room, same gain staging. The in-app
 *How to record* guide covers it, and the guided take walks you through six steps.
 
 ## Feedback and bug reports

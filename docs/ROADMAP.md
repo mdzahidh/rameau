@@ -79,6 +79,7 @@ CLAUDE.md status list and the SPEC.md changelog.
 | **E7** | **The name in the file** — 32-bit float WAV writer with `LIST/INFO` + `rmau` chunk, filename from the slot name, `INAM` prefills on load. | ✅ built 2026-09-05 (branch `e-phase`) — **gate** | `### E7 — the name in the file` |
 | **R6** | **Interval consonance explainer** — joint period, comb alignment, Plomp–Levelt/Sethares roughness. Now also carries **R6.4**, the overlay's time bound (was R5.4). | ⏸ blocked: two `docs/THEORY.md` §2.5 numeric caveats are unresolved (R6.4 is not blocked) | `# R6 — Interval consonance explainer` |
 | **Warped sgram difference** | Replace the removed pixel-wise spectrogram difference with an onset-warped / DTW one. | ⏸ deferred until after R6 | `### Deferred — warped spectrogram difference` |
+| **Per-guitar tuning** | Let the two guitars be tuned differently: tuning per slot, note-matched rows unchanged, stiffness/Anatomy/strings axis/overlay/guided take per slot, a "tuned differently" comparability line. Today the app assumes one tuning for both and says so. | ⏸ deferred (user decision 2026-09-08) | `### Deferred — per-guitar tuning` |
 | **Guided take, phase 2** | Hear whether the *right* notes were played — a pitch reading per onset against the step's expected notes. Phase 1 (hold the stated time, checklist) built 2026-09-08. | ⏸ next, on the user's word | `### Guided take — phase 2` |
 | **M3** | Live input; still owes the task-based entry points deferred from M2. | 🚫 gated on explicit user go-ahead | `# Gated` |
 | **M4** | Chain measure. | 🚫 gated on explicit user go-ahead | `# Gated` |
@@ -1700,6 +1701,21 @@ Gate green: `tests/r5.test.js` 307 → **324**, `tests/headless.js` 67 → **69*
 - R5.6c's focus drag hand-off (>3 px hands to the zoom box) must keep working in the overlay,
   where `attachZoom` is already bound (index.html:8324) — the two listeners have to cooperate
   exactly as they do on the pane.
+
+### Deferred — per-guitar tuning (user decision 2026-09-08: keep one tuning, say so)
+
+The app has one tuning setting and assumes both guitars were tuned that way. What that
+touches, from the 2026-09-08 read-through: the LTAS/Difference/Band Energy/EQ/spectrogram/
+envelope views do not care; the per-note spectral rows read measured pitch and survive with a
+small shift; Sustain and dead spots pair notes by pitch within ±50 ¢, so a half-step apart
+loses every open-string pair silently; the open-E/A stiffness evidence, the Anatomy bounds,
+the Strings axis, the R3 ✦ marks, the spectrogram overlay and the guided take's expected notes
+all read the one setting and would be right for one guitar and wrong for the other. To lift
+the assumption: tuning per slot (like type and path), the tuning-reading sites take the slot's
+own, a comparability line *tuned differently* naming the rows it weakens, and the guided take
+prompting each guitar in its tuning. Until then the assumption is stated in the tuning
+control's tooltip, the how-to modal, the recording guide, the Comparability glossary entry and
+the README.
 
 ### Deferred — warped spectrogram difference (not in R5; after R6)
 

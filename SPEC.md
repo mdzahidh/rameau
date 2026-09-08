@@ -3694,3 +3694,17 @@ numbers. THEORY §7.6.10 amended. `tests/e.test.js` 319 → **323**, mutation-ch
 not built:** within one take a note played three times with one early death is flagged by the
 per-take `deadSpots()` — a majority-of-plucks rule inside a take would be the next refinement.
 The user's six takes stay untracked in `samples/`.
+
+## 2026-09-08 — one tuning for both guitars, said out loud
+
+**User:** *"for now lets keep the assumption that the two guitars are tuned the same and make
+that assumption explicit both in the app and in the documentation including README.md"* —
+after asking whether two guitars tuned differently could be compared meaningfully.
+
+**Change (copy only).** The assumption is stated wherever the tuning is presented: the top-bar
+Tuning label and select carry a tooltip (*One tuning for both guitars — the app assumes the two
+were tuned the same way*), the how-to modal's tuning step says it and names what derives from it,
+the recording guide gains a *Tuning — the same on both guitars* paragraph before Levels, the
+Comparability glossary entry says it is the one assumption the strip does not check, and the
+README says *same tuning* in the premise and the use steps. Lifting it is a deferred ROADMAP
+item (*per-guitar tuning*) with the read-through of what the setting touches. No test moved.
