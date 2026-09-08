@@ -1023,6 +1023,13 @@ build educational copy from it, never re-derive from scratch.
   `detectedPath(i,t)` read, or DI / Microphone / Piezo), the same `state.slotPaths` and
   `setSlotPath()` as the readout's override; `setSlotPath` re-renders card + Before you compare +
   rows at once, and the unknown-path fact says *click here to set it*. `tests/e.test.js` **319**.
+- **Dead spots need a majority of all takes BUILT (2026-09-08, master; user report).**
+  `poolDeadSpots()` now flags only when the note dies early in most of the takes that read it
+  **and** was readable in most of the guitar's takes; otherwise it is a `weak` candidate with
+  `absent`/`rejected`/`nodecay` take lists, printed in the Sustain row's detail with a `?` and
+  never in At a glance. `deadSpotCountText(f)` is the one count string (*in 1 of 1 readable takes
+  (of 3)*). Diagnosed on the user's own six takes with a node probe of `computeTimeMetrics`
+  (block 0 + the extracted function; no Chrome). THEORY §7.6.10 amended. `tests/e.test.js` **323**.
 - **NEXT — the user’s second test of `e-feedback` (recording first, then E4–E7), then merge.** (Older note follows.) R5 is closed; Q4a and Q4b are built, so nothing stands
   between here and R6. (Tasks + gates in
   docs/ROADMAP.md — start at its **Milestones at a glance** table; specs in docs/STORY.md, math

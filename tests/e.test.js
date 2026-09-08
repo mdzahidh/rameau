@@ -9,7 +9,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 const dspSrc = blocks[0];
 const modFile = path.join(os.tmpdir(), "rameau_e_under_test.js");
 fs.writeFileSync(modFile, dspSrc + `
-module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes, rangeToSe, combineBands, comparabilityAll, poolMetrics, poolDeadSpots, COMPAT_CHECKS,
+module.exports = { TONE_EVIDENCE, RING_MIN_SEC, toneEvidenceOf, evidenceFor, toneRowState, bandVerdict, TONE_BANDS_DEFAULT, tuningMidi, toneBandsFromTakes, rangeToSe, combineBands, comparabilityAll, poolMetrics, poolDeadSpots, deadSpotCountText, deadSpotWeakText, COMPAT_CHECKS,
   tapResonance, roomTail, roomOutlastsNote, recordingPath, comparability, meanPowerSpectra, welch, smoothOct, powerToDb, shortTermRms, stftBands, detectOnsets, dynamicsMetrics, autocorrF0, goertzelTrack, trackT20, TAP_WELCH_N, tapQCeiling, ROOM_TAIL_RATIO, wavWrite, wavReadInfo, wavFileSlug, sniffAudioInfo };
 `);
 const D = require(modFile);
@@ -670,6 +670,18 @@ section("E6 — block 0: the tap read, the room in a decay, the recording path")
     ok(p12.flags.length === 0 && p12.takes === 2, "flagged in one take of two is a pluck, not a dead spot");
     ok(p123.flags.length === 1 && p123.flags[0].inTakes === 2 && p123.flags[0].ofTakes === 3 && Math.abs(p123.flags[0].t20 - 0.5) < 1e-9 && p123.n === 12, "flagged in two takes of three is a dead spot, with the count said and the median of the flagged decays", JSON.stringify(p123.flags));
     ok(p1.flags.length === 1 && p1.flags[0].inTakes === 1 && p1.flags[0].ofTakes === 1 && p1.median === 1.95, "one take flags as before");
+    // 2026-09-08 (user report): a note read in one take of three is not a majority of the takes.
+    const t2n = { notes: [note(220, 2), note(247, 2.1), note(262, 1.9)], neckFlags: [], neckMedian: 2, neckN: 3 };
+    const t3r = { notes: [{ pass: false, f0: 196, t20: 0.5 }, note(220, 2), note(247, 2.1), note(262, 1.9)], neckFlags: [], neckMedian: 2, neckN: 3 };
+    const t4n = { notes: [{ pass: true, f0: 196, t20: null }, note(220, 2), note(247, 2.1), note(262, 1.9)], neckFlags: [], neckMedian: 2, neckN: 3 };
+    const pw = D.poolDeadSpots([t1, t2n, t3r]);
+    ok(D.poolDeadSpots([t1, t2n, t3r, t4n]).weak[0].nodecay.join() === "3" && /no measurable decay in take 4/.test(D.deadSpotWeakText(D.poolDeadSpots([t1, t2n, t3r, t4n]).weak[0])), "a note that passed the pitch check but had no decay to read is said as that, not as a rejection");
+    ok(pw.flags.length === 0 && pw.weak.length === 1 && pw.weak[0].inTakes === 1 && pw.weak[0].ofTakes === 1 && pw.weak[0].takes === 3
+       && pw.weak[0].absent.join() === "1" && pw.weak[0].rejected.join() === "2", "dies early in the one take that read it, of three: a weak candidate naming the take it was missing from and the take that rejected it, never a flag", JSON.stringify(pw.weak));
+    ok(D.deadSpotCountText(pw.weak[0]) === " in 1 of 1 readable takes (of 3)" && D.deadSpotCountText(p123.flags[0]) === " in 2 of 3 takes" && /not found in take 2; failed the pitch check in take 3/.test(D.deadSpotWeakText(pw.weak[0])),
+      "the count says readable-of-all when they differ, and the weak line names why");
+    ok(/deadSpotCountText\(f\)/.test(body("proseCandidates")) && !/f\.inTakes\+" of "\+f\.ofTakes/.test(body("proseCandidates")) && /ds\.weak\|\|\[\]\)\.map/.test(body("toneRowDefs")) && !/ds\.weak/.test(body("proseCandidates")),
+      "At a glance prints the count through the one helper and reads flags only; the row detail lists the weak candidates");
     // wiring
     const tr2 = body("toneRecords"), b4x = blocks[4];
     ok(/const compat=both\?comparabilityAll\(takeMs\[0\],takeMs\[1\]\):\[\];/.test(tr2) && /const takeMs=\[0,1\]\.map\(i=>slotTakes\(i\)\.map\(t=>ownView\(t\)\.metrics\)\.filter\(Boolean\)\);/.test(tr2), "comparability runs over every pair of takes, each take as analysed alone");

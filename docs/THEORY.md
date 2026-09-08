@@ -583,8 +583,12 @@ that is what the mean was made from. **Sustain** matches notes between each take
 take of B (±50 ¢), takes the median per pair, and averages the pairs; at most three takes per
 guitar enter (the three with the most pitched notes), so the pair count stays at nine or fewer.
 A **dead spot** (§7.6.7) is reported only when the note dies early in a strict majority of the
-takes that contain it — one weak pluck in one take is a pluck, the same note dying in two takes
-of three is the neck.
+takes that contain it **and** the note was readable (passed the comb check, with a measured
+decay) in a majority of all the guitar's takes — one weak pluck in one take is a pluck, the same
+note dying in two takes of three is the neck. A note read in one take of three cannot be a
+majority of anything: it is a *weak candidate*, listed in the row's detail with the takes it was
+missing from, rejected in, or had no decay in, and never headlined (amended 2026-09-08, after a
+"1 of 1 takes" dead spot headlined At a glance with three takes loaded).
 
 ### 7.7 · Evidence requirements (added 2026-09-05, E1.1 — measured before frozen)
 

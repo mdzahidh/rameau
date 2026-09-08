@@ -3671,3 +3671,26 @@ change shows everywhere at once. (3) The card head gains a **Path** control besi
 readout's override, before or after the takes land; `detectedPath(i,t)` is the one reader of
 what the detector alone says, and `pathForTake` calls it. `tests/e.test.js` 316 → **319**, two
 contracts re-pointed, three new, all mutation-checked.
+
+## 2026-09-08 — a dead spot needs a majority of the takes, not of the takes that happened to read the note
+
+**User:** *"in the AT A GLANCE it says A♯4 dies early (345 ms vs 1.30 s for its neighbours, 1 of 1
+takes); but i have 3 takes of each guitar, why is it take 1 takes, is it not considering all the
+takes?"*
+
+**Diagnosis, on the user's own six takes through the shipped block-4 analysis in node:** the
+Majesty's A♯4 was not found in take 1, passed the pitch check in take 2 but had no measurable
+decay, and was played three times in take 3 — one of those dying in 0.34 s, another ringing
+1.76 s. `poolDeadSpots()` counted the takes that *contained* a readable A♯4 (one) and asked for
+a majority of those (one of one), so a single pluck headlined At a glance as "1 of 1 takes".
+
+**Change.** A flag now needs the note readable in a majority of **all** the guitar's takes as
+well; a note that dies early wherever it was read but was read in too few takes is a **weak**
+candidate — listed in the Sustain row's detail with a `?` and the reason per take (*not found in
+take 1; no measurable decay in take 2*, or *failed the pitch check*), never in At a glance. The
+count text goes through one helper, `deadSpotCountText()` — *in 2 of 3 takes*, or *in 1 of 1
+readable takes (of 3)* when the two differ — so At a glance and the row cannot print different
+numbers. THEORY §7.6.10 amended. `tests/e.test.js` 319 → **323**, mutation-checked. **Noted,
+not built:** within one take a note played three times with one early death is flagged by the
+per-take `deadSpots()` — a majority-of-plucks rule inside a take would be the next refinement.
+The user's six takes stay untracked in `samples/`.
